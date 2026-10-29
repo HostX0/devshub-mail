@@ -1128,7 +1128,7 @@ function LoginPageContent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-muted/10 to-muted/30 relative px-4">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-cover bg-center opacity-25 dark:opacity-10" style={{ backgroundImage: "url('/assets/devshub-mail/editorial-banner.jpg')", maskImage: 'linear-gradient(to bottom, black, transparent)' }} />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-cover bg-center opacity-25 dark:opacity-10" style={{ backgroundImage: `url('${withBasePath('/assets/devshub-mail/editorial-banner.jpg')}')`, maskImage: 'linear-gradient(to bottom, black, transparent)' }} />
       <MobileHandoffConsent
         url={pendingHandoff?.url ?? null}
         username={pendingHandoff?.username ?? ""}
