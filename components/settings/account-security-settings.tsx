@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { SettingsSection, SettingItem, ToggleSwitch, AdvancedOnly } from './settings-section';
 import { useAccountSecurityStore, type AppPasswordInfo, type ApiKeyInfo, type AppCredentialInput } from '@/stores/account-security-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { updateIdentityWithHooks } from '@/stores/identity-store';
+import { renameSignature } from '@/lib/signature-name';
 import { useAccountStore } from '@/stores/account-store';
 import { apiFetch, getPathPrefix } from '@/lib/browser-navigation';
 import { toast } from '@/stores/toast-store';
@@ -153,6 +155,7 @@ function PasswordChangeSection() {
 export function DisplayNameSection() {
   const t = useTranslations('settings.security');
   const { displayName, updateDisplayName, isSaving, isLoadingPrincipal } = useAccountSecurityStore();
+  const { client, primaryIdentity, refreshIdentities } = useAuthStore();
   const [name, setName] = useState(displayName);
   const [saved, setSaved] = useState(false);
 
@@ -162,7 +165,13 @@ export function DisplayNameSection() {
 
   const handleSave = async () => {
     try {
-      await updateDisplayName(name);
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      await updateDisplayName(trimmed);
+      if (client && primaryIdentity) {
+        const saved = await updateIdentityWithHooks(client, primaryIdentity, renameSignature(primaryIdentity, trimmed));
+        if (saved) await refreshIdentities();
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       toast.success(t('display_name.success'));
