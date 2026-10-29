@@ -65,6 +65,7 @@ const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/icon-192x192.png',
   '/branding/logo.png',
+  '/assets/devshub-mail/editorial-banner.jpg',
   '/notification/cheerful-527.mp3',
   '/demo/prototype-v3.png',
   // The plugin sandbox document's script (scripts/build-plugin-sandbox.mjs).

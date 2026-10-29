@@ -161,11 +161,12 @@ function LoginPageContent() {
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const colorModeLocked = usePolicyStore((s) => s.getColorModePolicy().locked);
 
-  // Login logo sizing: when a max height/width is configured, drop the fixed
-  // 64×64 box so the logo (e.g. a wide wordmark) can render at its true size.
+  // Login logo sizing: a wide SVG in an inline-flex box can collapse to 0×0
+  // with max dimensions alone. Give configured wordmarks explicit dimensions.
   const hasLogoSize = Boolean(loginLogoMaxHeight || loginLogoMaxWidth);
   const loginLogoStyle = hasLogoSize
-    ? { maxHeight: loginLogoMaxHeight || undefined, maxWidth: loginLogoMaxWidth || undefined }
+    ? { width: loginLogoMaxWidth || undefined, height: loginLogoMaxHeight || undefined,
+        maxWidth: '100%', objectFit: 'contain' as const }
     : undefined;
 
   const [formData, setFormData] = useState({
