@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { BUILTIN_THEMES } from '../builtin-themes';
 
 describe('BUILTIN_THEMES', () => {
-  it('contains exactly 7 themes', () => {
-    expect(BUILTIN_THEMES).toHaveLength(7);
+  it('includes the standard themes and the seven occasion palettes', () => {
+    expect(BUILTIN_THEMES.filter(theme => theme.id.startsWith('builtin-')).length).toBeGreaterThanOrEqual(7);
+    expect(BUILTIN_THEMES.filter(theme => theme.id.startsWith('devshub-'))).toHaveLength(7);
   });
 
   it('all themes have required fields', () => {
@@ -11,7 +12,7 @@ describe('BUILTIN_THEMES', () => {
       expect(theme.id).toBeTruthy();
       expect(theme.name).toBeTruthy();
       expect(theme.version).toBeTruthy();
-      expect(theme.author).toBe('Built-in');
+      expect(theme.author).toBe(theme.id.startsWith('devshub-') ? 'DevsHub Mail' : 'Built-in');
       expect(theme.css).toBeTruthy();
       expect(theme.variants).toEqual(['light', 'dark']);
       expect(theme.enabled).toBe(true);
@@ -19,9 +20,9 @@ describe('BUILTIN_THEMES', () => {
     }
   });
 
-  it('all IDs are prefixed with builtin-', () => {
+  it('all IDs use a built-in or DevsHub namespace', () => {
     for (const theme of BUILTIN_THEMES) {
-      expect(theme.id).toMatch(/^builtin-/);
+      expect(theme.id).toMatch(/^(builtin|devshub)-/);
     }
   });
 

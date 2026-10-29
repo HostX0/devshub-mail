@@ -155,7 +155,10 @@ function LoginPageContent() {
   const isMobileHandoff = Boolean(mobileRedirectUri);
   const [pendingHandoff, setPendingHandoff] = useState<{ url: string; username: string } | null>(null);
   usePrefetchMailView(!isMobileHandoff);
-  const { login, loginWithToken, loginDemo, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { login, loginWithToken, loginDemo, isLoading, error, clearError, isAuthenticated, rateLimitUntil } = useAuthStore();
+  const [retrySeconds, setRetrySeconds] = useState(0);
+  const isLoginBlocked = retrySeconds > 0;
+  const retryTime = `${Math.floor(retrySeconds / 60)}:${String(retrySeconds % 60).padStart(2, '0')}`;
   const { theme, setTheme, initializeTheme } = useThemeStore(useShallow((s) => ({ theme: s.theme, setTheme: s.setTheme, initializeTheme: s.initializeTheme })));
   const { appName, jmapServerUrl: configuredServerUrl, oauthEnabled, oauthOnly, oauthClientId: globalOauthClientId, oauthIssuerUrl: globalOauthIssuerUrl, oauthScopes, rememberMeEnabled, devMode, demoMode, loginLogoLightUrl, loginLogoDarkUrl, loginCompanyName, loginImprintUrl, loginPrivacyPolicyUrl, loginWebsiteUrl, loginLogoMaxHeight, loginLogoMaxWidth, loginShowHeading, loginShowSubtitle, loginShowTotp, loginShowTokenLogin, loginShowRememberMe, loginShowVersion, isLoading: configLoading, error: configError, autoSsoEnabled, embeddedMode: _embeddedMode, allowCustomJmapEndpoint, jmapServers, jmapServerAutoPickByDomain } = useConfig();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
@@ -334,6 +337,24 @@ function LoginPageContent() {
       }
     } catch { /* sessionStorage unavailable */ }
   }, []);
+
+  useEffect(() => {
+    if (!rateLimitUntil) {
+      setRetrySeconds(0);
+      return;
+    }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((rateLimitUntil - Date.now()) / 1000));
+      setRetrySeconds(remaining);
+      if (remaining === 0 && useAuthStore.getState().rateLimitUntil === rateLimitUntil) {
+        useAuthStore.setState({ isRateLimited: false, rateLimitUntil: null });
+        if (useAuthStore.getState().error === 'rate_limited') clearError();
+      }
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitUntil, clearError]);
 
   useEffect(() => {
     if (error && error !== prevError.current) {
@@ -831,6 +852,7 @@ function LoginPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoginBlocked) return;
 
     // Server-list entries always win - `allowCustomJmapEndpoint` is only honored
     // when the admin hasn't configured a server list.
@@ -1246,8 +1268,15 @@ function LoginPageContent() {
               </div>
             )}
 
+            {isLoginBlocked && (
+              <div className="mb-5 p-4 rounded-xl border border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200 space-y-2">
+                <p className="text-sm font-medium" role="status">{t('error.rate_limited')}</p>
+                <p className="text-sm leading-relaxed">{t('retry_countdown', { time: retryTime })}</p>
+              </div>
+            )}
+
             {/* Error Message */}
-            {error && (
+            {error && error !== 'rate_limited' && (
               <div className={cn(
                 "mb-5 p-3 rounded-xl border border-destructive/20 bg-destructive/5 flex items-start gap-3",
                 shakeError && "animate-shake"
@@ -1272,7 +1301,7 @@ function LoginPageContent() {
                   type="button"
                   className="w-full h-12 font-medium text-base bg-primary hover:bg-primary/90 transition-all duration-200 rounded-xl shadow-lg shadow-primary/20"
                   onClick={handleDevLogin}
-                  disabled={isLoading}
+                  disabled={isLoading || isLoginBlocked}
                 >
                   {isLoading ? (
                     <div className="flex items-center gap-2">
@@ -1554,7 +1583,7 @@ function LoginPageContent() {
                 <Button
                   type="submit"
                   className="w-full h-11 font-medium text-[15px] bg-primary hover:bg-primary/90 transition-all duration-200 rounded-xl shadow-md shadow-primary/15 hover:shadow-lg hover:shadow-primary/20"
-                  disabled={isLoading || (liteSsoRequired && oauthLoading)}
+                  disabled={isLoading || isLoginBlocked || (liteSsoRequired && oauthLoading)}
                 >
                   {isLoading || (liteSsoRequired && oauthLoading) ? (
                     <div className="flex items-center gap-2">

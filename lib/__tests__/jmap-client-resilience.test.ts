@@ -363,7 +363,116 @@ describe('JMAPClient resilience', () => {
     });
   });
 
+  describe('revoked credentials', () => {
+    it('stops background retries after rejection, then recovers with a new password', async () => {
+      const client = await createConnectedClient();
+      const needsSignIn = vi.fn();
+      client.onAuthenticationRequired(needsSignIn);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401))
+        .mockResolvedValueOnce(mockFetchResponse(401));
+
+      await expect(client.ping()).rejects.toThrow('401');
+      expect(needsSignIn).toHaveBeenCalledOnce();
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(client.setupPushNotifications()).toBe(false);
+      await client.reconnect();
+      await vi.advanceTimersByTimeAsync(900_000);
+      await expect(client.ping()).rejects.toThrow('Authentication required');
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+      client.updateBasicAuth('new-password');
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(200, makeSession()));
+      await expect(client.connect()).resolves.toBeUndefined();
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(200, {
+        methodResponses: [['Core/echo', { ping: 'pong' }, '0']],
+      }));
+      await expect(client.ping()).resolves.toBeUndefined();
+      expect(needsSignIn).toHaveBeenCalledOnce();
+    });
+
+    it('allows TOTP recovery before treating credentials as rejected', async () => {
+      const client = await createConnectedClient();
+      const needsSignIn = vi.fn();
+      const freshTotp = vi.fn().mockResolvedValue('654321');
+      client.onAuthenticationRequired(needsSignIn);
+      client.enableTotpReauth('password', freshTotp);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401))
+        .mockResolvedValueOnce(mockFetchResponse(401))
+        .mockResolvedValueOnce(mockFetchResponse(200, makeSession()))
+        .mockResolvedValueOnce(mockFetchResponse(200, {
+          methodResponses: [['Core/echo', { ping: 'pong' }, '0']],
+        }));
+      await expect(client.ping()).resolves.toBeUndefined();
+      expect(freshTotp).toHaveBeenCalledOnce();
+      expect(needsSignIn).not.toHaveBeenCalled();
+    });
+
+    it('does not end a bearer session when the refresh owner is temporarily unavailable', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(200, makeSession()));
+      const client = JMAPClient.withBearer('https://mail.example.com', 'token', 'user@test.com', async () => null);
+      await client.connect();
+      liveClients.push(client);
+      resetFetch();
+      const needsSignIn = vi.fn();
+      client.onAuthenticationRequired(needsSignIn);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401));
+      await expect(client.ping()).rejects.toThrow('401');
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401));
+      await expect(client.reconnect()).rejects.toThrow('Authentication failed');
+      expect(needsSignIn).not.toHaveBeenCalled();
+    });
+
+    it('pauses a rejected bearer token when there is no refresh provider', async () => {
+      const client = await createConnectedClient('bearer');
+      const needsSignIn = vi.fn();
+      client.onAuthenticationRequired(needsSignIn);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401));
+      await expect(client.ping()).rejects.toThrow('401');
+      await vi.advanceTimersByTimeAsync(300_000);
+      expect(needsSignIn).toHaveBeenCalledOnce();
+      expect(fetchSpy).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('authenticatedFetch - 429 rate limiting', () => {
+    it('does not turn a server block during session refresh into a credential failure', async () => {
+      const client = await createConnectedClient();
+      const needsSignIn = vi.fn();
+      client.onAuthenticationRequired(needsSignIn);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(401))
+        .mockResolvedValueOnce(mockFetchResponseWithHeaders(403, { 'Retry-After': '900' }));
+      await expect(client.ping()).rejects.toThrow('Rate limited by server');
+      expect(client.getRateLimitRemainingMs()).toBeGreaterThan(899_000);
+      expect(needsSignIn).not.toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops retrying a forbidden connection without inventing an unblock time', async () => {
+      const client = await createConnectedClient();
+      const needsSignIn = vi.fn();
+      client.onAuthenticationRequired(needsSignIn);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse(403));
+      await expect(client.ping()).rejects.toThrow('SERVER_BLOCKED');
+      await vi.advanceTimersByTimeAsync(900_000);
+      await expect(client.ping()).rejects.toThrow('SERVER_BLOCKED');
+      expect(needsSignIn).toHaveBeenCalledWith('server_blocked');
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect(client.isRateLimited()).toBe(false);
+    });
+
+    it('honors a temporary IP block and its full fifteen-minute countdown', async () => {
+      const client = await createConnectedClient();
+      const rateLimit = vi.fn();
+      client.onRateLimit(rateLimit);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponseWithHeaders(403, { 'Retry-After': '900' }));
+      await expect(client.ping()).rejects.toThrow('Rate limited by server');
+      expect(rateLimit).toHaveBeenCalledWith(true, 900_000);
+      await vi.advanceTimersByTimeAsync(899_000);
+      await expect(client.ping()).rejects.toThrow('Rate limited by server');
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect(client.getRateLimitRemainingMs()).toBeGreaterThan(0);
+    });
+
     it('stops sending authenticated requests until the retry window expires', async () => {
       const client = await createConnectedClient();
 

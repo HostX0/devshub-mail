@@ -11,14 +11,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [initializeTheme]);
 
   useEffect(() => {
-    const apply = () => useThemeStore.getState().applySeasonalTheme();
-    apply();
-    const interval = window.setInterval(apply, 60 * 60 * 1000);
-    const onFocus = () => apply();
-    window.addEventListener('focus', onFocus);
+    let timer: number;
+    const refresh = () => {
+      useThemeStore.getState().applySeasonalTheme();
+      window.clearTimeout(timer);
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      timer = window.setTimeout(refresh, Math.max(1000, midnight.getTime() - now.getTime()));
+    };
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 

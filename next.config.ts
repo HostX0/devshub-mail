@@ -49,6 +49,7 @@ if (isLite && (process.env.NEXT_PUBLIC_LOCALE_PREFIX ?? "never") !== "always") {
 
 const nextConfig: NextConfig = {
   output: isLite ? "export" : "standalone",
+  experimental: { cpus: 2 },
   // No `X-Powered-By: Next.js` on every response.
   poweredByHeader: false,
   // Directory-style pages (out/en/mail/index.html) are what static hosts and

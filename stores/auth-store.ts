@@ -143,6 +143,7 @@ export interface LogoutOptions {
 }
 
 const ERROR_PATTERNS: Array<{ key: string; matches: string[] }> = [
+  { key: 'server_blocked', matches: ['SERVER_BLOCKED'] },
   { key: 'cors_blocked', matches: ['CORS_ERROR'] },
   { key: 'totp_required', matches: ['TOTP_REQUIRED'] },
   { key: 'token_exchange_failed', matches: ['TOKEN_EXCHANGE_FAILED'] },
@@ -152,6 +153,7 @@ const ERROR_PATTERNS: Array<{ key: string; matches: string[] }> = [
 ];
 
 function classifyLoginError(error: unknown): string {
+  if (isRateLimitError(error)) return 'rate_limited';
   if (!(error instanceof Error)) return 'generic';
   const msg = error.message;
   for (const { key, matches } of ERROR_PATTERNS) {
@@ -162,6 +164,12 @@ function classifyLoginError(error: unknown): string {
 
 function isRateLimitError(error: unknown): error is RateLimitError {
   return error instanceof RateLimitError;
+}
+
+function getLoginRateLimitState(error: unknown): Pick<AuthState, 'isRateLimited' | 'rateLimitUntil'> {
+  return isRateLimitError(error)
+    ? { isRateLimited: true, rateLimitUntil: Date.now() + error.retryAfterMs }
+    : { isRateLimited: false, rateLimitUntil: null };
 }
 
 /**
@@ -700,6 +708,21 @@ function bindClientStatusHandlers(
     if (accountId) {
       useAccountStore.getState().updateAccount(accountId, { isConnected: connected });
     }
+  });
+
+  client.onAuthenticationRequired?.((reason) => {
+    // Ignore an old client's late response after switching/replacing it.
+    if (accountId && clients.get(accountId) !== client) return;
+    if (!accountId && get().client !== client) return;
+    if (accountId && get().activeAccountId !== accountId) {
+      get().removeAccount(accountId);
+      return;
+    }
+    if (reason !== 'server_blocked') markSessionExpired();
+    notifyParent('sso:session-expired');
+    void get().logout({ endProviderSession: false }).then(() => {
+      if (reason === 'server_blocked' && !get().isAuthenticated) set({ error: 'server_blocked' });
+    });
   });
 
   client.onRateLimit((rateLimited, retryAfterMs) => {
@@ -1300,6 +1323,7 @@ export const useAuthStore = create<AuthState>()(
       restoringAccounts: false,
 
       login: async (serverUrl, typedUsername, password, totp, rememberMe) => {
+        if ((get().rateLimitUntil ?? 0) > Date.now()) return false;
         set({ isLoading: true, error: null, isRateLimited: false, rateLimitUntil: null });
 
         // Sign in with the ASCII (punycode) form of an IDN domain, the form
@@ -1537,8 +1561,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: classifyLoginError(error),
             isAuthenticated: false,
-            isRateLimited: false,
-            rateLimitUntil: null,
+            ...getLoginRateLimitState(error),
             client: null,
           });
           return false;
@@ -1546,6 +1569,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginWithToken: async (serverUrl, typedToken, rememberMe) => {
+        if ((get().rateLimitUntil ?? 0) > Date.now()) return false;
         set({ isLoading: true, error: null, isRateLimited: false, rateLimitUntil: null });
 
         // Pasted tokens often come with the scheme or surrounding whitespace.
@@ -1652,8 +1676,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: error instanceof Error && error.message === 'INVALID_TOKEN' ? 'invalid_token' : classifyLoginError(error),
             isAuthenticated: false,
-            isRateLimited: false,
-            rateLimitUntil: null,
+            ...getLoginRateLimitState(error),
             client: null,
           });
           return false;

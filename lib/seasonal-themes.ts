@@ -6,7 +6,8 @@ export function seasonalThemeId(date: Date): string | null {
   if (month === 2 && day === 14) return 'devshub-valentine';
   if (month === 3 && day === 8) return 'devshub-womens-day';
   if (month === 4 && day === 7) return 'devshub-health-day';
-  if (month === 10 && day === 31) return 'devshub-halloween';
+  // Halloween week takes precedence over the month-wide Pink October palette.
+  if (month === 10 && day >= 25) return 'devshub-halloween';
   if (month === 10) return 'devshub-pink-october';
   if (month === 11) {
     const first = new Date(date.getFullYear(), 10, 1).getDay();

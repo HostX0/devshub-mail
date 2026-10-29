@@ -1473,6 +1473,11 @@ export class JMAPClient implements IJMAPClient {
   // (keep-alive ping, SSE error handlers) cannot revive timers or
   // reconnect after an intentional sign-out (#588).
   private intentionallyDisconnected = false;
+  // A rejected password/token cannot heal by polling. Keep the account quiet
+  // until new credentials arrive, otherwise an old tab can ban a shared IP.
+  private authenticationRequired = false;
+  private authenticationError = 'Authentication required: 401';
+  private authenticationRequiredCallback: ((reason: 'credentials' | 'server_blocked') => void) | null = null;
   /** Hold limit learned from a rejected scheduled send (seconds). */
   private learnedMaxDelayedSend: number | null = null;
   /** When each account's submission records were last pruned (epoch ms). */
@@ -1536,6 +1541,7 @@ export class JMAPClient implements IJMAPClient {
   }
 
   updateAccessToken(token: string): void {
+    this.authenticationRequired = false;
     this.authHeader = `Bearer ${token}`;
   }
 
@@ -1605,6 +1611,7 @@ export class JMAPClient implements IJMAPClient {
   }
   /** Upgrade an existing basic-auth client to bearer-token auth (e.g. after TOTP token exchange). */
   upgradeToBearer(accessToken: string, onRefresh?: () => Promise<string | null>): void {
+    this.authenticationRequired = false;
     this.authMode = 'bearer';
     this.authHeader = `Bearer ${accessToken}`;
     this.onTokenRefresh = onRefresh;
@@ -1622,6 +1629,7 @@ export class JMAPClient implements IJMAPClient {
 
   /** Update basic-auth credentials with a new password (e.g. password$newTotp). */
   updateBasicAuth(newPassword: string): void {
+    this.authenticationRequired = false;
     this.password = newPassword;
     this.authHeader = basicAuthHeader(this.username, newPassword);
   }
@@ -1693,6 +1701,9 @@ export class JMAPClient implements IJMAPClient {
     init?: Parameters<typeof fetch>[1],
     opts?: { timeoutMs?: number },
   ): Promise<Response> {
+    if (this.authenticationRequired) {
+      throw new Error(this.authenticationError);
+    }
     // Short-circuit: if rate-limited, reject immediately without sending a request
     if (this.isRateLimited()) {
       const remaining = this.rateLimitedUntil - Date.now();
@@ -1702,6 +1713,8 @@ export class JMAPClient implements IJMAPClient {
 
     const timeoutMs = opts?.timeoutMs ?? JMAPClient.REQUEST_TIMEOUT_MS;
     const headers = { ...init?.headers as Record<string, string>, 'Authorization': this.authHeader };
+    let attemptedAuth = this.authHeader;
+    let refreshUnavailable = false;
     let response: Response;
 
     try {
@@ -1719,15 +1732,11 @@ export class JMAPClient implements IJMAPClient {
       // changes nothing may be replayed.
       if (!isReplaySafeRequest(init)) throw error;
       await new Promise(r => setTimeout(r, 1000));
+      if (this.authenticationRequired) throw new Error(this.authenticationError);
       response = await this.timedFetch(url, init, headers, timeoutMs);
     }
 
-    // Handle 429 rate limiting - stop immediately, do not retry
-    if (response.status === 429) {
-      const retryAfterMs = JMAPClient.parseRetryAfter(response);
-      this.setRateLimited(retryAfterMs);
-      throw new RateLimitError(retryAfterMs);
-    }
+    this.checkServerBlock(response);
 
     if (response.status === 401) {
       if (this.authMode === 'bearer' && this.onTokenRefresh) {
@@ -1735,7 +1744,12 @@ export class JMAPClient implements IJMAPClient {
         if (newToken) {
           this.updateAccessToken(newToken);
           const retryHeaders = { ...init?.headers as Record<string, string>, 'Authorization': this.authHeader };
+          attemptedAuth = this.authHeader;
           response = await this.timedFetch(url, init, retryHeaders, timeoutMs);
+        } else {
+          // The refresh owner handles expiry; null can also mean a temporary
+          // provider outage with a retry already scheduled. Keep the session.
+          refreshUnavailable = true;
         }
       } else if (this.authMode === 'basic' && !this.reconnecting && url !== `${this.serverUrl}/.well-known/jmap`) {
         // JMAP session may have expired - re-establish and retry once
@@ -1744,20 +1758,25 @@ export class JMAPClient implements IJMAPClient {
           await this.refreshSession();
           this.connectionChangeCallback?.(true);
           const retryHeaders = { ...init?.headers as Record<string, string>, 'Authorization': this.authHeader };
+          attemptedAuth = this.authHeader;
           response = await this.timedFetch(url, init, retryHeaders, timeoutMs);
-        } catch {
+        } catch (error) {
+          if (error instanceof RateLimitError || this.authenticationRequired) throw error;
           // Session refresh failed - if TOTP was used, try re-auth with fresh TOTP
           if (this.onTotpRequired && this.basePassword) {
             try {
               const newTotp = await this.onTotpRequired();
               if (newTotp) {
                 this.updateBasicAuth(`${this.basePassword}$${newTotp}`);
+                attemptedAuth = this.authHeader;
                 await this.refreshSession();
                 this.connectionChangeCallback?.(true);
                 const retryHeaders = { ...init?.headers as Record<string, string>, 'Authorization': this.authHeader };
+                attemptedAuth = this.authHeader;
                 response = await this.timedFetch(url, init, retryHeaders, timeoutMs);
               }
-            } catch {
+            } catch (error) {
+              if (error instanceof RateLimitError || this.authenticationRequired) throw error;
               // TOTP re-auth also failed - return original 401
             }
           }
@@ -1767,7 +1786,41 @@ export class JMAPClient implements IJMAPClient {
       }
     }
 
+    // Discovery may redirect and Safari may omit auth on that redirect. Its
+    // final response is checked by connect(), after the existing direct retry.
+    // Nested refreshes must also finish their TOTP recovery before pausing.
+    if (response.status === 401 && !refreshUnavailable && !this.reconnecting &&
+        url !== `${this.serverUrl}/.well-known/jmap` && attemptedAuth === this.authHeader) {
+      this.requireAuthentication();
+    }
+
+    this.checkServerBlock(response);
+
     return response;
+  }
+
+  private checkServerBlock(response: Response): void {
+    if (response.status === 429 || (response.status === 403 && response.headers.has('Retry-After'))) {
+      const retryAfterMs = JMAPClient.parseRetryAfter(response);
+      this.setRateLimited(retryAfterMs);
+      throw new RateLimitError(retryAfterMs);
+    }
+    if (response.status === 403) {
+      // No retry time was supplied. Do not guess or keep retrying a server
+      // refusal in the background; let the user/admin resolve it explicitly.
+      this.requireAuthentication('server_blocked');
+      throw new Error('SERVER_BLOCKED');
+    }
+  }
+
+  private requireAuthentication(reason: 'credentials' | 'server_blocked' = 'credentials'): void {
+    if (this.authenticationRequired || this.intentionallyDisconnected) return;
+    this.authenticationRequired = true;
+    this.authenticationError = reason === 'server_blocked' ? 'SERVER_BLOCKED' : 'Authentication required: 401';
+    this.stopKeepAlive();
+    this.closePushNotifications();
+    this.connectionChangeCallback?.(false);
+    this.authenticationRequiredCallback?.(reason);
   }
 
   /**
@@ -1792,10 +1845,12 @@ export class JMAPClient implements IJMAPClient {
     // request with 401 instead of Stalwart's silent 200 - the credentials are
     // fine, Safari just dropped them. Retry the final URL directly. (#892)
     if (response.redirected && response.status === 401) {
-      return fetch(response.url, {
+      const retried = await fetch(response.url, {
         method: 'GET',
         headers: { 'Authorization': this.authHeader },
       });
+      this.checkServerBlock(retried);
+      return retried;
     }
     if (!response.ok || !response.redirected) return response;
 
@@ -1804,10 +1859,12 @@ export class JMAPClient implements IJMAPClient {
     const hasUsername = typeof peek?.username === 'string' && peek.username.length > 0;
     if (hasAccounts || hasUsername) return response;
 
-    return fetch(response.url, {
+    const retried = await fetch(response.url, {
       method: 'GET',
       headers: { 'Authorization': this.authHeader },
     });
+    this.checkServerBlock(retried);
+    return retried;
   }
 
   private async refreshSession(): Promise<void> {
@@ -1835,6 +1892,9 @@ export class JMAPClient implements IJMAPClient {
 
       if (!sessionResponse.ok) {
         if (sessionResponse.status === 401) {
+          // A refresh owner may be recovering from a temporary provider
+          // outage; it decides when a renewable bearer session has expired.
+          if (this.authMode === 'basic' || !this.onTokenRefresh) this.requireAuthentication();
           throw new Error(this.authMode === 'bearer'
             ? 'Authentication failed - token may be expired'
             : 'Invalid username or password');
@@ -1915,7 +1975,7 @@ export class JMAPClient implements IJMAPClient {
           return;
         }
         // A sign-out while the ping was in flight - stay down.
-        if (this.intentionallyDisconnected) return;
+        if (this.intentionallyDisconnected || this.authenticationRequired) return;
         this.pingFailureCount++;
         this.pingSkipRemaining = Math.min(2 ** this.pingFailureCount, 10) - 1;
         console.error('Keep-alive ping failed:', error);
@@ -1956,7 +2016,7 @@ export class JMAPClient implements IJMAPClient {
   }
 
   async reconnect(): Promise<void> {
-    if (this.intentionallyDisconnected) return;
+    if (this.intentionallyDisconnected || this.authenticationRequired) return;
     await this.connect();
   }
 
@@ -9942,6 +10002,7 @@ export class JMAPClient implements IJMAPClient {
   private static readonly SSE_PING_TIMEOUT = 90_000; // 3x the 30s ping interval
 
   setupPushNotifications(): boolean {
+    if (this.intentionallyDisconnected || this.authenticationRequired) return false;
     const eventSourceUrl = this.getEventSourceUrl();
     if (eventSourceUrl) {
       this.connectSSE(eventSourceUrl);
@@ -9984,6 +10045,7 @@ export class JMAPClient implements IJMAPClient {
   }
 
   private connectSSE(templateUrl: string): void {
+    if (this.intentionallyDisconnected || this.authenticationRequired) return;
     this.sseWanted = true;
     if (this.isRateLimited()) {
       this.scheduleSSEReconnect();
@@ -10405,6 +10467,10 @@ export class JMAPClient implements IJMAPClient {
     this.connectionChangeCallback = callback;
   }
 
+  onAuthenticationRequired(callback: (reason: 'credentials' | 'server_blocked') => void): void {
+    this.authenticationRequiredCallback = callback;
+  }
+
   onRateLimit(callback: (rateLimited: boolean, retryAfterMs: number) => void): void {
     this.rateLimitCallback = callback;
   }
@@ -10465,13 +10531,13 @@ export class JMAPClient implements IJMAPClient {
     if (!header) return 60_000; // default 60s if no header
     const seconds = Number(header);
     if (!Number.isNaN(seconds) && seconds > 0) {
-      return Math.min(seconds * 1000, 300_000); // cap at 5 minutes
+      return Math.min(seconds * 1000, 86_400_000); // honor temporary IP bans up to a day
     }
     // Try HTTP-date format
     const date = Date.parse(header);
     if (!Number.isNaN(date)) {
       const ms = date - Date.now();
-      return ms > 0 ? Math.min(ms, 300_000) : 60_000;
+      return ms > 0 ? Math.min(ms, 86_400_000) : 60_000;
     }
     return 60_000;
   }

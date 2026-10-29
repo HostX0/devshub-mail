@@ -149,6 +149,8 @@ export interface IJMAPClient {
   setupPushNotifications(): boolean;
   closePushNotifications(): void;
   onConnectionChange(callback: (connected: boolean) => void): void;
+  /** A definitive credential rejection needs a new sign-in, not polling. */
+  onAuthenticationRequired?(callback: (reason: 'credentials' | 'server_blocked') => void): void;
   onRateLimit(callback: (rateLimited: boolean, retryAfterMs: number) => void): void;
   isRateLimited(): boolean;
   getRateLimitRemainingMs(): number;
