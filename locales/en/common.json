@@ -15,7 +15,7 @@
     "signing_in": "Signing in...",
     "loading": "Loading...",
     "reconnecting": "Connection lost. Attempting to reconnect…",
-    "retry_countdown": "Next attempt in {time}. You can ask your administrator to unblock access sooner.",
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "error": {
       "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
       "rate_limited": "Sign-in is temporarily blocked by the mail server.",

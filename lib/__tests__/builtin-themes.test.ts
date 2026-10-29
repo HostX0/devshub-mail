@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BUILTIN_THEMES } from '../builtin-themes';
+import { getLuminance, parseColor } from '../color-transform';
 
 describe('BUILTIN_THEMES', () => {
   it('includes the standard themes and the seven occasion palettes', () => {
@@ -52,5 +53,24 @@ describe('BUILTIN_THEMES', () => {
   it('theme IDs are unique', () => {
     const ids = BUILTIN_THEMES.map(t => t.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('keeps occasion buttons and selected rows readable in light and dark modes', () => {
+    for (const theme of BUILTIN_THEMES.filter(theme => theme.id.startsWith('devshub-'))) {
+      for (const selector of [':root', '.dark']) {
+        const block = theme.css.split(`${selector} {`)[1]?.split('}')[0] ?? '';
+        const tokens = Object.fromEntries(Array.from(block.matchAll(/--([\w-]+):\s*(#[\da-f]{6})/gi), match => [match[1], match[2]]));
+        for (const token of ['primary', 'info', 'accent', 'selection', 'sidebar-accent']) {
+          const background = parseColor(tokens[`color-${token}`]);
+          const foreground = parseColor(tokens[`color-${token}-foreground`]);
+          expect(background, `${theme.id} ${selector} ${token}`).not.toBeNull();
+          expect(foreground, `${theme.id} ${selector} ${token} foreground`).not.toBeNull();
+          const bg = getLuminance(background!.r, background!.g, background!.b);
+          const fg = getLuminance(foreground!.r, foreground!.g, foreground!.b);
+          const contrast = (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05);
+          expect(contrast, `${theme.id} ${selector} ${token}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
   });
 });

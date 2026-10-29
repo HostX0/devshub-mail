@@ -876,15 +876,28 @@ body[data-theme-skin="builtin-aurora-glass"] [role="menu"] [role="menuitem"]:foc
 }`;
 
 function occasionCSS(primary: string, soft: string, darkPrimary: string): string {
+  const darkSoft = '#' + [1, 3, 5].map(start =>
+    Math.round(23 * 0.84 + parseInt(darkPrimary.slice(start, start + 2), 16) * 0.16)
+      .toString(16).padStart(2, '0'),
+  ).join('');
   return `:root {
     --color-primary: ${primary}; --color-ring: ${primary};
+    --color-primary-foreground: #ffffff;
     --color-info: ${primary}; --color-unread: ${primary};
+    --color-info-foreground: #ffffff;
     --color-accent: ${soft}; --color-selection: ${soft};
+    --color-accent-foreground: #242025; --color-selection-foreground: #242025;
+    --color-sidebar-accent: ${soft}; --color-sidebar-accent-foreground: #242025;
     --color-chart-1: ${primary};
   }
   .dark {
     --color-primary: ${darkPrimary}; --color-ring: ${darkPrimary};
+    --color-primary-foreground: #171717;
     --color-info: ${darkPrimary}; --color-unread: ${darkPrimary};
+    --color-info-foreground: #171717;
+    --color-accent: ${darkSoft}; --color-selection: ${darkSoft};
+    --color-accent-foreground: ${darkPrimary}; --color-selection-foreground: ${darkPrimary};
+    --color-sidebar-accent: ${darkSoft}; --color-sidebar-accent-foreground: ${darkPrimary};
     --color-chart-1: ${darkPrimary};
   }`;
 }
@@ -898,7 +911,7 @@ const OCCASION_THEMES: InstalledTheme[] = [
   ['devshub-halloween', 'Halloween · هالوين', '#ac5d18', '#fff0db', '#f2a954'],
   ['devshub-black-friday', 'Black Friday · الجمعة السوداء', '#5748a1', '#ebe9f7', '#a99cf0'],
 ].map(([id, name, primary, soft, darkPrimary]) => ({
-  id, name, version: '1.0.0', author: 'DevsHub Mail',
+  id, name, version: '1.0.1', author: 'DevsHub Mail',
   description: 'A restrained seasonal accent palette with readable light and dark modes.',
   css: occasionCSS(primary, soft, darkPrimary),
   variants: ['light', 'dark'] as ThemeVariant[], enabled: true, builtIn: true,
