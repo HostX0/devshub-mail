@@ -29,7 +29,7 @@ vi.mock('@/hooks/use-config', () => ({
     loginShowHeading: true,
     loginShowSubtitle: true,
     loginShowVersion: false,
-    loginShowTotp: true,
+    loginShowTotp: false,
     loginShowRememberMe: true,
     accessibilityStatementUrl: 'https://example.org/accessibility',
     accessibilityFeedbackUrl: 'mailto:barriers@example.org',
@@ -51,6 +51,13 @@ describe('login form accessibility', () => {
     localStorage.clear();
     useAuthStore.setState({ error: null, isLoading: false });
   });
+
+  it('hides the optional authenticator button without bypassing account-required authentication', async () => {
+    await renderForm();
+    expect(screen.queryByRole('button', { name: 'totp_toggle' })).not.toBeInTheDocument();
+    act(() => { useAuthStore.setState({ error: 'totp_required' }); });
+    expect(await screen.findByLabelText('totp_label')).toBeInTheDocument();
+  }, 30_000);
 
   it('lets password managers fill the username and names the page', async () => {
     const username = await renderForm();

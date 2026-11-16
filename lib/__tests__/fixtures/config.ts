@@ -31,7 +31,7 @@ export function createConfig(overrides: Partial<ConfigData> = {}): ConfigData {
     loginLogoMaxWidth: '',
     loginShowHeading: true,
     loginShowSubtitle: true,
-    loginShowTotp: true,
+    loginShowTotp: false,
     loginShowTokenLogin: false,
     desktopBrowserSignIn: true,
     loginShowRememberMe: false,

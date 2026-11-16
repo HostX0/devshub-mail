@@ -88,7 +88,7 @@ export function applyLiteConfig(raw: unknown, defaults?: { jmapServerUrl?: strin
     loginLogoMaxWidth: str(input.loginLogoMaxWidth, ''),
     loginShowHeading: bool(input.loginShowHeading, true),
     loginShowSubtitle: bool(input.loginShowSubtitle, true),
-    loginShowTotp: bool(input.loginShowTotp, true),
+    loginShowTotp: bool(input.loginShowTotp, false),
     loginShowTokenLogin: bool(input.loginShowTokenLogin, false),
     desktopBrowserSignIn: false,
     loginShowRememberMe: bool(input.loginShowRememberMe, false),

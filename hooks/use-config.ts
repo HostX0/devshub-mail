@@ -277,7 +277,7 @@ export function useConfig(): AppConfig {
     loginLogoMaxWidth: configCache?.loginLogoMaxWidth || '',
     loginShowHeading: configCache?.loginShowHeading ?? true,
     loginShowSubtitle: configCache?.loginShowSubtitle ?? true,
-    loginShowTotp: configCache?.loginShowTotp ?? true,
+    loginShowTotp: configCache?.loginShowTotp ?? false,
     loginShowTokenLogin: configCache?.loginShowTokenLogin ?? false,
     desktopBrowserSignIn: configCache?.desktopBrowserSignIn ?? true,
     loginShowRememberMe: configCache?.loginShowRememberMe ?? false,

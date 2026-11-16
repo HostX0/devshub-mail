@@ -341,7 +341,7 @@ export const CONFIG_ENV_MAP: Record<string, { envVar?: string; fileEnvVar?: stri
   // that delegate auth to an external directory (LDAP/OIDC) where 2FA lives in
   // the IdP have no server-side TOTP, so the toggle only leads to a failed
   // login. Server-required TOTP (totp_required) still shows regardless.
-  loginShowTotp: { envVar: 'LOGIN_SHOW_TOTP', type: 'boolean', defaultValue: true },
+  loginShowTotp: { envVar: 'LOGIN_SHOW_TOTP', type: 'boolean', defaultValue: false },
   // Offer signing in with an access token (Bearer auth) instead of a
   // password. For JMAP servers that hand out API tokens, such as Fastmail,
   // whose API accepts no passwords at all.

@@ -9,12 +9,17 @@ describe('applyLiteConfig (config.json for the static build)', () => {
     expect(config.jmapServerUrl).toBe('');
     expect(config.rememberMeEnabled).toBe(true);
     expect(config.loginShowRememberMe).toBe(false);
-    expect(config.loginShowTotp).toBe(true);
+    expect(config.loginShowTotp).toBe(false);
     expect(config.faviconUrl).toBe('/branding/Bulwark_Favicon.svg');
     expect(config.loginLogoLightUrl).toBe('/branding/Bulwark_Logo_Color.svg');
     expect(config.jmapServers).toEqual([]);
     expect(config.demoMode).toBe(false);
     expect(config.oauthRevokeOnSignOut).toBe(true);
+  });
+
+  it('keeps the optional authenticator toggle hidden unless explicitly enabled', () => {
+    expect(applyLiteConfig({}).loginShowTotp).toBe(false);
+    expect(applyLiteConfig({ loginShowTotp: true }).loginShowTotp).toBe(true);
   });
 
   it('lets config.json keep refresh tokens valid on sign-out (#1388)', () => {

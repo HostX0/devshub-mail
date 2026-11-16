@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       loginLogoMaxWidth: configManager.get<string>('loginLogoMaxWidth', ''),
       loginShowHeading: configManager.get<boolean>('loginShowHeading', true),
       loginShowSubtitle: configManager.get<boolean>('loginShowSubtitle', true),
-      loginShowTotp: configManager.get<boolean>('loginShowTotp', true),
+      loginShowTotp: configManager.get<boolean>('loginShowTotp', false),
       loginShowTokenLogin: configManager.get<boolean>('loginShowTokenLogin', false),
       desktopBrowserSignIn: configManager.get<boolean>('desktopBrowserSignIn', true),
       loginShowRememberMe: configManager.get<boolean>('loginShowRememberMe', false),
