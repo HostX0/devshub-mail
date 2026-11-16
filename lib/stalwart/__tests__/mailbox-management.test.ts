@@ -31,6 +31,8 @@ describe('mailbox input boundaries', () => {
   it.each([0, -1, 1.2, NaN, Infinity, 2 ** 54, '1073741824'])('rejects unsafe quota %s', quotaBytes => { expect(() => validateMailboxInput({ ...valid, quotaBytes })).toThrow('storage limit'); });
   it('rejects weak passwords and unrelated mutation fields', () => {
     expect(() => validateMailboxInput({ ...valid, password: 'short' })).toThrow('password');
+    expect(() => validateMailboxInput({ ...valid, password: 'Strong-password\n' })).toThrow('password');
+    expect(() => validateMailboxInput({ ...valid, displayName: 'Bad\u0000name' })).toThrow('display name');
     expect(() => validateMailboxInput({ action: 'disable', id: 'employee', password: 'Strong-pass-1234' })).toThrow('Unexpected fields');
     expect(() => validateMailboxInput({ action: 'update', id: 'employee' })).toThrow('Choose a change');
   });
