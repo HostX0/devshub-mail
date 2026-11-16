@@ -88,7 +88,6 @@ const sourceMaps = process.env.BULWARK_SOURCE_MAPS === "1";
 
 const nextConfig: NextConfig = {
   output: isLite ? "export" : "standalone",
-  experimental: { cpus: 2 },
   productionBrowserSourceMaps: sourceMaps,
   // No `X-Powered-By: Next.js`; headers() below sends
   // `X-Powered-By: bulwarkmail.org` instead, without a version.
@@ -126,6 +125,7 @@ const nextConfig: NextConfig = {
   // Node's default limit of about 2.2 GB (#1510). In workers each compiler has
   // its own heap, freed when it finishes. Turbopack builds don't read this.
   experimental: {
+    cpus: 2,
     webpackBuildWorker: true,
   },
   // No proxyClientMaxBodySize: Next copies every body proxy.ts runs for up to
