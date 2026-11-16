@@ -4,6 +4,8 @@
  * by what the controller imports.
  */
 
+import { MAX_ACCOUNT_SLOTS } from '@/lib/account-utils';
+import { revokeQueuedSessionWrites, withSessionCookieLocks } from '@/lib/auth/session-cookie-lock';
 import { apiFetch } from '@/lib/browser-navigation';
 import { getDesktopBridge } from '@/lib/desktop/bridge';
 import { writeAppLockFile } from './state';
@@ -64,9 +66,14 @@ export function markCookiesToClear(): void {
  */
 export async function clearPendingCookies(): Promise<boolean> {
   if (!marked(COOKIES_TO_CLEAR_KEY)) return true;
-  const asked = Promise.all(['/api/auth/session?all=true', '/api/auth/token?all=true'].map((path) => (
-    apiFetch(path, { method: 'DELETE', keepalive: true, signal: AbortSignal.timeout(COOKIE_CLEAR_MS) })
-  ))).then((answers) => answers.every((answer) => answer.ok)).catch(() => false);
+  const slots = Array.from({ length: MAX_ACCOUNT_SLOTS }, (_, slot) => slot);
+  const asked = withSessionCookieLocks(slots, async () => {
+    revokeQueuedSessionWrites(slots);
+    const answers = await Promise.all(['/api/auth/session?all=true', '/api/auth/token?all=true'].map((path) => (
+      apiFetch(path, { method: 'DELETE', keepalive: true, signal: AbortSignal.timeout(COOKIE_CLEAR_MS) })
+    )));
+    return answers.every((answer) => answer.ok);
+  }).catch(() => false);
   // A server that hangs mustn't keep a start or a way out waiting.
   const cleared = await Promise.race([asked, new Promise<boolean>((resolve) => setTimeout(() => resolve(false), COOKIE_CLEAR_MS))]);
   if (cleared) mark(COOKIES_TO_CLEAR_KEY, false);

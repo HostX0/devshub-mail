@@ -24,7 +24,9 @@ import { getAccountRecord, listAccountRecords, openAccountKey } from '@/lib/stor
 import { enableAppLock, forgetEverything, lockEverywhere, resetAppLockForTests, setLeaveForTests, setReloadForTests } from '../controller';
 import { readAppLockFile } from '../state';
 import { deleteVault, readVault } from '../vault';
-import { COOKIES_TO_CLEAR_KEY, FRESH_LOGIN_KEY } from '../sign-out';
+import { MAX_ACCOUNT_SLOTS } from '@/lib/account-utils';
+import { sessionCookieLockName } from '@/lib/auth/session-cookie-lock';
+import { clearPendingCookies, COOKIES_TO_CLEAR_KEY, FRESH_LOGIN_KEY } from '../sign-out';
 
 const PIN = 'correct-pin';
 
@@ -62,6 +64,27 @@ afterEach(() => {
 });
 
 describe('forgetting the PIN', () => {
+  it('serializes startup cookie cleanup with every slot before sending either DELETE', async () => {
+    const before = Object.getOwnPropertyDescriptor(navigator, 'locks');
+    const names: string[] = [];
+    Object.defineProperty(navigator, 'locks', { configurable: true, value: {
+      request: (name: string, _options: unknown, work: (lock: unknown) => unknown) => {
+        names.push(name); return Promise.resolve(work({ name }));
+      },
+    } });
+    try {
+      localStorage.setItem(COOKIES_TO_CLEAR_KEY, '1');
+      vi.stubGlobal('fetch', vi.fn(async () => {
+        expect(names).toEqual(Array.from({ length: MAX_ACCOUNT_SLOTS }, (_, slot) => sessionCookieLockName(slot)));
+        return new Response('{}', { status: 200 });
+      }));
+      expect(await clearPendingCookies()).toBe(true);
+      expect(localStorage.getItem(COOKIES_TO_CLEAR_KEY)).toBeNull();
+    } finally {
+      if (before) Object.defineProperty(navigator, 'locks', before);
+      else Reflect.deleteProperty(navigator, 'locks');
+    }
+  });
   it('a server that hangs leaves nothing behind: no registry, no keys, no vault, no lock', async () => {
     logoutAll.mockImplementation(() => new Promise(() => {}));
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
