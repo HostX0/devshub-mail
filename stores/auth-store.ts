@@ -40,6 +40,7 @@ import { SESSION_TOO_OLD } from '@/lib/session-policy/constants';
 import type { Identity } from '@/lib/jmap/types';
 import { authHooks } from '@/lib/plugin-hooks';
 import { IS_LITE, IS_LITE_STALWART } from '@/lib/lite';
+import { hasSessionCookieLocks, withSessionCookieLocks, sessionCookieGeneration, revokeQueuedSessionWrites } from '@/lib/auth/session-cookie-lock';
 import { withTokenLock } from '@/lib/auth/token-lock';
 import { requestWindowSession, type SharedAccountSession } from '@/lib/popout/channel';
 import { closePopoutWindow, isPopoutWindow, mainWindowStorage } from '@/lib/popout/window-role';
@@ -378,7 +379,13 @@ const closingSlots = new Set<number>();
 /** Run a request that may write `slot`'s session cookies, so sign-out can wait for it. */
 function trackSessionWrite<T>(slot: number, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const controller = new AbortController();
-  const request = run(controller.signal);
+  const generation = sessionCookieGeneration(slot);
+  const request = withSessionCookieLocks([slot], () => {
+    if (controller.signal.aborted || closingSlots.has(slot) || sessionCookieGeneration(slot) !== generation) {
+      throw new DOMException('The session was signed out while this write waited', 'AbortError');
+    }
+    return run(controller.signal);
+  }, controller.signal);
   const entry: SessionWrite = { slot, settled: request.catch(() => {}), abort: () => controller.abort() };
   sessionWrites.add(entry);
   void entry.settled.then(() => sessionWrites.delete(entry));
@@ -497,13 +504,14 @@ async function exchangePasswordForTokens(params: {
 }): Promise<Response> {
   const { serverUrl, username, password, totp, slot, redirectUri, rememberMe } = params;
   if (!IS_LITE) {
-    return apiFetch('/api/auth/totp-token-exchange', {
+    return trackSessionWrite(slot, signal => apiFetch('/api/auth/totp-token-exchange', {
+      signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // server_id isn't passed - the route looks up the server entry by
       // serverUrl, so per-server OAuth still applies for password+TOTP.
       body: JSON.stringify({ serverUrl, username, password, totp, slot, redirectUri, rememberMe }),
-    }).then((res) => noteSessionAnswer(res, slot));
+    })).then((res) => noteSessionAnswer(res, slot));
   }
   try {
     const tokens = await liteTokenLogin({ serverUrl, username, password, totp, redirectUri });
@@ -536,7 +544,8 @@ async function exchangeOAuthCode(params: {
 }): Promise<Response> {
   const { serverUrl, code, codeVerifier, redirectUri, slot, serverId, remember, iss } = params;
   if (!IS_LITE) {
-    return apiFetch(`/api/auth/token?slot=${slot}`, {
+    return trackSessionWrite(slot, signal => apiFetch(`/api/auth/token?slot=${slot}`, {
+      signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -550,7 +559,7 @@ async function exchangeOAuthCode(params: {
         // The desktop app signs in to a server only it knows about.
         ...(IS_DESKTOP_BUILD ? { custom_server_url: serverUrl, client_id: sessionStorage.getItem(DESKTOP_CLIENT_ID_KEY) } : {}),
       }),
-    }).then((res) => noteSessionAnswer(res, slot));
+    })).then((res) => noteSessionAnswer(res, slot));
   }
   // The login page parked where and as whom to redeem the code
   // (lib/auth/lite-oauth.ts); without it this is not a flow we started. A
@@ -763,7 +772,7 @@ function fetchSlotAccessToken(slot: number, opts: { force?: boolean; remember?: 
  * The sign-out barrier waits for these writes before clearing the cookies.
  */
 export async function renewRememberedSessionCookies(): Promise<void> {
-  if (IS_LITE || !useAuthStore.getState().isAuthenticated) return;
+  if (IS_LITE || !hasSessionCookieLocks() || !useAuthStore.getState().isAuthenticated) return;
   const connected = useAuthStore.getState().getAllConnectedClients();
   const accounts = useAccountStore.getState().accounts.filter(account =>
     account.rememberMe && account.authMode === 'basic' && connected.has(account.id)
@@ -771,9 +780,13 @@ export async function renewRememberedSessionCookies(): Promise<void> {
   await Promise.allSettled(accounts.map(account => {
     const slot = account.cookieSlot!;
     return trackSessionWrite(slot, signal => {
+      const current = useAccountStore.getState().getAccountById(account.id);
+      if (!current || current.cookieSlot !== slot || !current.rememberMe || !useAuthStore.getState().isAuthenticated) {
+        throw new DOMException('The account changed while renewal waited', 'AbortError');
+      }
       const request = renewalSignal(signal);
-      return apiFetch(`/api/auth/session?slot=${slot}`, { method: 'GET', cache: 'no-store', signal: request.signal })
-        .then(answer => noteSessionAnswer(answer, slot)).finally(request.done);
+      return apiFetch(`/api/auth/session?slot=${slot}&renew=true`, { method: 'GET', cache: 'no-store', signal: request.signal })
+        .then(answer => answer.ok ? answer : noteSessionAnswer(answer, slot)).finally(request.done);
     });
   }));
 }
@@ -781,7 +794,7 @@ export async function renewRememberedSessionCookies(): Promise<void> {
 /** PUT /api/auth/session[?slot=N] - the slot's remembered password or access token. */
 async function fetchSlotSession(slot?: number): Promise<Response> {
   if (!IS_LITE) {
-    return apiFetch(slot === undefined ? '/api/auth/session' : `/api/auth/session?slot=${slot}`, { method: 'PUT' })
+    return trackSessionWrite(slot ?? 0, signal => apiFetch(slot === undefined ? '/api/auth/session' : `/api/auth/session?slot=${slot}`, { method: 'PUT', signal }))
       .then((res) => noteSessionAnswer(res, slot ?? 0));
   }
   const stored = readLiteBasicSession(slot ?? 0);
@@ -830,7 +843,13 @@ async function clearClosingSlots(
 ): Promise<string | null> {
   try {
     await settleSessionWrites(slots);
-    const result = await withTimeout(requests(), CREDENTIAL_CLEANUP_TIMEOUT_MS);
+    // Settle local writers before taking shared locks: queued writers may
+    // themselves be waiting for a lock held by another tab.
+    const cleanup = withSessionCookieLocks([...slots], () => {
+      revokeQueuedSessionWrites([...slots]);
+      return requests();
+    });
+    const result = await withTimeout(cleanup, CREDENTIAL_CLEANUP_TIMEOUT_MS);
     if (result === TIMED_OUT) {
       console.warn('[auth] Sign-out cleanup is taking long; finishing it in the background');
       return null;
@@ -2529,12 +2548,13 @@ export const useAuthStore = create<AuthState>()(
           // SSO token exchange and config fetch are independent - fire both
           // up front and let them resolve in parallel.
           const [ssoRes, config] = await Promise.all([
-            apiFetch('/api/auth/sso/complete', {
+            trackSessionWrite(slot, signal => apiFetch('/api/auth/sso/complete', {
+              signal,
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
               body: JSON.stringify({ code, state, slot, ...(iss ? { iss } : {}) }),
-            }).then((res) => noteSessionAnswer(res, slot)),
+            })).then((res) => noteSessionAnswer(res, slot)),
             fetchConfig(),
           ]);
 
@@ -2575,11 +2595,12 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null, isRateLimited: false, rateLimitUntil: null });
         try {
           const slot = useAccountStore.getState().getNextCookieSlot();
-          const res = await apiFetch('/api/auth/desktop-handoff/redeem', {
+          const res = await trackSessionWrite(slot, signal => apiFetch('/api/auth/desktop-handoff/redeem', {
+            signal,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code, code_verifier: verifier, slot, remember, allowed_servers: allowedServers, custom_servers_allowed: customServersAllowed }),
-          }).then((answer) => noteSessionAnswer(answer, slot));
+          })).then((answer) => noteSessionAnswer(answer, slot));
           if (!res.ok) {
             const refusal = (await res.json().catch(() => null)) as { error?: string } | null;
             set({ isLoading: false, error: null });
@@ -3273,7 +3294,7 @@ export const useAuthStore = create<AuthState>()(
         // login back in with no PIN. The DELETE goes first, and adoption waits for it.
         if (accounts.length === 0 && !IS_LITE && await clearPendingCookies()) {
           try {
-            const restore = await apiFetch('/api/auth/session', { method: 'PUT' });
+            const restore = await fetchSlotSession(0);
             if (restore.ok) {
               const data = await restore.json();
               if (data?.serverUrl && data?.username && (data?.password || data?.token)) {

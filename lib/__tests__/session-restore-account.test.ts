@@ -153,7 +153,7 @@ describe('restoring a remembered token sign-in that claimed a bare name', () => 
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('rolls a chosen remembered cookie across reloads without resetting its sealed sign-in age', async () => {
+  it('rolls only explicit locked renewals and preserves the sealed age across normal restores', async () => {
     await signIn('AT-A', 'john', true);
     const original = jar.get('jmap_session')!;
     const { decryptSession } = await import('@/lib/auth/crypto');
@@ -161,11 +161,16 @@ describe('restoring a remembered token sign-in that claimed a bare name', () => 
     for (const method of ['GET', 'PUT'] as const) {
       cookieWrites.length = 0;
       expect((await restore(method)).status).toBe(200);
-      const renewed = cookieWrites.find(write => write.name === 'jmap_session');
-      expect(renewed?.value).toBe(original);
-      expect(Number(renewed?.options?.maxAge)).toBeGreaterThan(0);
+      expect(cookieWrites.filter(write => write.name === 'jmap_session')).toEqual([]);
       expect(decryptSession(jar.get('jmap_session')!)?.signedInAt).toBe(signedInAt);
     }
+    const { GET } = await import('@/app/api/auth/session/route');
+    cookieWrites.length = 0;
+    expect((await GET(new NextRequest('https://webmail.example/api/auth/session?renew=true', { headers: SAME_ORIGIN }))).status).toBe(200);
+    const renewed = cookieWrites.find(write => write.name === 'jmap_session');
+    expect(renewed?.value).toBe(original);
+    expect(Number(renewed?.options?.maxAge)).toBeGreaterThan(0);
+    expect(decryptSession(jar.get('jmap_session')!)?.signedInAt).toBe(signedInAt);
     const { DELETE } = await import('@/app/api/auth/session/route');
     expect((await DELETE(new NextRequest('https://webmail.example/api/auth/session', { method: 'DELETE', headers: SAME_ORIGIN }))).status).toBe(200);
     expect(jar.has('jmap_session')).toBe(false);
@@ -176,6 +181,15 @@ describe('restoring a remembered token sign-in that claimed a bare name', () => 
     cookieWrites.length = 0;
     expect((await restore('PUT')).status).toBe(200);
     expect(cookieWrites.filter(write => write.name === 'jmap_session')).toEqual([]);
+    const { GET } = await import('@/app/api/auth/session/route');
+    expect((await GET(new NextRequest('https://webmail.example/api/auth/session?renew=true', { headers: SAME_ORIGIN }))).status).toBe(200);
+    expect(cookieWrites.filter(write => write.name === 'jmap_session')).toEqual([]);
+  });
+  it('refuses cookie renewal outside the same-origin fetch protocol without writing any cookies', async () => {
+    await signIn('AT-A', 'john', true); cookieWrites.length = 0;
+    const { GET } = await import('@/app/api/auth/session/route');
+    expect((await GET(new NextRequest('https://webmail.example/api/auth/session?renew=true'))).status).toBe(403);
+    expect(cookieWrites).toEqual([]);
   });
 
   it('keeps the account the sign-in resolved the bare login to, on GET and on PUT, without asking the mail server', async () => {

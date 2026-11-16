@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createConfig } from '@/lib/__tests__/fixtures/config';
 
 // Signing in with "Remember me" stores the session in a cookie for the next
@@ -39,10 +39,13 @@ let releaseSessionWrite!: () => void;
 let releaseRenewal!: () => void;
 let delayRenewal = false;
 const calls: string[] = [];
+let locksBefore: PropertyDescriptor | undefined;
+afterEach(() => { if (locksBefore) Object.defineProperty(navigator, 'locks', locksBefore); else Reflect.deleteProperty(navigator, 'locks'); });
 
 beforeEach(() => {
   calls.length = 0;
   delayRenewal = false;
+  locksBefore = Object.getOwnPropertyDescriptor(navigator, 'locks');
   sessionStorage.clear();
   localStorage.clear();
   useAccountStore.setState({ accounts: [], activeAccountId: null, defaultAccountId: null });
@@ -91,6 +94,7 @@ it('signs out only after a session write still running has finished', async () =
 
 
 it('waits for an active remembered-cookie renewal before final sign-out clearing', async () => {
+  Object.defineProperty(navigator, 'locks', { configurable: true, value: { request: (_name: string, _options: unknown, work: (lock: unknown) => unknown) => Promise.resolve(work({})) } });
   await useAuthStore.getState().login(SERVER, 'bob@example.com', 'pw', undefined, true);
   releaseSessionWrite();
   await vi.waitFor(() => expect(calls).toContain('session written'));

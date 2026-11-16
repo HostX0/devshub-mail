@@ -317,6 +317,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const renewCookie = request.nextUrl.searchParams.get('renew') === 'true';
+  if (renewCookie && (request.headers.get('sec-fetch-site') !== 'same-origin' || request.headers.get('sec-fetch-mode') !== 'cors' || request.headers.get('sec-fetch-dest') !== 'empty')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   try {
     const slot = getSlot(request);
     const cookieName = sessionCookieName(slot);
@@ -337,13 +341,12 @@ export async function GET(request: NextRequest) {
     const age = await checkSessionAge(cookieStore, slot, credentials);
     if ('maxHours' in age) return sessionTooOld(age.maxHours);
 
-    // Roll only an explicitly persistent (or legacy remembered) cookie.
-    // Its sealed sign-in time is unchanged: configured maximum ages still apply.
-    if (credentials.remember !== false) cookieStore.set(cookieName, token, sessionCookieOptions(true));
     restoreContext(cookieStore, slot, credentials);
 
     // Only return non-sensitive fields. Use PUT to retrieve full credentials.
     const { serverUrl, username } = credentials;
+    // Only the Web-Lock-protected same-origin renewal rolls cookie expiry.
+    if (renewCookie && credentials.remember !== false) cookieStore.set(cookieName, token, sessionCookieOptions(true));
     const impersonated = isImpersonationSession(cookieStore, slot, credentials);
     return NextResponse.json(
       { serverUrl, username, signedInAt: age.signedInAt, ...(impersonated ? { impersonated } : {}) },
@@ -395,9 +398,6 @@ export async function PUT(request: NextRequest) {
     const age = await checkSessionAge(cookieStore, slot, credentials);
     if ('maxHours' in age) return sessionTooOld(age.maxHours);
 
-    // Roll only an explicitly persistent (or legacy remembered) cookie.
-    // Its sealed sign-in time is unchanged: configured maximum ages still apply.
-    if (credentials.remember !== false) cookieStore.set(cookieName, token, sessionCookieOptions(true));
     restoreContext(cookieStore, slot, credentials);
 
     // The browser counts the maximum session length from the server's time.
