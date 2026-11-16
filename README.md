@@ -61,3 +61,16 @@ claimed username or an untrusted custom JMAP endpoint cannot grant mailbox
 administration. Each successful change is written to the existing audit log
 without passwords or credential material. Domain DNS is configured once;
 creating subsequent employee mailboxes does not require new DNS records.
+
+## Staying signed in
+
+The login page shows the stay-signed-in choice by default. Remembered cookies
+renew on successful restores and hourly while the signed-in mail app is active;
+the sealed sign-in time stays unchanged. Set `SESSION_REMEMBER_DAYS=400` for the
+longest browser-supported renewal window. An unticked sign-in retains the
+existing browser-session behavior and is never upgraded during restore.
+
+Organisation idle and maximum-session limits remain enforced when configured.
+Their existing value `0` means no automatic timeout. Sign-out waits for pending
+renewal writes before clearing the session. Disabled accounts, revoked
+credentials and upstream administrator checks keep their existing enforcement.

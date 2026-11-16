@@ -34,10 +34,11 @@ vi.mock('@/lib/admin/config-manager', () => ({
 }));
 
 let jar = new Map<string, string>();
+const cookieWrites: Array<{ name: string; value: string; options?: Record<string, unknown> }> = [];
 vi.mock('next/headers', () => ({
   cookies: async () => ({
     get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined),
-    set: (name: string, value: string) => { jar.set(name, value); },
+    set: (name: string, value: string, options?: Record<string, unknown>) => { jar.set(name, value); cookieWrites.push({ name, value, options }); },
     delete: (name: string | { name: string }) => { jar.delete(typeof name === 'string' ? name : name.name); },
     getAll: () => [...jar].map(([name, value]) => ({ name, value })),
   }),
@@ -64,13 +65,13 @@ function twoJohns(input: RequestInfo | URL, init?: RequestInit): Promise<Respons
   return Promise.resolve(Response.json({ methodResponses: [] }));
 }
 
-async function signIn(token: string, username = 'john') {
+async function signIn(token: string, username = 'john', remember?: boolean) {
   jar = new Map();
   const { POST } = await import('@/app/api/auth/session/route');
   const res = await POST(new NextRequest('https://webmail.example/api/auth/session', {
     method: 'POST',
     headers: { ...SAME_ORIGIN, 'content-type': 'application/json' },
-    body: JSON.stringify({ serverUrl: SERVER, username, token, slot: 0 }),
+    body: JSON.stringify({ serverUrl: SERVER, username, token, slot: 0, ...(remember !== undefined ? { remember } : {}) }),
   }));
   expect(res.status).toBe(200);
 }
@@ -147,9 +148,35 @@ describe('restoring a remembered token sign-in that claimed a bare name', () => 
     resetLocalStoreForTests();
     rmSync(settingsDir, { recursive: true, force: true });
     sessionRequests = [];
+    cookieWrites.length = 0;
     vi.stubGlobal('fetch', vi.fn(twoJohns));
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('rolls a chosen remembered cookie across reloads without resetting its sealed sign-in age', async () => {
+    await signIn('AT-A', 'john', true);
+    const original = jar.get('jmap_session')!;
+    const { decryptSession } = await import('@/lib/auth/crypto');
+    const signedInAt = decryptSession(original)?.signedInAt;
+    for (const method of ['GET', 'PUT'] as const) {
+      cookieWrites.length = 0;
+      expect((await restore(method)).status).toBe(200);
+      const renewed = cookieWrites.find(write => write.name === 'jmap_session');
+      expect(renewed?.value).toBe(original);
+      expect(Number(renewed?.options?.maxAge)).toBeGreaterThan(0);
+      expect(decryptSession(jar.get('jmap_session')!)?.signedInAt).toBe(signedInAt);
+    }
+    const { DELETE } = await import('@/app/api/auth/session/route');
+    expect((await DELETE(new NextRequest('https://webmail.example/api/auth/session', { method: 'DELETE', headers: SAME_ORIGIN }))).status).toBe(200);
+    expect(jar.has('jmap_session')).toBe(false);
+    expect((await restore()).status).toBe(401);
+  });
+  it('never upgrades an unticked browser-session sign-in into a persistent cookie on restore', async () => {
+    await signIn('AT-A', 'john', false);
+    cookieWrites.length = 0;
+    expect((await restore('PUT')).status).toBe(200);
+    expect(cookieWrites.filter(write => write.name === 'jmap_session')).toEqual([]);
+  });
 
   it('keeps the account the sign-in resolved the bare login to, on GET and on PUT, without asking the mail server', async () => {
     await signIn('AT-A');

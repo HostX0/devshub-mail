@@ -382,7 +382,7 @@ function LoginPageContent() {
   // back. Off (the default) keeps the SSO-only card exactly as before.
   const [passwordFallbackMode, setPasswordFallbackMode] = useState(false);
   const passwordFallbackAvailable = oauthOnly && oauthPasswordFallbackEnabled;
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   // Lite (no server session): "remember me" needs Stalwart's token login on the
   // target server. Probe it once per URL and hide the box when it is missing;
   // those sessions then only last as long as the tab (lib/auth/lite-tokens.ts).

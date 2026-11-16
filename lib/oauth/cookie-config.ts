@@ -1,3 +1,4 @@
+import { SESSION_COOKIE_MAX_AGE } from '@/lib/auth/session-cookie';
 import { configManager } from '@/lib/admin/config-manager';
 
 type SameSite = 'lax' | 'none' | 'strict';
@@ -21,6 +22,6 @@ export function getCookieOptions() {
  * an expiry otherwise, so the browser drops them when its session ends.
  */
 export function getSignInCookieOptions(remember: boolean) {
-  const { maxAge, ...sessionOptions } = getCookieOptions();
-  return remember ? { ...sessionOptions, maxAge } : sessionOptions;
+  const { maxAge: _maxAge, ...sessionOptions } = getCookieOptions();
+  return remember ? { ...sessionOptions, maxAge: SESSION_COOKIE_MAX_AGE } : sessionOptions;
 }

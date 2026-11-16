@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       loginShowTotp: configManager.get<boolean>('loginShowTotp', false),
       loginShowTokenLogin: configManager.get<boolean>('loginShowTokenLogin', false),
       desktopBrowserSignIn: configManager.get<boolean>('desktopBrowserSignIn', true),
-      loginShowRememberMe: configManager.get<boolean>('loginShowRememberMe', false),
+      loginShowRememberMe: configManager.get<boolean>('loginShowRememberMe', true),
       // Session cookies hold the unticked sign-in, sealed like a remembered one.
       browserSessionSignIn: configManager.get<boolean>('browserSessionSignIn', false) && hasSessionSecret(),
       loginShowVersion: configManager.get<boolean>('loginShowVersion', true),

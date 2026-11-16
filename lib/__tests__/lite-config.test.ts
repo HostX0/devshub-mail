@@ -8,7 +8,7 @@ describe('applyLiteConfig (config.json for the static build)', () => {
     expect(config.appName).toBe('Webmail');
     expect(config.jmapServerUrl).toBe('');
     expect(config.rememberMeEnabled).toBe(true);
-    expect(config.loginShowRememberMe).toBe(false);
+    expect(config.loginShowRememberMe).toBe(true);
     expect(config.loginShowTotp).toBe(false);
     expect(config.faviconUrl).toBe('/branding/Bulwark_Favicon.svg');
     expect(config.loginLogoLightUrl).toBe('/branding/Bulwark_Logo_Color.svg');

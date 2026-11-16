@@ -31,21 +31,25 @@ vi.mock('@/lib/jmap/client', () => {
 vi.mock('@/lib/stalwart/principal', () => ({ fetchPrincipalDisplayName: async () => null }));
 
 import * as nav from '@/lib/browser-navigation';
-import { useAuthStore } from '@/stores/auth-store';
+import { renewRememberedSessionCookies, useAuthStore } from '@/stores/auth-store';
 import { useAccountStore } from '@/stores/account-store';
 
 const SERVER = 'https://mail.example.com';
 let releaseSessionWrite!: () => void;
+let releaseRenewal!: () => void;
+let delayRenewal = false;
 const calls: string[] = [];
 
 beforeEach(() => {
   calls.length = 0;
+  delayRenewal = false;
   sessionStorage.clear();
   localStorage.clear();
   useAccountStore.setState({ accounts: [], activeAccountId: null, defaultAccountId: null });
   useAuthStore.setState({ isAuthenticated: false, client: null, activeAccountId: null });
   vi.spyOn(nav, 'replaceWindowLocation').mockImplementation(() => {});
   const sessionWritten = new Promise<void>((resolve) => { releaseSessionWrite = resolve; });
+  const renewalDone = new Promise<void>(resolve => { releaseRenewal = resolve; });
   vi.stubGlobal('fetch', vi.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
@@ -55,6 +59,9 @@ beforeEach(() => {
       await sessionWritten;
       calls.push('session written');
       return new Response('{"ok":true}', { status: 200 });
+    }
+    if (url.startsWith('/api/auth/session') && method === 'GET' && delayRenewal) {
+      await renewalDone; calls.push('session renewed'); return new Response('{}', { status: 200 });
     }
     if (url.includes('/api/config')) return new Response(JSON.stringify(createConfig()), { status: 200 });
     return new Response('{}', { status: 200 });
@@ -80,4 +87,19 @@ it('signs out only after a session write still running has finished', async () =
   const written = calls.indexOf('session written');
   expect(written).toBeGreaterThan(-1);
   expect(calls.indexOf('DELETE /api/auth/session')).toBeGreaterThan(written);
+});
+
+
+it('waits for an active remembered-cookie renewal before final sign-out clearing', async () => {
+  await useAuthStore.getState().login(SERVER, 'bob@example.com', 'pw', undefined, true);
+  releaseSessionWrite();
+  await vi.waitFor(() => expect(calls).toContain('session written'));
+  delayRenewal = true;
+  const renewing = renewRememberedSessionCookies();
+  expect(calls).toContain('GET /api/auth/session');
+  const ending = useAuthStore.getState().logout();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(calls).not.toContain('DELETE /api/auth/session');
+  releaseRenewal(); await renewing; await ending;
+  expect(calls.indexOf('DELETE /api/auth/session')).toBeGreaterThan(calls.indexOf('session renewed'));
 });

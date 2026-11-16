@@ -337,6 +337,9 @@ export async function GET(request: NextRequest) {
     const age = await checkSessionAge(cookieStore, slot, credentials);
     if ('maxHours' in age) return sessionTooOld(age.maxHours);
 
+    // Roll only an explicitly persistent (or legacy remembered) cookie.
+    // Its sealed sign-in time is unchanged: configured maximum ages still apply.
+    if (credentials.remember !== false) cookieStore.set(cookieName, token, sessionCookieOptions(true));
     restoreContext(cookieStore, slot, credentials);
 
     // Only return non-sensitive fields. Use PUT to retrieve full credentials.
@@ -392,6 +395,9 @@ export async function PUT(request: NextRequest) {
     const age = await checkSessionAge(cookieStore, slot, credentials);
     if ('maxHours' in age) return sessionTooOld(age.maxHours);
 
+    // Roll only an explicitly persistent (or legacy remembered) cookie.
+    // Its sealed sign-in time is unchanged: configured maximum ages still apply.
+    if (credentials.remember !== false) cookieStore.set(cookieName, token, sessionCookieOptions(true));
     restoreContext(cookieStore, slot, credentials);
 
     // The browser counts the maximum session length from the server's time.

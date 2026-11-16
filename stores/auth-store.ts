@@ -759,6 +759,25 @@ function fetchSlotAccessToken(slot: number, opts: { force?: boolean; remember?: 
   }, { signal }));
 }
 
+/** Refresh remembered Basic-auth cookies without exposing credentials.
+ * The sign-out barrier waits for these writes before clearing the cookies.
+ */
+export async function renewRememberedSessionCookies(): Promise<void> {
+  if (IS_LITE || !useAuthStore.getState().isAuthenticated) return;
+  const connected = useAuthStore.getState().getAllConnectedClients();
+  const accounts = useAccountStore.getState().accounts.filter(account =>
+    account.rememberMe && account.authMode === 'basic' && connected.has(account.id)
+      && account.cookieSlot !== undefined && !closingSlots.has(account.cookieSlot));
+  await Promise.allSettled(accounts.map(account => {
+    const slot = account.cookieSlot!;
+    return trackSessionWrite(slot, signal => {
+      const request = renewalSignal(signal);
+      return apiFetch(`/api/auth/session?slot=${slot}`, { method: 'GET', cache: 'no-store', signal: request.signal })
+        .then(answer => noteSessionAnswer(answer, slot)).finally(request.done);
+    });
+  }));
+}
+
 /** PUT /api/auth/session[?slot=N] - the slot's remembered password or access token. */
 async function fetchSlotSession(slot?: number): Promise<Response> {
   if (!IS_LITE) {

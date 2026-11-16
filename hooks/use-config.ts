@@ -280,7 +280,7 @@ export function useConfig(): AppConfig {
     loginShowTotp: configCache?.loginShowTotp ?? false,
     loginShowTokenLogin: configCache?.loginShowTokenLogin ?? false,
     desktopBrowserSignIn: configCache?.desktopBrowserSignIn ?? true,
-    loginShowRememberMe: configCache?.loginShowRememberMe ?? false,
+    loginShowRememberMe: configCache?.loginShowRememberMe ?? true,
     browserSessionSignIn: configCache?.browserSessionSignIn ?? false,
     loginShowVersion: configCache?.loginShowVersion ?? true,
     demoMode: configCache?.demoMode || false,

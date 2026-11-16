@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuthStore } from "@/stores/auth-store";
+import { renewRememberedSessionCookies, useAuthStore } from "@/stores/auth-store";
 import { useAccountStore } from "@/stores/account-store";
 import { usePolicyStore } from "@/stores/policy-store";
 import { policySubjectForClient } from "@/lib/admin/policy-subject";
@@ -101,7 +101,7 @@ export function SessionTimeoutGuard() {
   const client = useAuthStore((s) => s.client);
   const revision = useAuthStore((s) => s.connectedAccountsRevision);
   const rawPolicy = usePolicyStore((s) => s.rawPolicy);
-  const accountsKey = useAccountStore((s) => s.accounts.map((a) => `${a.id}|${a.signedInAt ?? ""}|${a.isConnected}`).join(","));
+  const accountsKey = useAccountStore((s) => s.accounts.map((a) => `${a.id}|${a.signedInAt ?? ""}|${a.isConnected}|${a.rememberMe}`).join(","));
 
   // The last activity any tab recorded, read once before this tab's own
   // listeners can write it: a reload after a pause longer than the limit
@@ -121,6 +121,22 @@ export function SessionTimeoutGuard() {
   limitsReadyRef.current = limitsReady;
   const endingRef = useRef(false);
   const active = isAuthenticated && !isDemoMode;
+
+  // Roll remembered cookies while active; configured idle/max limits remain in force.
+  useEffect(() => {
+    if (!active) return;
+    let lastAttempt = Number.NEGATIVE_INFINITY;
+    const renew = () => {
+      if (Date.now() - lastAttempt < 60 * 60 * 1000) return;
+      lastAttempt = Date.now();
+      void renewRememberedSessionCookies();
+    };
+    const visible = () => { if (document.visibilityState === 'visible') renew(); };
+    renew();
+    const timer = setInterval(renew, 60 * 60 * 1000);
+    document.addEventListener('visibilitychange', visible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
+  }, [active, revision, accountsKey]);
 
   useEffect(() => {
     if (!active) {

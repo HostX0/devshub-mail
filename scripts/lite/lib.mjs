@@ -207,6 +207,7 @@ export function buildLiteConfig(env = {}, { target = "static" } = {}) {
     // Written out so deployers find the switch (#903; lib/outgoing-hosts.ts).
     noThirdPartyTraffic: parseBool(env.LITE_NO_THIRD_PARTY_TRAFFIC, false),
     loginShowTotp: false,
+    loginShowRememberMe: true,
     loginShowVersion: true,
   };
 }

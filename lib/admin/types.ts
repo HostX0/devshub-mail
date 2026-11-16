@@ -349,9 +349,9 @@ export const CONFIG_ENV_MAP: Record<string, { envVar?: string; fileEnvVar?: stri
   // The desktop app's "Sign in with your browser". Turn off on a terminal server: another
   // user there can bind a loopback port and send a link that asks for someone's sign-in.
   desktopBrowserSignIn: { envVar: 'DESKTOP_BROWSER_SIGN_IN', type: 'boolean', defaultValue: true },
-  // Show the "Remember me" box on the login form. Off (the default) remembers
-  // every sign-in, as long as a SESSION_SECRET makes that possible.
-  loginShowRememberMe: { envVar: 'LOGIN_SHOW_REMEMBER_ME', type: 'boolean', defaultValue: false },
+  // Show the stay-signed-in choice on the login form by default.
+  // A SESSION_SECRET is required to keep the chosen session.
+  loginShowRememberMe: { envVar: 'LOGIN_SHOW_REMEMBER_ME', type: 'boolean', defaultValue: true },
   // A sign-in made with "Remember me" unticked lasts until the browser closes
   // (session cookies) instead of ending at the next reload or new tab. Needs
   // SESSION_SECRET, like remembering does.

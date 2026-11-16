@@ -36,7 +36,7 @@
     "token_label": "رمز الوصول",
     "token_placeholder": "الصق رمز API الخاص بك",
     "token_hint": "أنشئ رمز API في إعدادات مزوّد البريد الخاص بك والصقه هنا.",
-    "remember_me": "تذكرني",
+    "remember_me": "البقاء متصلاً",
     "config_error": {
       "title": "خطأ في الإعداد",
       "fetch_failed": "تعذّر تحميل إعدادات التطبيق. يرجى المحاولة مرة أخرى لاحقًا.",
@@ -3881,7 +3881,7 @@
       "secret": "سر الجلسة",
       "configured": "مُعدّ",
       "not_set": "غير معيّن",
-      "remember_me": "تذكرني",
+      "remember_me": "البقاء متصلاً",
       "available": "متاح",
       "disabled": "معطّل",
       "sync": "مزامنة الإعدادات",

@@ -148,6 +148,16 @@ describe('signing in with the box unticked', () => {
 });
 
 describe('a reload or a new tab', () => {
+  it('restores a checked sign-in after a full page/Admin navigation with no in-memory client', async () => {
+    expect(useAuthStore.getState().client).toBeNull();
+    const persisted = account({ rememberMe: true });
+    expect(persisted).not.toHaveProperty('password');
+    await reload(persisted);
+    expect(restores('/api/auth/session')).toHaveLength(1);
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().client?.getUsername()).toBe(USER);
+    expect(useAccountStore.getState().accounts[0].rememberMe).toBe(true);
+  });
   it('restores an unticked password sign-in from its cookie when the admin allows it', async () => {
     setting.on = true;
     await reload(account());
