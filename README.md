@@ -48,7 +48,8 @@ Open **Admin → بريد الموظفين** (`/admin/mailboxes`) to create empl
 mailboxes, choose storage limits, change display names and passwords, disable
 or re-enable access, or delete a mailbox. Quotas use GiB (1024 MiB). New
 employees always receive the ordinary User role; administrator accounts and
-accounts with custom roles or permissions cannot be modified by this panel.
+accounts with custom roles, permissions or group memberships cannot be modified
+by this panel. Use the Stalwart console to manage those accounts.
 Password changes preserve MFA and secondary credentials. Disabling replaces
 inherited permissions with an empty permission set without deleting messages
 or credentials; enabling restores the ordinary inherited User permissions.

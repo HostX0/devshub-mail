@@ -42,6 +42,7 @@ function disabled(account: Account): boolean {
 export function isEmployeeAccount(account: Obj): boolean {
   const p = account.permissions as Obj | undefined;
   return account['@type'] === 'User' && (account.roles as Obj)?.['@type'] === 'User'
+    && (!account.memberGroupIds || emptyMap(account.memberGroupIds))
     && (!p || p['@type'] === 'Inherit' || disabled(account as Account));
 }
 export class MailboxManager {
@@ -111,7 +112,7 @@ export class MailboxManager {
     }
     const got = await this.call('x:Account/get', { ids: [input.id] });
     const target = (got.list as Account[] ?? []).find(a => a.id === input.id);
-    if (!target || !isEmployeeAccount(target) || !this.domains.some(d => d.id === target.domainId)) throw new MailboxAdminError(403, 'protected_account', 'Only ordinary employee mailboxes in the configured domains can be changed here. Administrator accounts are protected.');
+    if (!target || target.id === this.accountId || !isEmployeeAccount(target) || !this.domains.some(d => d.id === target.domainId)) throw new MailboxAdminError(403, 'protected_account', 'Only ordinary employee mailboxes in the configured domains can be changed here. Administrator accounts are protected.');
     if (input.action === 'delete') {
       const result = await this.call('x:Account/set', { destroy: [target.id] });
       if (!Array.isArray(result.destroyed) || !result.destroyed.includes(target.id)) throw new MailboxAdminError(502, 'invalid_response', 'The server did not confirm deletion. Refresh before retrying.');

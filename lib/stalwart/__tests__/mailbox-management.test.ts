@@ -61,7 +61,7 @@ describe('super-admin authority and domain boundaries', () => {
     await expect(manager.mutate(validateMailboxInput({ action: 'create', email: 'new@other.com', quotaBytes: 1024 ** 3, password: 'Strong-pass-1234' }))).rejects.toMatchObject({ code: 'domain_not_allowed' });
     expect(calls.some(c => c[0] === 'x:Account/set')).toBe(false);
   });
-  it.each([{ ...employee, roles: { '@type': 'Admin' } }, { ...employee, roles: { '@type': 'Custom' } }, { ...employee, domainId: 'other' }, { ...employee, permissions: { '@type': 'Merge' } }])('protects administrators, custom permissions and other domains', async target => {
+  it.each([{ ...employee, roles: { '@type': 'Admin' } }, { ...employee, roles: { '@type': 'Custom' } }, { ...employee, domainId: 'other' }, { ...employee, permissions: { '@type': 'Merge' } }, { ...employee, memberGroupIds: { privilegedGroup: true } }])('protects administrators, custom permissions and other domains', async target => {
     const { manager, calls } = fixture({ target }); await manager.authorize();
     await expect(manager.mutate({ action: 'delete', id: 'employee' })).rejects.toMatchObject({ code: 'protected_account' });
     expect(calls.some(c => c[0] === 'x:Account/set')).toBe(false);
