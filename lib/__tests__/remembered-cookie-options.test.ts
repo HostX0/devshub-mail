@@ -5,6 +5,6 @@ afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 it('uses the operator long remembered window while keeping unticked sign-ins browser-scoped', async () => {
   vi.stubEnv('SESSION_REMEMBER_DAYS', '400'); vi.resetModules();
   const { getSignInCookieOptions } = await import('@/lib/oauth/cookie-config');
-  expect(getSignInCookieOptions(true).maxAge).toBe(400 * 24 * 60 * 60);
+  expect(getSignInCookieOptions(true)).toMatchObject({ maxAge: 400 * 24 * 60 * 60 });
   expect(getSignInCookieOptions(false)).not.toHaveProperty('maxAge');
 });
