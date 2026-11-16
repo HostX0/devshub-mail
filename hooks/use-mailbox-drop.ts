@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useState, DragEvent } from "react";
+import { useTranslations } from "next-intl";
 import { Mailbox, Email } from "@/lib/jmap/types";
-import { useEmailStore, isAggregateListView } from "@/stores/email-store";
+import { useEmailStore, isAggregateListView, mailboxesInView, restoreBatchesFor, type EmailRestoreBatch, type CrossAccountMoveReceipt } from "@/stores/email-store";
 import { useShallow } from "zustand/react/shallow";
 import { emailKeyFor } from "@/lib/thread-utils";
 import { useAuthStore } from "@/stores/auth-store";
@@ -10,6 +11,8 @@ import { useDragDropContext } from "@/contexts/drag-drop-context";
 import { dragDropHooks } from "@/lib/plugin-hooks";
 import { toast } from "@/stores/toast-store";
 import { getMailboxPath } from "@/lib/utils";
+import { batchToastTitle, selectionRowCount } from "@/lib/selection-toast";
+import { useSettingsStore } from "@/stores/settings-store";
 
 /**
  * Returns the source accountId for an email being dragged. In unified view
@@ -35,8 +38,11 @@ interface UseMailboxDropOptions {
    */
   accountId?: string;
   onDropComplete?: () => void;
-  // Translation callbacks for toast messages
-  onSuccess?: (count: number, mailboxName: string) => void;
+  // Translation callbacks for toast messages. `restore` says where the
+  // messages were, for the toast's Undo; null when the move went to another
+  // account, which Undo can't take back.
+  /** `restore` and `receipts` are what Undo needs (undoMoveAction). */
+  onSuccess?: (count: number, mailboxName: string, restore: EmailRestoreBatch[] | null, receipts: CrossAccountMoveReceipt[]) => void;
   onError?: (error: string) => void;
 }
 
@@ -53,12 +59,15 @@ interface UseMailboxDropReturn {
 }
 
 export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, onError }: UseMailboxDropOptions): UseMailboxDropReturn {
+  const tListExtra = useTranslations("mail_list_extra");
+  const tRoot = useTranslations();
   const [isOver, setIsOver] = useState(false);
   const { client } = useAuthStore(useShallow((state) => ({ client: state.client })));
-  const { moveEmailsToMailbox, crossAccountMoveEmails, selectedEmailKeys, clearSelection, refreshCurrentMailbox, mailboxes } = useEmailStore(useShallow((state) => ({
+  // The selection is read when something is dropped, not subscribed to: a new
+  // selection (every folder switch makes one) drew every folder row again.
+  const { moveEmailsToMailbox, crossAccountMoveEmails, clearSelection, refreshCurrentMailbox, mailboxes } = useEmailStore(useShallow((state) => ({
     moveEmailsToMailbox: state.moveEmailsToMailbox,
     crossAccountMoveEmails: state.crossAccountMoveEmails,
-    selectedEmailKeys: state.selectedEmailKeys,
     clearSelection: state.clearSelection,
     refreshCurrentMailbox: state.refreshCurrentMailbox,
     mailboxes: state.mailboxes,
@@ -77,6 +86,9 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
 
     // Virtual nodes (shared folder headers) cannot be drop targets
     if (mailbox.id.startsWith("shared-")) return false;
+
+    // Drafts holds what's being written: no Move list offers it either.
+    if (mailbox.role === "drafts") return false;
 
     return true;
   }, [isDragging, mailbox, sourceMailboxId]);
@@ -132,13 +144,17 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
 
       let isCrossAccount = false;
       let moved: boolean;
+      let restore: EmailRestoreBatch[] | null = null;
+      // The messages taken to another account, so Undo can move them back.
+      const receipts: CrossAccountMoveReceipt[] = [];
       if (isAggregateListView()) {
+        restore = restoreBatchesFor(draggedEmails, client);
         // A list that mixes accounts (unified, tag and "All folders" views)
         // stamps every row with its login and account. The store moves each
         // of those groups apart - in place only in the folder's own account,
         // across accounts for the others. It gets the dragged rows: their
         // ids alone can name other accounts' rows too.
-        moved = await moveEmailsToMailbox(client, emailIds, mailbox.id, destAccountId, draggedEmails);
+        moved = await moveEmailsToMailbox(client, emailIds, mailbox.id, destAccountId, draggedEmails, receipts);
       } else {
         // Group dragged emails by source account. In single-account flows this
         // collapses to one bucket; in the Pro multi-account sidebar a single
@@ -159,7 +175,9 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
         //      no atomic Email/set across accounts, even via the same client.
         //   2. Destination is a primary mailbox on a different connected local
         //      account than the source — the historical multi-account case.
-        const sourceMb = useEmailStore.getState().mailboxes.find(mb => mb.id === sourceMailboxId);
+        // The folder on screen, in the list of the login on screen (the
+        // browsed one's): the same id is another folder in the active login's.
+        const sourceMb = mailboxesInView(useEmailStore.getState()).find(mb => mb.id === sourceMailboxId);
         const sourceJmapAccountId = sourceMb?.accountId;
         const destJmapAccountId = mailbox.accountId;
         const sourceAccountIds = Array.from(bySource.keys());
@@ -187,9 +205,11 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
           // through the viewing user's client, but the email/blob live in the
           // owner's JMAP account, so the copy/delete must target it.
           const sourceJmapOverride = sourceMb?.isShared ? sourceMb.accountId : undefined;
-          moved = await crossAccountMoveEmails(bySource, destAccountId, jmapDestId, destJmapOverride, sourceJmapOverride);
+          restore = restoreBatchesFor(draggedEmails.filter(em => emailIds.includes(em.id)), client);
+          moved = await crossAccountMoveEmails(bySource, destAccountId, jmapDestId, destJmapOverride, sourceJmapOverride, { receipts });
         } else {
           // Single-account or same-account-shared move: bulk JMAP request.
+          restore = restoreBatchesFor(draggedEmails.filter(em => emailIds.includes(em.id)), client);
           moved = await moveEmailsToMailbox(client, emailIds, mailbox.id);
         }
       }
@@ -203,6 +223,7 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
 
       // Clear selection if any selected emails were moved. The selection is
       // keyed by owning account, so compare the dragged emails, not their ids.
+      const { selectedEmailKeys } = useEmailStore.getState();
       if (draggedEmails.some(em => selectedEmailKeys.has(emailKeyFor(em)))) {
         clearSelection();
       }
@@ -216,14 +237,17 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
       }
 
       const mailboxPath = getMailboxPath(mailbox, mailboxes);
+      // Counted as the list shows them: conversations when it groups (mail-p3-7).
+      const disableThreading = useSettingsStore.getState().disableThreading;
+      const rows = emailIds.length === 1 ? 1 : selectionRowCount(draggedEmails.filter((em) => emailIds.includes(em.id)), emailIds.length, disableThreading);
 
       if (onSuccess) {
-        onSuccess(emailIds.length, mailboxPath);
+        onSuccess(rows, mailboxPath, restore, receipts);
       } else {
         if (emailIds.length === 1) {
-          toast.success("Email moved", `Moved to ${mailboxPath}`);
+          toast.success(tListExtra("moved_to", { mailbox: mailboxPath }));
         } else {
-          toast.success("Emails moved", `${emailIds.length} emails moved to ${mailboxPath}`);
+          toast.success(batchToastTitle(tRoot, "move", rows, disableThreading, mailboxPath));
         }
       }
 
@@ -241,7 +265,7 @@ export function useMailboxDrop({ mailbox, accountId, onDropComplete, onSuccess, 
     } finally {
       endDrag();
     }
-  }, [client, mailbox, accountId, mailboxes, isValidTarget, moveEmailsToMailbox, crossAccountMoveEmails, draggedEmails, sourceMailboxId, selectedEmailKeys, clearSelection, refreshCurrentMailbox, endDrag, markDropped, onDropComplete, onSuccess, onError]);
+  }, [client, mailbox, accountId, mailboxes, isValidTarget, moveEmailsToMailbox, crossAccountMoveEmails, draggedEmails, sourceMailboxId, clearSelection, refreshCurrentMailbox, endDrag, markDropped, onDropComplete, onSuccess, onError, tListExtra, tRoot]);
 
   const valid = isValidTarget();
 

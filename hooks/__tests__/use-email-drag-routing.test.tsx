@@ -133,7 +133,7 @@ beforeEach(async () => {
   requests = [];
   startDrag.mockClear();
   endDrag.mockClear();
-  vi.spyOn(toast, 'error').mockImplementation(() => {});
+  vi.spyOn(toast, 'error').mockImplementation(() => '');
   revoke = vi.fn<(url: string) => void>();
   vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
     const url = `blob:synthetic-${objects.size}`;
@@ -189,7 +189,8 @@ describe('message drag blob routing', () => {
     expect(payload.get('DownloadURL')).toMatch(/^message\/rfc822:Hello world.eml:blob:/);
     expect(payload.get('application/x-email-ids')).toBe('["same-id"]');
     expect(payload.get('text/plain')).toBe('Hello world');
-    expect(payload.get('text/uri-list')).toContain('/mail/message/same-id?view=fullscreen');
+    // The link names its login, so the Pro shell opens it too.
+    expect(payload.get('text/uri-list')).toMatch(/\/mail\/message\/same-id\?account=[^&]+&view=fullscreen/);
     expect(startDrag).toHaveBeenLastCalledWith([email], 'inbox');
   });
 
@@ -648,7 +649,7 @@ describe('ZIP failure handling and retry', () => {
 describe('message row drag hover wiring', () => {
   beforeEach(() => {
     useSettingsStore.setState({ interfaceLayout: 'default', mailLayout: 'split', density: 'regular', hoverActions: ['delete'] });
-    useUIStore.setState({ isMobile: false, isTablet: false, isDesktop: true });
+    useUIStore.setState({ isMobile: false, isCompact: false, isDesktop: true });
   });
 
   function renderRows(emails: Email[]) {
@@ -730,5 +731,33 @@ describe('message row drag hover wiring', () => {
     const retry = rowDrag(row);
     expect(retry.payload.get('DownloadURL')).toMatch(/^message\/rfc822:Message.eml:blob:/);
     expect(await text(payloadBlob(retry.payload))).toBe(bytes('shared-b', authB));
+  });
+
+  it("in the desktop app an Alt drag is the OS's own with the real bytes, and a plain one stays the page's", async () => {
+    const email = mail({ subject: 'Hello world' });
+    const nativeDrag = vi.fn(async (_files: { name: string; data: Uint8Array }[]) => true);
+    window.bulwarkDesktop = { version: 1, platform: 'win32', os: { startDrag: nativeDrag } } as never;
+    const { result } = renderHook(() => useEmailDrag({ email, sourceMailboxId: 'inbox' }));
+    await warm(result);
+    try {
+      startDrag.mockClear();
+      // Plain: still a move to a folder, still DownloadURL for Explorer.
+      expect(drag(result.current.dragHandlers).has('DownloadURL')).toBe(true);
+      expect(startDrag).toHaveBeenCalled();
+      expect(nativeDrag).not.toHaveBeenCalled();
+
+      startDrag.mockClear();
+      const preventDefault = vi.fn();
+      const dataTransfer = { setData: vi.fn(), setDragImage: vi.fn(), effectAllowed: '' };
+      act(() => result.current.dragHandlers.onDragStart({ altKey: true, preventDefault, dataTransfer } as unknown as DragEvent<HTMLDivElement>));
+      expect(preventDefault).toHaveBeenCalled();
+      expect(startDrag).not.toHaveBeenCalled();
+      await waitFor(() => expect(nativeDrag).toHaveBeenCalled(), { container: document.createElement('div') });
+      const [files] = nativeDrag.mock.calls[0];
+      expect(files[0].name).toBe('Hello world.eml');
+      expect(new TextDecoder().decode(files[0].data)).toBe(bytes('primary-a', authA));
+    } finally {
+      window.bulwarkDesktop = undefined;
+    }
   });
 });

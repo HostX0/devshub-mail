@@ -120,6 +120,25 @@ export function baseEventStoreId(instance: EventIdentity): string | null {
 }
 
 /**
+ * The store id of the event with raw id `rawId` in the same login and account
+ * as `event`: `event`'s namespace prefix in front of it. An occurrence the
+ * browser expanded is `<base event's store id>:<recurrence id>`, and its base
+ * event is addressed by the first part. Null when `rawId` can't be placed
+ * there; the event's id then says nothing about where `rawId` lives.
+ */
+export function storeIdBeside(
+  event: Pick<CalendarEvent, 'id' | 'recurrenceId' | 'recurrenceRules'> & Partial<Pick<CalendarEvent, 'originalId' | 'baseEventId'>>,
+  rawId: string,
+): string | null {
+  const own = event.originalId ?? event.id;
+  if (isBrowserExpandedOccurrence(event)) {
+    const suffix = `:${event.recurrenceId}`;
+    return own === rawId && event.id.endsWith(suffix) ? event.id.slice(0, event.id.length - suffix.length) : null;
+  }
+  return event.id.endsWith(own) ? event.id.slice(0, event.id.length - own.length) + rawId : null;
+}
+
+/**
  * Whether a `CalendarEvent/set` failure is a pre-0.16.20 server refusing a
  * synthetic id ("Updating/Deleting synthetic ids is not yet supported.").
  */
@@ -341,7 +360,7 @@ export function applyOverridePatch<T extends Partial<CalendarEvent>>(event: T, p
  * replaces whatever the entry patches beneath it, and one beneath a value the
  * entry sets goes into that value.
  */
-function mergeOverrideEntry(entry: Record<string, unknown>, updates: Record<string, unknown>): Record<string, unknown> {
+export function mergeOverrideEntry(entry: Record<string, unknown>, updates: Record<string, unknown>): Record<string, unknown> {
   const merged = { ...entry };
   for (const [key, value] of Object.entries(updates)) {
     for (const existing of Object.keys(merged)) {
@@ -687,9 +706,15 @@ export function buildOccurrenceRsvpPatch(
   participantId: string,
   status: CalendarParticipant['participationStatus'],
   options: OverridePatchOptions = {},
+  sentBy?: string | null,
 ): Partial<CalendarEvent> | null {
   const participant = occurrence.participants?.[participantId];
   if (!participant) return null;
+  // sentBy: who answers for the participant (lib/calendar-delegate.ts); null
+  // drops an old one, left out keeps what is there.
+  const answered: CalendarParticipant = { ...participant, participationStatus: status };
+  if (sentBy) answered.sentBy = sentBy;
+  else if (sentBy === null) delete answered.sentBy;
   const patch: Record<string, unknown> = {};
   if (occurrence.sequence != null) patch.sequence = occurrence.sequence;
   if (options.seriesKeys && occurrence.organizerCalendarAddress) {
@@ -697,7 +722,7 @@ export function buildOccurrenceRsvpPatch(
   }
   patch.participants = {
     ...occurrence.participants,
-    [participantId]: { ...participant, participationStatus: status },
+    [participantId]: answered,
   };
   return withNewOverrideDetails(occurrence, patch as Partial<CalendarEvent>, options);
 }

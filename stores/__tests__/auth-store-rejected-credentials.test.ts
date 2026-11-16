@@ -3,7 +3,7 @@ import { createConfig } from '@/lib/__tests__/fixtures/config';
 
 const state = vi.hoisted(() => ({
   connectError: null as Error | null,
-  rejected: null as ((reason: 'credentials' | 'server_blocked') => void) | null,
+  rejected: null as ((refusedForMs: number) => void) | null,
 }));
 
 vi.mock('@/lib/jmap/client', () => {
@@ -15,7 +15,7 @@ vi.mock('@/lib/jmap/client', () => {
     async getIdentities() { return [{ id: 'a', email: this.username, name: this.username, mayDelete: false }]; }
     getAuthHeader() { return 'Basic eA=='; }
     onConnectionChange() {}
-    onAuthenticationRequired(callback: typeof state.rejected) { state.rejected = callback; }
+    onCredentialsRefused(callback: typeof state.rejected) { state.rejected = callback; }
     onRateLimit() {}
     getRateLimitRemainingMs() { return 0; }
     supportsContacts() { return false; }
@@ -30,10 +30,12 @@ vi.mock('@/lib/jmap/client', () => {
     constructor(public retryAfterMs: number) { super('Rate limited by server'); }
   }
   class RequestTimeoutError extends Error {}
-  return { JMAPClient, RateLimitError, RequestTimeoutError };
+  class AccountUnavailableError extends Error {}
+  return { JMAPClient, RateLimitError, RequestTimeoutError, AccountUnavailableError };
 });
 vi.mock('@/lib/stalwart/principal', () => ({ fetchPrincipalDisplayName: async () => null }));
 
+import { CREDENTIALS_REFUSED_CONFIRM_MS } from '@/lib/devices/wipe-state';
 import { RateLimitError } from '@/lib/jmap/client';
 import * as nav from '@/lib/browser-navigation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -77,7 +79,7 @@ it('keeps the retry deadline on the sign-in form and sends no attempts before it
 
 it('requires sign-in after revoked credentials instead of leaving reconnecting active', async () => {
   expect(await useAuthStore.getState().login(SERVER, 'bob@example.com', 'pw')).toBe(true);
-  state.rejected?.('credentials');
+  state.rejected?.(CREDENTIALS_REFUSED_CONFIRM_MS);
   await vi.waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false));
   expect(sessionStorage.getItem('session_expired')).toBe('true');
   expect(useAuthStore.getState().connectionLost).toBe(false);
@@ -93,7 +95,7 @@ it('ignores a replaced client rejecting credentials after a new sign-in', async 
   expect(await useAuthStore.getState().login(SERVER, 'bob@example.com', 'old')).toBe(true);
   const oldRejected = state.rejected;
   expect(await useAuthStore.getState().login(SERVER, 'bob@example.com', 'new')).toBe(true);
-  oldRejected?.('credentials');
+  oldRejected?.(CREDENTIALS_REFUSED_CONFIRM_MS);
   expect(useAuthStore.getState().isAuthenticated).toBe(true);
   expect(sessionStorage.getItem('session_expired')).toBeNull();
 });

@@ -210,7 +210,7 @@ function validDate(value: string | null | undefined): Date | null {
 }
 
 /** The wall-clock fields of a parsed LocalDateTime, read as UTC. */
-function wallAsUtc(wall: Date): number {
+export function wallClockFieldsAsUtc(wall: Date): number {
   return Date.UTC(
     wall.getFullYear(), wall.getMonth(), wall.getDate(),
     wall.getHours(), wall.getMinutes(), wall.getSeconds(),
@@ -236,7 +236,7 @@ function plausibleInstants(
 ): { start: Date; end: Date | null } | null {
   const wall = validDate(event.start);
   if (!wall) return null;
-  const wallStart = wallAsUtc(wall);
+  const wallStart = wallClockFieldsAsUtc(wall);
   const start = instantNear(event.utcStart, wallStart);
   if (!start) return null;
   const end = instantNear(event.utcEnd, wallStart + (parseDurationSeconds(event.duration) ?? 0) * 1000);
@@ -288,10 +288,10 @@ function wallClockAsUtcTimestamp(formatter: Intl.DateTimeFormat, instant: number
  * and return the corresponding UTC instant. Two fixup iterations converge
  * for all real offsets, including across DST transitions.
  */
-function zonedWallTimeToUtc(wall: Date, timeZone: string): Date | null {
+export function zonedWallTimeToUtc(wall: Date, timeZone: string): Date | null {
   const formatter = getTzFormatter(timeZone);
   if (!formatter) return null;
-  const wallMs = wallAsUtc(wall);
+  const wallMs = wallClockFieldsAsUtc(wall);
   let guess = wallMs;
   for (let i = 0; i < 2; i++) {
     guess = wallMs - (wallClockAsUtcTimestamp(formatter, guess) - guess);
@@ -428,7 +428,7 @@ function addImplicitByX(
 // ---------------------------------------------------------------------------
 // §3.3.3.1 - Generate occurrence dates
 // ---------------------------------------------------------------------------
-function generateDates(
+export function generateDates(
   eventStart: Date,
   rawRule: CalendarRecurrenceRule,
   rangeStart: Date,
@@ -512,6 +512,21 @@ function generateDates(
   }
 
   return dates;
+}
+
+/**
+ * Next date a recurring item will fall on after its start or due date,
+ * looking ahead up to ten years. Null when the rule produces no further
+ * occurrences (e.g. an exhausted count or an until in the past).
+ */
+export function getNextRecurrenceDate(
+  startOrDueDate: Date,
+  rule: CalendarRecurrenceRule,
+): Date | null {
+  const rangeStart = new Date(startOrDueDate.getTime() + 1000);
+  const rangeEnd = addYears(startOrDueDate, 10);
+  const dates = generateDates(startOrDueDate, rule, rangeStart, rangeEnd, false);
+  return dates.length > 0 ? dates[0] : null;
 }
 
 // ---------------------------------------------------------------------------

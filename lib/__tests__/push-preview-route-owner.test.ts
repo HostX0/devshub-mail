@@ -25,10 +25,11 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('@/lib/account-utils', () => ({ MAX_ACCOUNT_SLOTS: 2 }));
 
 const AUTH = ['Basic bob', 'Basic alice'];
-vi.mock('@/lib/stalwart/auth-context', () => ({
-  readStalwartAuthContextFromStore: (_store: unknown, slot: number) =>
-    slot < 2 ? { serverUrl: 'https://mail.example.com', authHeader: AUTH[slot] } : null,
-}));
+vi.mock('@/lib/stalwart/auth-context', () => {
+  const read = (_store: unknown, slot: number) =>
+    slot < 2 ? { serverUrl: 'https://mail.example.com', authHeader: AUTH[slot] } : null;
+  return { readStalwartAuthContextFromStore: read, readCurrentStalwartAuthContext: async (store: unknown, slot: number) => read(store, slot) };
+});
 
 vi.mock('@/lib/stalwart/credentials', () => ({
   getStalwartCredentials: vi.fn(),
@@ -71,6 +72,12 @@ vi.mock('@/lib/stalwart/server-fetch', () => ({
 vi.mock('@/lib/security/url-guard', () => ({
   DisallowedUrlError: class DisallowedUrlError extends Error {},
 }));
+
+// The route reads the device policy (Organisation > Devices); none is set here.
+vi.mock('@/lib/admin/config-manager', async () => {
+  const { DEFAULT_POLICY } = await import('@/lib/admin/types');
+  return { configManager: { ensureLoaded: async () => {}, getPolicy: () => DEFAULT_POLICY } };
+});
 
 async function callRoute(accountId: string, emailId: string | null) {
   const { GET } = await import('@/app/api/push/preview/route');

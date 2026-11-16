@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PUSH_NOTIFICATION_PROMPT_DELAY_MS, PushNotificationPrompt } from "../push-notification-prompt";
 import { PWA_INSTALL_PROMPT_VISIBILITY_EVENT } from "../pwa-install-prompt";
 import { jmapSetError } from "@/lib/jmap/jmap-error";
+import { useUIStore } from "@/stores/ui-store";
 
 const mocks = vi.hoisted(() => ({
   pathname: "/en",
+  appName: "Webmail",
+  translate: vi.fn((key: string, _values?: Record<string, unknown>) => key),
   enabled: false,
   supported: true,
   enableWebPush: vi.fn(),
@@ -45,6 +48,14 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mocks.pathname,
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => mocks.translate,
+}));
+
+vi.mock("@/hooks/use-config", () => ({
+  useConfig: () => ({ appName: mocks.appName }),
+}));
+
 vi.mock("@/stores/auth-store", () => ({
   useAuthStore: Object.assign(
     (selector: (state: typeof mocks.authState) => unknown) =>
@@ -61,8 +72,10 @@ vi.mock("@/stores/settings-store", () => ({
   useSettingsStore: Object.assign(
     (selector: (state: typeof mocks.settingsState) => unknown) =>
       selector(mocks.settingsState),
-    { getState: () => mocks.settingsState },
+    { getState: () => mocks.settingsState, subscribe: () => () => {} },
   ),
+  // calendar-store (pulled in via email-store) registers its sync bridge at load.
+  registerCalendarSubscriptionSyncBridge: () => {},
 }));
 
 vi.mock("@/stores/policy-store", () => ({
@@ -101,6 +114,8 @@ describe("PushNotificationPrompt", () => {
     vi.useFakeTimers();
     localStorage.clear();
     mocks.pathname = "/en";
+    mocks.appName = "Webmail";
+    mocks.translate.mockClear();
     mocks.supported = true;
     mocks.enabled = false;
     mocks.authState.client = { getAccountId: () => "account-1" };
@@ -123,6 +138,7 @@ describe("PushNotificationPrompt", () => {
     mocks.resyncWebPush.mockReset().mockResolvedValue(false);
     mocks.waitForWebPushResync.mockReset().mockResolvedValue(undefined);
     setNotificationPermission("default");
+    useUIStore.setState({ composingCount: 0 });
   });
 
   afterEach(() => {
@@ -137,6 +153,21 @@ describe("PushNotificationPrompt", () => {
 
     expect(screen.getByText("title")).toBeInTheDocument();
     expect(mocks.isWebPushEnabled).toHaveBeenCalledWith("account-1");
+  });
+
+  it("names the app in the title with the configured APP_NAME", async () => {
+    mocks.appName = "Acme Mail";
+    render(<PushNotificationPrompt />);
+    await advancePromptDelay();
+
+    expect(mocks.translate).toHaveBeenCalledWith("title", { appName: "Acme Mail" });
+  });
+
+  it("names the app Bulwark in the title on a stock install", async () => {
+    render(<PushNotificationPrompt />);
+    await advancePromptDelay();
+
+    expect(mocks.translate).toHaveBeenCalledWith("title", { appName: "Bulwark" });
   });
 
   it("enables push through the existing web-push flow", async () => {
@@ -471,6 +502,18 @@ describe("PushNotificationPrompt", () => {
     await advancePromptDelay();
 
     expect(mocks.isWebPushEnabled).toHaveBeenCalledWith("account-1");
+    expect(screen.getByText("title")).toBeInTheDocument();
+  });
+
+  it("stays off the screen while a composer is open", async () => {
+    render(<PushNotificationPrompt />);
+    await advancePromptDelay();
+    expect(screen.getByText("title")).toBeInTheDocument();
+
+    act(() => useUIStore.getState().beginComposing());
+    expect(screen.queryByText("title")).not.toBeInTheDocument();
+
+    act(() => useUIStore.getState().endComposing());
     expect(screen.getByText("title")).toBeInTheDocument();
   });
 });

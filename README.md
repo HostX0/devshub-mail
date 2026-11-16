@@ -33,7 +33,7 @@ For an email client, use the full mailbox address as username and the mailbox pa
 
 ## Credits and license
 
-DevsHub Mail is a modified fork of [Bulwark Webmail 1.18.0](https://github.com/bulwarkmail/webmail), built on the JMAP protocol. Original project documentation is preserved in [UPSTREAM.md](UPSTREAM.md), and the original attribution in [NOTICE](NOTICE). All source remains licensed under [GNU AGPL-3.0-only](LICENSE). If you run a modified version for users, provide the source of that exact version as required by the license.
+DevsHub Mail is a modified fork of [Bulwark Webmail 1.21.2](https://github.com/bulwarkmail/webmail), built on the JMAP protocol. Original project documentation is preserved in [UPSTREAM.md](UPSTREAM.md), and the original attribution in [NOTICE](NOTICE). All source remains licensed under [GNU AGPL-3.0-only](LICENSE). If you run a modified version for users, provide the source of that exact version as required by the license.
 
 ## Employee mailbox administration
 

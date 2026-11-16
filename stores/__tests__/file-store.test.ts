@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useFileStore, linkedPreviewResource, resourceServerRef, sharedFilesLocation } from '../file-store';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import type { FileNode } from '@/lib/jmap/types';
 import { jmapError } from '@/lib/jmap/jmap-error';
 import { fileErrorKind } from '@/lib/file-errors';
+import { TRASH_LOCATION } from '@/lib/files-trash';
 
 // Minimal in-memory FileNode backend that models the JMAP hierarchy via
 // parentId links (the behaviour issue #379 asks for).
@@ -105,6 +106,24 @@ const file = (id: string, name: string, parentId: string | null): FileNode => ({
   id, parentId, name, type: 'text/plain', blobId: `b-${id}`, size: 10, created: '', modified: '',
 });
 
+describe('after a start from the local copy', () => {
+  it('lists again when the real client takes over, and the error of asking the device goes', async () => {
+    const local = makeMockClient([]);
+    (local as unknown as { isOfflineOnly: () => boolean }).isOfflineOnly = () => true;
+    local.listAllFileNodes = async () => { throw new Error('Not available offline'); };
+    useFileStore.setState({ client: null, supportsFiles: null, resources: [], error: null, currentParentId: null, pathStack: [{ id: null, name: '' }] } as never);
+    useFileStore.getState().initClient(local as unknown as IJMAPClient, 'acc');
+    useFileStore.setState({ supportsFiles: true });
+    await useFileStore.getState().navigate(null);
+    expect(useFileStore.getState().error).toBeTruthy();
+
+    const real = makeMockClient([{ id: 'f1', parentId: null, name: 'kept.txt', type: 'text/plain', blobId: 'b', size: 1, created: '', modified: '' }]);
+    useFileStore.getState().initClient(real as unknown as IJMAPClient, 'acc');
+    await vi.waitFor(() => expect(useFileStore.getState().resources.map((r) => r.name)).toEqual(['kept.txt']));
+    expect(useFileStore.getState().error).toBeFalsy();
+  });
+});
+
 describe('file-store hierarchy (issue #379)', () => {
   beforeEach(() => {
     useFileStore.setState({
@@ -117,6 +136,22 @@ describe('file-store hierarchy (issue #379)', () => {
       clipboard: null,
       lastAction: null,
     });
+  });
+
+  it('keeps the listing when refreshing the same folder fails, and starts empty in a new one', async () => {
+    const client = makeMockClient([dir('stuff', 'Stuff', null), file('notes', 'Notes.md', null), file('inner', 'Inner.md', 'stuff')]);
+    useFileStore.getState().initClient(client);
+    await useFileStore.getState().navigate(null);
+    expect(useFileStore.getState().resources.map(r => r.name).sort()).toEqual(['Notes.md', 'Stuff']);
+
+    client.listAllFileNodes = async () => { throw new Error('offline'); };
+    await useFileStore.getState().navigate(null);
+    expect(useFileStore.getState().error).toBe('offline');
+    expect(useFileStore.getState().resources.map(r => r.name).sort()).toEqual(['Notes.md', 'Stuff']);
+
+    await useFileStore.getState().navigate('stuff', 'Stuff');
+    expect(useFileStore.getState().error).toBe('offline');
+    expect(useFileStore.getState().resources).toEqual([]);
   });
 
   it('lists only root-level nodes at the root, not the whole tree flattened', async () => {
@@ -581,7 +616,7 @@ describe('file-store "Shared with me"', () => {
     const refusal = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => fileErrorKind(error));
 
     expect(await refusal(store.createDirectory('New'))).toBe('forbidden');
-    expect(await refusal(store.createTextFile('a.txt'))).toBe('forbidden');
+    expect(await refusal(store.createFile('a.txt'))).toBe('forbidden');
     expect(await refusal(store.uploadFiles([new File(['x'], 'a.txt')]))).toBe('forbidden');
     expect(await refusal(store.uploadFolder([new File(['x'], 'a.txt')]))).toBe('forbidden');
     expect(await refusal(store.duplicateResource('notes.txt'))).toBe('forbidden');
@@ -854,6 +889,46 @@ describe('file-store folder tree and moves', () => {
     });
   });
 
+  describe('breadcrumb trail', () => {
+    const tree = () => makeMockClient([
+      dir('docs', 'Documents', null),
+      dir('photos', 'Photos', null),
+      dir('trips', 'Trips', 'photos'),
+      dir('trash', '.Trash', null),
+    ]);
+    const trail = () => useFileStore.getState().pathStack.map(s => s.name);
+
+    it('follows the real ancestors when a folder is picked in the tree, not the folder open before', async () => {
+      useFileStore.getState().initClient(tree());
+      await useFileStore.getState().navigate(null);
+      await useFileStore.getState().navigate('docs', 'Documents');
+      await useFileStore.getState().navigate('trips', 'Trips');
+      expect(useFileStore.getState().currentPath).toBe('/Photos/Trips');
+      expect(trail()).toEqual(['', 'Photos', 'Trips']);
+
+      // Alt+Up goes to the real parent.
+      await useFileStore.getState().navigateUp();
+      expect(useFileStore.getState().currentParentId).toBe('photos');
+      expect(useFileStore.getState().currentPath).toBe('/Photos');
+    });
+
+    it('leaves the Trash out of the trail of a folder opened from it', async () => {
+      useFileStore.getState().initClient(tree());
+      await useFileStore.getState().navigate(null);
+      await useFileStore.getState().navigate(TRASH_LOCATION, '.Trash');
+      await useFileStore.getState().navigate('photos', 'Photos');
+      expect(useFileStore.getState().currentPath).toBe('/Photos');
+      expect(trail()).toEqual(['', 'Photos']);
+    });
+
+    it('sets the full trail once the listing arrives, when the folder list was not loaded yet', async () => {
+      useFileStore.getState().initClient(tree());
+      await useFileStore.getState().navigate('trips', 'Trips');
+      expect(useFileStore.getState().currentPath).toBe('/Photos/Trips');
+      expect(useFileStore.getState().pathStack.map(s => s.id)).toEqual([null, 'photos', 'trips']);
+    });
+  });
+
   it('keeps every folder from the listing for the tree, at any depth', async () => {
     const client = makeMockClient([
       dir('a', 'A', null),
@@ -1017,5 +1092,56 @@ describe('file-store actions by id', () => {
     useFileStore.setState({ recentFiles: [{ name: 'x', id: '1', timestamp: 1 }, { name: 'y', id: '2', timestamp: 2 }] });
     useFileStore.getState().removeRecentFile('1');
     expect(useFileStore.getState().recentFiles.map(r => r.id)).toEqual(['2']);
+  });
+});
+
+describe('file-store preview content', () => {
+  it('reads a file through the client, so the demo, which has no download URL, can preview it', async () => {
+    const client = makeMockClient([file('a', 'notes.txt', null)]);
+    Object.assign(client, {
+      getBlobDownloadUrl: () => 'data:application/octet-stream;demo-blob=b-a',
+      getAuthHeader: () => '',
+      fetchBlob: async (blobId: string) => new Blob([`content of ${blobId}`], { type: 'text/plain' }),
+    });
+    useFileStore.getState().initClient(client);
+    await useFileStore.getState().navigate(null);
+
+    const { blob, contentType } = await useFileStore.getState().getFileContent('notes.txt');
+    expect(await blob.text()).toBe('content of b-a');
+    expect(contentType).toBe('text/plain');
+  });
+});
+
+describe('file-store new file (#1393)', () => {
+  const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  it('creates a document from its blank template and returns the name the server gave it', async () => {
+    const client = makeMockClient([file('a', 'Report.docx', null)]);
+    const uploads: File[] = [];
+    const upload = client.uploadBlob.bind(client);
+    const create = client.createFileNode.bind(client);
+    Object.assign(client, {
+      uploadBlob: async (f: File) => { uploads.push(f); return upload(f); },
+      // Stalwart's onExists: "rename".
+      createFileNode: (name: string, ...rest: [string, string, number, string | null]) =>
+        create(name === 'Report.docx' ? 'Report (2).docx' : name, ...rest),
+    });
+    useFileStore.getState().initClient(client);
+    await useFileStore.getState().navigate(null);
+
+    const blank = new Blob(['PK blank docx'], { type: DOCX });
+    expect(await useFileStore.getState().createFile('Report.docx', blank)).toBe('Report (2).docx');
+    expect(await uploads[0].text()).toBe('PK blank docx');
+    expect(client._nodes().find(n => n.name === 'Report (2).docx')).toMatchObject({ type: DOCX, size: 13 });
+    expect(useFileStore.getState().resources.map(r => r.name)).toContain('Report (2).docx');
+  });
+
+  it('creates an empty text file without a template', async () => {
+    const client = makeMockClient();
+    useFileStore.getState().initClient(client);
+    await useFileStore.getState().navigate(null);
+
+    expect(await useFileStore.getState().createFile('notes.txt')).toBe('notes.txt');
+    expect(client._nodes()[0]).toMatchObject({ name: 'notes.txt', type: 'text/plain', size: 0 });
   });
 });

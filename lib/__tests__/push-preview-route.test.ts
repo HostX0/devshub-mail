@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { endlessResponse } from './helpers/endless-body';
+import { loginFingerprint } from '@/lib/pwa-notify/login-fingerprint';
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -20,10 +21,11 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/account-utils', () => ({ MAX_ACCOUNT_SLOTS: 2 }));
 
-vi.mock('@/lib/stalwart/auth-context', () => ({
-  readStalwartAuthContextFromStore: (_store: unknown, slot: number) =>
-    slot === 0 ? { serverUrl: 'https://mail.example.com/', authHeader: 'Bearer tok' } : null,
-}));
+vi.mock('@/lib/stalwart/auth-context', () => {
+  const read = (_store: unknown, slot: number) =>
+    slot === 0 ? { serverUrl: 'https://mail.example.com/', authHeader: 'Bearer tok' } : null;
+  return { readStalwartAuthContextFromStore: read, readCurrentStalwartAuthContext: async (store: unknown, slot: number) => read(store, slot) };
+});
 
 vi.mock('@/lib/stalwart/credentials', () => ({
   getStalwartCredentials: vi.fn(),
@@ -38,6 +40,12 @@ vi.mock('@/lib/stalwart/server-fetch', () => ({
 vi.mock('@/lib/security/url-guard', () => ({
   DisallowedUrlError: class DisallowedUrlError extends Error {},
 }));
+
+// The route reads the device policy (Organisation > Devices); none is set here.
+vi.mock('@/lib/admin/config-manager', async () => {
+  const { DEFAULT_POLICY } = await import('@/lib/admin/types');
+  return { configManager: { ensureLoaded: async () => {}, getPolicy: () => DEFAULT_POLICY } };
+});
 
 function jsonResponse(data: unknown) {
   return { ok: true, json: async () => data };
@@ -104,6 +112,11 @@ describe('push preview route account resolution', () => {
       .map((b) => JSON.parse(b) as { methodCalls: [string, Record<string, unknown>, string][] })
       .find((b) => b.methodCalls[0][0] === 'Mailbox/query');
     expect(mailboxQuery?.methodCalls[0][1].accountId).toBe('g');
+  });
+
+  it('names the login for a message, as the action route knows it', async () => {
+    const { body } = await callRoute('a');
+    expect(body.login).toBe(await loginFingerprint('https://mail.example.com', undefined));
   });
 
   it('names the login (cookie slot) the account belongs to', async () => {
@@ -180,7 +193,7 @@ describe('push preview JMAP failures', () => {
         ['Email/get', { list: [{ id: 'd', threadId: 'td' }] }, 'delivered'],
       ] }));
     expect(await callRoute('a', 'd')).toEqual({
-      status: 200, body: { email: { id: 'd', threadId: 'td' }, unreadTotal: 1, slot: 0 },
+      status: 200, body: { email: { id: 'd', threadId: 'td' }, unreadTotal: 1, slot: 0, login: expect.any(String) },
     });
   });
 });
@@ -196,7 +209,7 @@ it('previews a delivered message outside an empty Inbox', async () => {
       ['Email/get', { list: [{ id: 'filed', threadId: 't2' }] }, 'delivered'],
     ] }));
   expect(await callRoute('a', 'filed')).toEqual({
-    status: 200, body: { email: { id: 'filed', threadId: 't2' }, unreadTotal: 1, slot: 0 },
+    status: 200, body: { email: { id: 'filed', threadId: 't2' }, unreadTotal: 1, slot: 0, login: expect.any(String) },
   });
 });
 

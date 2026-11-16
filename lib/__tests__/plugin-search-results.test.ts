@@ -40,6 +40,48 @@ describe('checkSearchResults', () => {
     expect(checked.every((r) => !('email' in r))).toBe(true);
   });
 
+  it('keeps who an entry is from, when and how well it matches', () => {
+    expect(checkSearchResults('p', [
+      { key: 'a', title: 'A', from: '  Servershop24.de\n ', date: '2020-02-03T09:12:00+01:00', score: 0.8 },
+    ])).toEqual([{
+      pluginId: 'p', key: 'a', title: 'A', snippet: '',
+      from: 'Servershop24.de', date: '2020-02-03T09:12:00+01:00', score: 0.8,
+    }]);
+  });
+
+  it('drops a date Date cannot read and a score that is no number, holds a score within 0 to 1', () => {
+    const checked = checkSearchResults('p', [
+      { key: 'a', title: 'A', date: 'yesterday', score: '0.8', from: 7 },
+      { key: 'b', title: 'B', date: `2020-02-03T09:12:00${'0'.repeat(40)}`, score: Number.NaN },
+      { key: 'c', title: 'C', score: 3 },
+      { key: 'd', title: 'D', score: -1 },
+    ]);
+    expect(checked.map(({ date, score, from }) => ({ date, score, from }))).toEqual([
+      { date: undefined, score: undefined, from: undefined },
+      { date: undefined, score: undefined, from: undefined },
+      { date: undefined, score: 1, from: undefined },
+      { date: undefined, score: 0, from: undefined },
+    ]);
+  });
+
+  it('keeps the marks of a snippet and escapes everything else', () => {
+    const [entry] = checkSearchResults('p', [
+      { key: 'a', title: 'A', snippet: ' The <mark>pixel\n grid</mark> &amp; <b>more</b> <mark></mark>' },
+    ]);
+    expect(entry.snippet).toBe('The <mark>pixel grid</mark> &amp; &lt;b&gt;more&lt;/b&gt;');
+  });
+
+  it('escapes a plain snippet, so it reads back as written', () => {
+    expect(checkSearchResults('p', [{ key: 'a', title: 'A', snippet: 'Tom & Jerry <3' }])[0].snippet)
+      .toBe('Tom &amp; Jerry &lt;3');
+  });
+
+  it('cuts a snippet by its text, closing a mark it cuts', () => {
+    const snippet = `${'x'.repeat(290)}<mark>${'y'.repeat(20)}</mark>`;
+    const [entry] = checkSearchResults('p', [{ key: 'a', title: 'A', snippet }]);
+    expect(entry.snippet).toBe(`${'x'.repeat(290)}<mark>${'y'.repeat(9)}</mark>…`);
+  });
+
   it('ignores an answer that is not a list', () => {
     expect(checkSearchResults('p', { key: 'a', title: 'A' })).toEqual([]);
     expect(checkSearchResults('p', undefined)).toEqual([]);
@@ -55,12 +97,21 @@ describe('checkSearchResults', () => {
   });
 });
 
+/** Asks the plugins, collecting each answer in the order it came. */
+function ask(query = 'q') {
+  const answers: { pluginId: string; keys: string[] }[] = [];
+  const asked = provideSearchResults(query, {}, (pluginId, results) => {
+    answers.push({ pluginId, keys: results.map((r) => r.key) });
+  });
+  return { asked, answers };
+}
+
 describe('provideSearchResults', () => {
-  it('asks no one without handlers', async () => {
-    expect(await provideSearchResults('q', {})).toEqual([]);
+  it('asks no one without handlers', () => {
+    expect(ask().asked).toEqual([]);
   });
 
-  it('asks the plugins at once, each with an empty list', async () => {
+  it('asks the plugins at once, each with an empty list, and hands over each answer as it comes', async () => {
     const order: string[] = [];
     emailHooks.onProvideSearchResults.register('slow', async (initial: unknown[]) => {
       order.push(`slow ${initial.length}`);
@@ -72,27 +123,43 @@ describe('provideSearchResults', () => {
       return [{ key: 'f', title: 'F' }];
     });
 
-    const results = await provideSearchResults('q', {});
+    const { asked, answers } = ask();
 
+    expect(asked).toEqual(['slow', 'fast']);
     expect(order).toEqual(['slow 0', 'fast 0']);
-    expect(results.map((r) => `${r.pluginId}:${r.key}`)).toEqual(['slow:s', 'fast:f']);
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    expect(answers).toEqual([{ pluginId: 'fast', keys: ['f'] }, { pluginId: 'slow', keys: ['s'] }]);
   });
 
-  it('leaves out a plugin that throws', async () => {
+  it('checks each answer', async () => {
+    emailHooks.onProvideSearchResults.register('p', () => [{ key: 'a', title: 'A' }, { key: 'a', title: 'twice' }, 'text']);
+
+    const { answers } = ask();
+
+    await vi.waitFor(() => expect(answers).toEqual([{ pluginId: 'p', keys: ['a'] }]));
+  });
+
+  it('answers nothing for a plugin that throws', async () => {
     emailHooks.onProvideSearchResults.register('broken', () => { throw new Error('down'); });
     emailHooks.onProvideSearchResults.register('ok', () => [{ key: 'a', title: 'A' }]);
 
-    expect((await provideSearchResults('q', {})).map((r) => r.pluginId)).toEqual(['ok']);
+    const { answers } = ask();
+
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    expect(answers).toContainEqual({ pluginId: 'broken', keys: [] });
+    expect(answers).toContainEqual({ pluginId: 'ok', keys: ['a'] });
   });
 
-  it('leaves out a plugin that runs out of time', async () => {
+  it('answers nothing for a plugin that runs out of time, the others long before', async () => {
     vi.useFakeTimers();
     emailHooks.onProvideSearchResults.register('hung', () => new Promise(() => {}));
     emailHooks.onProvideSearchResults.register('ok', () => [{ key: 'a', title: 'A' }]);
 
-    const pending = provideSearchResults('q', {});
-    await vi.advanceTimersByTimeAsync(10_000);
+    const { answers } = ask();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(answers).toEqual([{ pluginId: 'ok', keys: ['a'] }]);
 
-    expect((await pending).map((r) => r.pluginId)).toEqual(['ok']);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(answers).toEqual([{ pluginId: 'ok', keys: ['a'] }, { pluginId: 'hung', keys: [] }]);
   });
 });

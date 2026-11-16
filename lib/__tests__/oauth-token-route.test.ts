@@ -17,6 +17,7 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/oauth/cookie-config', () => ({
   getCookieOptions: () => ({ httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 2592000 }),
+  getSignInCookieOptions: (remember: boolean) => ({ httpOnly: true, secure: true, sameSite: 'lax', path: '/', ...(remember ? { maxAge: 2592000 } : {}) }),
 }));
 
 const getTokenEndpoint = vi.fn();
@@ -69,10 +70,17 @@ vi.mock('next/headers', () => ({
   cookies: async () => cookieStore,
 }));
 
+// A renewal is kept a minute for requests still carrying the spent token
+// (lib/oauth/slot-renewal.ts); these tests reuse one token on purpose.
+beforeEach(async () => {
+  (await import('@/lib/oauth/slot-renewal')).resetRedemptionsForTests();
+});
+
 function mockRequest(params: Record<string, string> = {}, method = 'PUT', body?: unknown): unknown {
   return {
     method,
-    headers: { get: () => null },
+    // The app sends its bodies as JSON.
+    headers: { get: (name: string) => (body !== undefined && name.toLowerCase() === 'content-type' ? 'application/json' : null) },
     nextUrl: { searchParams: { get: (k: string) => params[k] ?? null }, basePath: '' },
     json: async () => body,
   };
@@ -165,7 +173,39 @@ describe('oauth token route - access token cache (#552)', () => {
 
     const { status } = await callPut();
 
-    expect(status).toBe(500);
+    expect(status).toBe(503);
+    expect(cookieStore.get('jmap_rt')).toBeTruthy();
+  });
+
+  it('names a real invalid_grant, and only that, for the client to wipe on', async () => {
+    const refuse = (status: number, body: string) => fetchMock.mockResolvedValueOnce(new Response(body, { status }));
+    cookieStore.set('jmap_rt', 'refresh-token');
+    refuse(400, JSON.stringify({ error: 'invalid_grant' }));
+    expect(await callPut({ force: 'true' })).toMatchObject({ status: 401, body: { error: 'invalid_grant' } });
+
+    for (const body of [JSON.stringify({ error: 'invalid_client' }), JSON.stringify({ error: 'invalid_request', error_description: 'Token is not valid yet' }), '<html>Forbidden</html>']) {
+      cookieStore.set('jmap_rt', 'refresh-token');
+      refuse(403, body);
+      const { status, body: answer } = await callPut({ force: 'true' });
+      expect(status).toBe(401);
+      expect(answer.error).not.toBe('invalid_grant');
+    }
+  });
+
+  it('answers 503 when the token endpoint is out of reach, which the client waits out', async () => {
+    cookieStore.set('jmap_rt', 'refresh-token');
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+    const { status } = await callPut({ force: 'true' });
+    expect(status).toBe(503);
+    expect(cookieStore.get('jmap_rt')).toBeTruthy();
+  });
+
+  it('answers 503 when discovery fails, also for a server it has no config for', async () => {
+    cookieStore.set('jmap_rt', 'refresh-token');
+    getTokenEndpoint.mockRejectedValue(new Error('OAuth misconfigured'));
+    const { status } = await callPut({ force: 'true' });
+    expect(status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(cookieStore.get('jmap_rt')).toBeTruthy();
   });
 
@@ -555,6 +595,17 @@ describe('oauth token route - sign-out (#905)', () => {
     expect(fetchMock).toHaveBeenCalledWith(KEYCLOAK.revocation_endpoint, expect.objectContaining({ method: 'POST' }));
     for (const name of ['jmap_rt', 'jmap_at', 'jmap_idt']) expect(cookieStore.get(name)).toBeUndefined();
     expect(cookieStore.deletedPaths.get('jmap_idt')).toBe('/api/auth/token');
+  });
+
+  it('keeps the grant at the provider when revocation is turned off (#1388)', async () => {
+    configValues.oauthRevokeOnSignOut = false;
+    seedSlot(0);
+
+    await callRoute('DELETE', { slot: '0' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Signed out all the same: the browser holds no token afterwards.
+    for (const name of ['jmap_rt', 'jmap_at', 'jmap_idt']) expect(cookieStore.get(name)).toBeUndefined();
   });
 
   it('identifies the client alone when no id token was kept', async () => {
