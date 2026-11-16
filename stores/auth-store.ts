@@ -998,7 +998,6 @@ function bindClientStatusHandlers(
     }
   });
 
-
   client.onRateLimit((rateLimited, retryAfterMs) => {
     const isActiveAccount = !accountId || get().activeAccountId === accountId;
     const nextRateLimitUntil = rateLimited ? Date.now() + retryAfterMs : null;

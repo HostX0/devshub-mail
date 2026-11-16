@@ -170,7 +170,6 @@ export interface IJMAPClient {
   /** Whether this client holds one of the tab's live event streams (vs. slow-polling or none). */
   hasSSEStream(): boolean;
   onConnectionChange(callback: (connected: boolean) => void): void;
-  /** A definitive credential rejection needs a new sign-in, not polling. */
   onRateLimit(callback: (rateLimited: boolean, retryAfterMs: number) => void): void;
   /**
    * The mail server itself answered 401 after a fresh try at signing in, with

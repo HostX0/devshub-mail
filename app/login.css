@@ -201,3 +201,25 @@ html[data-login-bg] .login-footer:empty {
     background: none;
   }
 }
+
+/* DevsHub's default sign-in styling follows the same operator and contrast
+ * controls as the upstream backdrop. An operator image takes its place. */
+html[data-login-bg] .devshub-login-art,
+:root[data-contrast="more"] .devshub-login-art {
+  display: none;
+}
+@media (prefers-contrast: more) {
+  :root:not([data-contrast="normal"]) .devshub-login-art { display: none; }
+}
+@media (forced-colors: active) {
+  .devshub-login-art { display: none; }
+}
+html:not([data-login-bg]) .login-card {
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--color-card) 94%, transparent);
+}
+.login-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.login-card button[type="submit"] {
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
+}

@@ -25,7 +25,7 @@ export function LoginFrame({ children, before, footer, size = "default", classNa
   return (
     <div className={cn("login-frame", className)}>
       <div aria-hidden="true" className="login-backdrop" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-cover bg-center opacity-25 dark:opacity-10" style={{ backgroundImage: `url('${withBasePath('/assets/devshub-mail/editorial-banner.jpg')}')`, maskImage: 'linear-gradient(to bottom, black, transparent)' }} />
+      <div aria-hidden="true" className="devshub-login-art pointer-events-none absolute inset-x-0 top-0 h-[30rem] bg-cover bg-center opacity-25 dark:opacity-10" style={{ backgroundImage: `url('${withBasePath('/assets/devshub-mail/editorial-banner.jpg')}')`, maskImage: 'linear-gradient(to bottom, black, transparent)' }} />
       {before}
       <div className="login-stage">
         <div className="login-panel" data-size={size === "wide" ? "wide" : undefined}>
