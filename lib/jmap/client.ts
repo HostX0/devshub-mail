@@ -237,12 +237,6 @@ export class RateLimitError extends Error {
   }
 }
 
-/** The mail server's own answer: a JMAP problem document (RFC 8620 section 3.6.1) with this status. */
-async function isProblemStatus(response: Response, status: number): Promise<boolean> {
-  const body = await response.clone().json().catch(() => null) as { status?: unknown } | null;
-  return body?.status === status;
-}
-
 /**
  * A 403 that refuses this login for good: Stalwart's problem document for a
  * deleted account or a removed credential. Its IP block answers with the bare
@@ -1968,7 +1962,9 @@ export class JMAPClient implements IJMAPClient {
 
     // Handle 429 rate limiting - stop immediately, do not retry
     if (response.status === 429 || (response.status === 403 && response.headers.has('Retry-After'))) {
-      const retryAfterMs = JMAPClient.parseRetryAfter(response);
+      // A temporary 403/IP block must be honoured for its full server window;
+      // ordinary 429 backoff keeps the upstream five-minute cap.
+      const retryAfterMs = JMAPClient.parseRetryAfter(response, response.status === 403 ? 86_400_000 : 300_000);
       if (!opts?.transfer) this.setRateLimited(retryAfterMs);
       throw new RateLimitError(retryAfterMs);
     }
@@ -12144,18 +12140,18 @@ export class JMAPClient implements IJMAPClient {
     }));
   }
 
-  private static parseRetryAfter(response: Response): number {
+  private static parseRetryAfter(response: Response, maxWaitMs = 300_000): number {
     const header = response.headers.get('Retry-After');
     if (!header) return 60_000; // default 60s if no header
     const seconds = Number(header);
     if (!Number.isNaN(seconds) && seconds > 0) {
-      return Math.min(seconds * 1000, 300_000); // cap at 5 minutes
+      return Math.min(seconds * 1000, maxWaitMs);
     }
     // Try HTTP-date format
     const date = Date.parse(header);
     if (!Number.isNaN(date)) {
       const ms = date - Date.now();
-      return ms > 0 ? Math.min(ms, 300_000) : 60_000;
+      return ms > 0 ? Math.min(ms, maxWaitMs) : 60_000;
     }
     return 60_000;
   }

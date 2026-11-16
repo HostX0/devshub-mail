@@ -364,6 +364,13 @@ describe('JMAPClient resilience', () => {
   });
 
   describe('authenticatedFetch - 429 rate limiting', () => {
+    it('keeps the upstream five-minute cap for ordinary 429 responses', async () => {
+      const client = await createConnectedClient();
+      const onLimit = vi.fn(); client.onRateLimit(onLimit);
+      fetchSpy.mockResolvedValueOnce(mockFetchResponseWithHeaders(429, { 'Retry-After': '900' }));
+      await expect(client.ping()).rejects.toThrow('Rate limited by server');
+      expect(onLimit).toHaveBeenCalledWith(true, 300_000);
+    });
     it('honours a temporary server block and its full retry countdown', async () => {
       const client = await createConnectedClient();
       const onLimit = vi.fn(); client.onRateLimit(onLimit);

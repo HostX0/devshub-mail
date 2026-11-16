@@ -22,6 +22,8 @@ describe('custom account photo and theme preservation across upstream settings s
   });
   it('merges one server account photo without overwriting another account', () => {
     useSettingsStore.setState({ profileAvatarDataUrls: { bob: PHOTO + 'AA' } });
+    // Bob's photo was already loaded, not an unflushed user change/removal.
+    localStorage.removeItem('settings-sync-stamps');
     useSettingsStore.getState().importSettings(JSON.stringify({ profileAvatarDataUrls: { alice: PHOTO } }), { serverAccountId: 'alice' });
     expect(useSettingsStore.getState().profileAvatarDataUrls).toEqual({ alice: PHOTO, bob: PHOTO + 'AA' });
   });
