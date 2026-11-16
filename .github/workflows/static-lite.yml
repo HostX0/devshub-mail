@@ -49,7 +49,7 @@ permissions:
 jobs:
   build:
     name: Build (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -113,7 +113,7 @@ jobs:
     # The only job with a write token, and it runs no checked-out code.
     needs: build
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -148,7 +148,7 @@ jobs:
     # Boots the demo export on a plain static server and drives it with
     # Playwright: login, open a thread, switch surfaces, reload a deep link.
     # No JMAP server involved, so it is cheap and deterministic.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
@@ -193,7 +193,7 @@ jobs:
     # The Stalwart Application bundle, served by scripts/lite/serve.mjs
     # --stalwart (an emulation of how Stalwart serves Applications) from the
     # zip itself, under two prefixes.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
