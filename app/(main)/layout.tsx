@@ -326,6 +326,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} dir={getLocaleDirection(locale)} {...backdropAttrs} suppressHydrationWarning>
       <head>
+        <link rel="stylesheet" href={withBasePath("/assets/fonts/cairo/cairo.css")} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={appName} />
