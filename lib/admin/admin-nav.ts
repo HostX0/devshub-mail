@@ -13,6 +13,7 @@
 
 export const ADMIN_PAGE_IDS = [
   'dashboard',
+  'mailboxes',
   'settings',
   'auth',
   'branding',
@@ -56,6 +57,7 @@ export interface AdminPageDef {
 }
 
 export const ADMIN_PAGES: readonly AdminPageDef[] = [
+  { id: 'mailboxes', label: 'بريد الموظفين', description: 'Employee mailboxes, passwords and storage limits', group: 'top', keywords: 'mailboxes employees users super admin quota storage password بريد موظفين مساحة', sections: [] },
   {
     id: 'dashboard',
     label: 'Overview',

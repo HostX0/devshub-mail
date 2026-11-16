@@ -17,6 +17,7 @@ import {
   Search,
   Server,
   Shield,
+  Users,
   Store,
   SwatchBook,
   X,
@@ -38,6 +39,7 @@ import { AdminShellContext } from './shell-context';
 
 const PAGE_ICONS: Record<AdminPageId, AppIcon> = {
   dashboard: LayoutDashboard,
+  mailboxes: Users,
   settings: Server,
   auth: Shield,
   branding: Palette,

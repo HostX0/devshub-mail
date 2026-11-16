@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useAdminLocation, navigateAdmin } from '@/hooks/use-admin-navigation';
 import { adminPath, isAdminPageId } from '@/lib/admin/admin-nav';
+import { MailboxesPage } from '../_pages/mailboxes';
 import { DashboardPage } from '../_pages/dashboard';
 import { SettingsPage } from '../_pages/settings';
 import { BrandingPage } from '../_pages/branding';
@@ -36,6 +37,7 @@ export default function AdminPage() {
   }, []);
 
   switch (page ?? 'dashboard') {
+    case 'mailboxes': return <MailboxesPage />;
     case 'dashboard': return <DashboardPage />;
     case 'settings': return <SettingsPage />;
     case 'branding': return <BrandingPage />;
