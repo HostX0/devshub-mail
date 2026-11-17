@@ -9,11 +9,14 @@ import {
   normalizeContactPhotoUri,
   TRUSTED_SENDERS_BOOK_NAME,
 } from '../contact-store';
-import type { ContactCard, ContactMedia } from '@/lib/jmap/types';
+import type { AddressBook, ContactCard, ContactMedia } from '@/lib/jmap/types';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import { clearContactPhotoCache } from '@/lib/contact-photo-cache';
 import { PrincipalsRequestError } from '@/lib/jmap/principals-error';
+import { PartialAccountsError } from '@/lib/jmap/partial-accounts';
 import { setClientLookup } from '../client-registry';
+import { DEFAULT_POLICY } from '@/lib/admin/types';
+import { usePolicyStore } from '../policy-store';
 
 vi.stubGlobal('crypto', { randomUUID: () => '00000000-0000-0000-0000-000000000000' });
 
@@ -176,8 +179,18 @@ describe('contact-store', () => {
   });
 
   describe('setDefaultAddressBook', () => {
-    const makeClient = () => ({
-      setDefaultAddressBook: vi.fn().mockResolvedValue(undefined),
+    // The client is the one of every login the books name: a write to a
+    // login without a client is refused.
+    const makeClient = () => {
+      const client = {
+        setDefaultAddressBook: vi.fn().mockResolvedValue(undefined),
+      };
+      setClientLookup(() => client as unknown as IJMAPClient);
+      return client;
+    };
+
+    afterEach(() => {
+      setClientLookup(() => undefined);
     });
 
     it('should move the default flag to the chosen book', async () => {
@@ -416,6 +429,47 @@ describe('contact-store', () => {
       });
       const results = useContactStore.getState().getAutocomplete('jane');
       expect(results).toEqual([{ name: 'Jane Doe', email: 'jane.doe@example.com' }]);
+    });
+
+    // "an" offered Daniel Okafor and Greta Hoffmann before Anna Becker.
+    it('should put names and addresses that start with the query first', () => {
+      const person = (id: string, given: string, surname: string, address: string) => makeContact({
+        id,
+        name: { components: [{ kind: 'given', value: given }, { kind: 'surname', value: surname }], isOrdered: true },
+        emails: { e0: { address } },
+      });
+      useContactStore.setState({
+        contacts: [
+          person('d', 'Daniel', 'Okafor', 'daniel@example.com'),
+          person('g', 'Greta', 'Hoffmann', 'greta@example.com'),
+          person('a', 'Anna', 'Becker', 'anna@example.com'),
+          person('h', 'Hiro', 'Tanaka', 'hiro@example.com'),
+          person('m', 'Mia', 'Schulz', 'mia.anders@example.com'),
+        ],
+        directoryPrincipals: [],
+        recentRecipients: [{ name: '', email: 'brandt@example.com' }, { name: 'Andreas Wolf', email: 'wolf@example.com' }],
+      });
+      const results = useContactStore.getState().getAutocomplete('an');
+      expect(results.map((r) => r.email)).toEqual([
+        'anna@example.com',
+        'mia.anders@example.com',
+        'wolf@example.com',
+        'daniel@example.com',
+        'greta@example.com',
+        'hiro@example.com',
+        'brandt@example.com',
+      ]);
+    });
+
+    it('should not lose a name that starts with the query behind ten that only contain it', () => {
+      const contacts = Array.from({ length: 12 }, (_, i) =>
+        makeContact({ id: `d${i}`, name: { components: [{ kind: 'given', value: `Dan${i}` }], isOrdered: true }, emails: { e0: { address: `dan${i}@example.com` } } }),
+      );
+      contacts.push(makeContact({ id: 'anna', name: { components: [{ kind: 'given', value: 'Anna' }], isOrdered: true }, emails: { e0: { address: 'anna@example.com' } } }));
+      useContactStore.setState({ contacts, directoryPrincipals: [], recentRecipients: [] });
+      const results = useContactStore.getState().getAutocomplete('an');
+      expect(results).toHaveLength(10);
+      expect(results[0].email).toBe('anna@example.com');
     });
 
     it('should repair a recent recipient whose address lost its closing bracket', () => {
@@ -1036,6 +1090,7 @@ describe('contact-store', () => {
     const trustedBook = (id: string) => ({ id, name: TRUSTED_SENDERS_BOOK_NAME });
 
     const makeClient = (overrides: Record<string, unknown> = {}) => ({
+      supportsContacts: () => true,
       getAddressBooks: vi.fn().mockResolvedValue([]),
       createAddressBook: vi.fn(async (name: string) => ({ id: 'created-book', name })),
       getContacts: vi.fn().mockResolvedValue([]),
@@ -1163,11 +1218,21 @@ describe('contact-store', () => {
   });
 
   describe('address-book id namespacing on mutations (#133, #1043)', () => {
-    const makeClient = () => ({
-      getContactsAccountId: vi.fn(() => 'acct-primary'),
-      createContact: vi.fn(async (c: Partial<ContactCard>) => ({ ...makeContact(), ...c, id: 'created-id' })),
-      updateContact: vi.fn().mockResolvedValue(undefined),
-      deleteContact: vi.fn().mockResolvedValue(undefined),
+    // The client is the one of every login the cards and books name: a
+    // write to a login without a client is refused.
+    const makeClient = () => {
+      const client = {
+        getContactsAccountId: vi.fn(() => 'acct-primary'),
+        createContact: vi.fn(async (c: Partial<ContactCard>) => ({ ...makeContact(), ...c, id: 'created-id' })),
+        updateContact: vi.fn().mockResolvedValue(undefined),
+        deleteContact: vi.fn().mockResolvedValue(undefined),
+      };
+      setClientLookup(() => client as unknown as IJMAPClient);
+      return client;
+    };
+
+    afterEach(() => {
+      setClientLookup(() => undefined);
     });
 
     it('strips the local-account prefix from a personal book on update', async () => {
@@ -1364,6 +1429,78 @@ describe('contact-store', () => {
     });
   });
 
+  describe('an account that cannot answer', () => {
+    it('keeps its contacts and books while the other accounts refresh', async () => {
+      const failing = {
+        getAllContacts: vi.fn().mockRejectedValue(new Error('offline')),
+        getAllAddressBooks: vi.fn().mockRejectedValue(new Error('offline')),
+      } as unknown as IJMAPClient;
+      const working = {
+        getAllContacts: vi.fn().mockResolvedValue([makeContact({ id: 'b1' })]),
+        getAllAddressBooks: vi.fn().mockResolvedValue([{ id: 'bookb', name: 'B' }]),
+      } as unknown as IJMAPClient;
+      const kept = makeContact({ id: 'acc-a::a1', localAccountId: 'acc-a' });
+      const keptBook = { id: 'acc-a::booka', name: 'A', localAccountId: 'acc-a' } as AddressBook;
+      useContactStore.setState({ contacts: [kept], addressBooks: [keptBook] });
+      const accounts = [{ client: failing, localAccountId: 'acc-a' }, { client: working, localAccountId: 'acc-b' }];
+
+      await useContactStore.getState().fetchAllAccountsContacts(accounts);
+      await useContactStore.getState().fetchAllAccountsAddressBooks(accounts);
+
+      const state = useContactStore.getState();
+      expect(state.contacts.map((c) => c.id)).toEqual(['acc-a::a1', 'acc-b::b1']);
+      expect(state.addressBooks.map((b) => b.id)).toEqual(['acc-a::booka', 'acc-b::bookb']);
+    });
+
+    it('keeps the primary account\'s cards when only a shared account answered', async () => {
+      const refusal = new PartialAccountsError<ContactCard>([makeContact({ id: 'shared:s2', accountId: 'shared', isShared: true })], ['me'], 'me', new Error('offline'));
+      const failing = { getAllContacts: vi.fn().mockRejectedValue(refusal) } as unknown as IJMAPClient;
+      useContactStore.setState({
+        contacts: [
+          makeContact({ id: 'p1', accountId: 'me' }),
+          // A card just created has no accountId yet: it's the primary account's.
+          makeContact({ id: 'p2' }),
+          makeContact({ id: 'shared:s1', accountId: 'shared', isShared: true }),
+        ],
+      });
+      await useContactStore.getState().fetchContacts(failing);
+      const state = useContactStore.getState();
+      expect(state.contacts.map((c) => c.id).sort()).toEqual(['p1', 'p2', 'shared:s2']);
+      expect(state.error).toBe('Failed to fetch contacts');
+      expect(state.isLoading).toBe(false);
+    });
+
+    it('keeps the primary account\'s books when only a shared account answered', async () => {
+      const refusal = new PartialAccountsError<AddressBook>([{ id: 'shared:b', name: 'B', accountId: 'shared' } as AddressBook], ['me'], 'me', new Error('offline'));
+      const failing = { getAllAddressBooks: vi.fn().mockRejectedValue(refusal) } as unknown as IJMAPClient;
+      useContactStore.setState({ addressBooks: [{ id: 'mine', name: 'Mine', accountId: 'me' } as AddressBook] });
+      await useContactStore.getState().fetchAddressBooks(failing);
+      expect(useContactStore.getState().addressBooks.map((b) => b.id).sort()).toEqual(['mine', 'shared:b']);
+    });
+
+    it('keeps a failed JMAP account of one login while its others refresh', async () => {
+      const refusal = new PartialAccountsError<ContactCard>([makeContact({ id: 's2', accountId: 'shared' })], ['me'], 'me', new Error('offline'));
+      const failing = { getAllContacts: vi.fn().mockRejectedValue(refusal) } as unknown as IJMAPClient;
+      useContactStore.setState({
+        contacts: [
+          makeContact({ id: 'acc-a::p1', accountId: 'me', localAccountId: 'acc-a' }),
+          makeContact({ id: 'acc-a::s1', accountId: 'shared', localAccountId: 'acc-a' }),
+          makeContact({ id: 'acc-b::x', accountId: 'me', localAccountId: 'acc-b' }),
+        ],
+      });
+      await useContactStore.getState().fetchAllAccountsContacts([{ client: failing, localAccountId: 'acc-a' }]);
+      expect(useContactStore.getState().contacts.map((c) => c.id).sort()).toEqual(['acc-a::p1', 'acc-a::s2']);
+    });
+
+    it('keeps the list when the only account fails', async () => {
+      const failing = { getAllContacts: vi.fn().mockRejectedValue(new Error('offline')) } as unknown as IJMAPClient;
+      useContactStore.setState({ contacts: [makeContact()] });
+      await useContactStore.getState().fetchContacts(failing);
+      expect(useContactStore.getState().contacts).toHaveLength(1);
+      expect(useContactStore.getState().error).toBe('Failed to fetch contacts');
+    });
+  });
+
   describe('persistence/partialize', () => {
     it('should persist contacts when supportsSync is false', () => {
       const { partialize } = (useContactStore as unknown as { persist: { getOptions: () => { partialize: (state: Record<string, unknown>) => Record<string, unknown> } } }).persist.getOptions();
@@ -1403,6 +1540,69 @@ describe('contact-store', () => {
       ]);
     });
 
+    describe('with directory rules in the policy', () => {
+      const emails = () => useContactStore.getState().directoryPrincipals.map((e) => e.email);
+      const principals = [
+        principal('a', 'ana@example.org', 'Ana Silva'),
+        principal('b', 'bob@example.net', 'Bob'),
+        principal('c', 'NoReply@example.org', 'No Reply'),
+        principal('d', 'carla@EXAMPLE.org', 'Carla'),
+      ];
+      const clientFor = (username: string) => ({
+        supportsPrincipals: () => true,
+        getUsername: () => username,
+        getPrincipals: vi.fn().mockResolvedValue(principals),
+      } as unknown as IJMAPClient);
+      const rules = { ...DEFAULT_POLICY, directorySameDomainOnly: true, directoryHiddenLocalparts: ['noreply'] };
+      const refreshIfPartial = usePolicyStore.getState().refreshIfPartial;
+
+      afterEach(() => {
+        usePolicyStore.setState({ policy: { ...DEFAULT_POLICY }, loaded: false, partial: false, refreshIfPartial });
+      });
+
+      it('applies the rules of the full policy, not of the public subset', async () => {
+        usePolicyStore.setState({
+          policy: { ...DEFAULT_POLICY },
+          loaded: true,
+          partial: true,
+          refreshIfPartial: async () => usePolicyStore.setState({ policy: rules, partial: false }),
+        });
+        await useContactStore.getState().fetchDirectory(clientFor('Ana@Example.org'));
+        expect(emails()).toEqual(['ana@example.org', 'carla@EXAMPLE.org']);
+      });
+
+      it('takes the domain of the account, not of the admin, on a master login', async () => {
+        usePolicyStore.setState({ policy: rules, loaded: true, partial: false });
+        await useContactStore.getState().fetchDirectory(clientFor('bob@example.net%admin@example.org'));
+        expect(emails()).toEqual(['bob@example.net']);
+      });
+
+      it('shows no one when the account has no domain to compare', async () => {
+        usePolicyStore.setState({ policy: rules, loaded: true, partial: false });
+        await useContactStore.getState().fetchDirectory(clientFor('ana'));
+        expect(emails()).toEqual([]);
+      });
+
+      it('lists everyone without rules', async () => {
+        usePolicyStore.setState({ policy: { ...DEFAULT_POLICY }, loaded: true, partial: false });
+        await useContactStore.getState().fetchDirectory(clientFor('ana@example.org'));
+        expect(emails()).toHaveLength(4);
+      });
+
+      it("keeps the domains of the account's identities, aliases included", async () => {
+        usePolicyStore.setState({ policy: rules, loaded: true, partial: false });
+        const client = {
+          ...clientFor('ana@example.org'),
+          getIdentities: vi.fn().mockResolvedValue([
+            { id: 'i1', name: 'Ana', email: 'ana@example.org' },
+            { id: 'i2', name: 'Ana', email: 'ana@example.net' },
+          ]),
+        } as unknown as IJMAPClient;
+        await useContactStore.getState().fetchDirectory(client);
+        expect(emails()).toEqual(['ana@example.org', 'bob@example.net', 'carla@EXAMPLE.org']);
+      });
+    });
+
     it('marks a refused query as forbidden, not as an empty directory', async () => {
       // JMAPClient.listPrincipals reports Principal/query's `forbidden` so.
       const client = {
@@ -1432,5 +1632,15 @@ describe('contact-store', () => {
       expect(useContactStore.getState().directoryStatus).toBe('unavailable');
       expect(getPrincipals).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('contact display name', () => {
+  it('shows the name an imported card gives itself (FN), not only first and last name', async () => {
+    const { getContactDisplayName } = await import('../contact-store');
+    expect(getContactDisplayName({
+      id: 'x', addressBookIds: {},
+      name: { full: 'UX-cf Jürgen Müller', components: [{ kind: 'given', value: 'Jürgen' }, { kind: 'surname', value: 'Müller' }] },
+    } as never)).toBe('UX-cf Jürgen Müller');
   });
 });

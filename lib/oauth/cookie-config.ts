@@ -1,3 +1,4 @@
+import { SESSION_COOKIE_MAX_AGE } from '@/lib/auth/session-cookie';
 import { configManager } from '@/lib/admin/config-manager';
 
 type SameSite = 'lax' | 'none' | 'strict';
@@ -14,4 +15,13 @@ export function getCookieOptions() {
     path: '/',
     maxAge: 30 * 24 * 60 * 60,
   };
+}
+
+/**
+ * Options for a sign-in's cookies: kept for 30 days when remembered, without
+ * an expiry otherwise, so the browser drops them when its session ends.
+ */
+export function getSignInCookieOptions(remember: boolean) {
+  const { maxAge: _maxAge, ...sessionOptions } = getCookieOptions();
+  return remember ? { ...sessionOptions, maxAge: SESSION_COOKIE_MAX_AGE } : sessionOptions;
 }

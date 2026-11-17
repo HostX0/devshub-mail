@@ -17,11 +17,11 @@ vi.mock('@/components/ui/avatar', () => ({ Avatar: () => null }));
 vi.mock('@/stores/auth-store', async () => {
   const { create } = await import('zustand');
   return {
-    useAuthStore: create(() => ({ client: null, identities: [], username: null, activeAccountId: 'acct-1' })),
+    useAuthStore: create(() => ({ client: null, identities: [], username: null, activeAccountId: 'acct-1', getClientForAccount: () => undefined })),
   };
 });
 vi.mock('@/stores/account-store', () => {
-  const state = { getAccountById: () => undefined };
+  const state = { accounts: [], getAccountById: () => undefined };
   return {
     useAccountStore: Object.assign(
       (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
@@ -58,6 +58,8 @@ beforeEach(() => {
   // Room in the list for every item, or the virtual list draws none of them.
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(600);
+  vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(600);
+  vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(600);
   useEmailStore.setState(initialEmailState, true);
   useEmailStore.setState({
     selectedMailbox: 'inbox',

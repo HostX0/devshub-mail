@@ -5,7 +5,8 @@ import { textConditions } from '@/lib/jmap/search-utils';
 import type { Calendar, CalendarEvent, CalendarEventFilter } from '@/lib/jmap/types';
 import { useCalendarStore } from '@/stores/calendar-store';
 
-function eventFields(event: CalendarEvent): string[] {
+/** The text an event is found by: title, description, places and participants. */
+export function eventFields(event: CalendarEvent): string[] {
   const fields: string[] = [event.title, event.description];
   for (const location of Object.values(event.locations ?? {})) if (location?.name) fields.push(location.name);
   for (const participant of Object.values(event.participants ?? {})) {
@@ -16,12 +17,12 @@ function eventFields(event: CalendarEvent): string[] {
   return fields;
 }
 
-function calendarName(event: CalendarEvent, calendars: Calendar[]): string {
+function calendarOf(event: CalendarEvent, calendars: Calendar[]): Calendar | undefined {
   for (const id of Object.keys(event.calendarIds ?? {})) {
     const calendar = calendars.find((c) => c.id === id || c.originalId === id);
-    if (calendar?.name) return calendar.name;
+    if (calendar?.name) return calendar;
   }
-  return '';
+  return undefined;
 }
 
 function firstLocation(event: CalendarEvent): string {
@@ -35,6 +36,7 @@ export function isRecurringEvent(event: CalendarEvent): boolean {
 
 function toHit(event: CalendarEvent, account: SearchAccount, source: 'local' | 'remote', calendars: Calendar[]): CalendarHit {
   const location = firstLocation(event);
+  const calendar = calendarOf(event, calendars);
   return {
     kind: 'calendar',
     serverUrl: account.serverUrl,
@@ -43,7 +45,8 @@ function toHit(event: CalendarEvent, account: SearchAccount, source: 'local' | '
     id: event.originalId ?? event.id,
     accountLabel: account.label,
     title: event.title || '',
-    subtitle: [calendarName(event, calendars), location].filter(Boolean).join(' · '),
+    subtitle: [calendar?.name ?? '', location].filter(Boolean).join(' · '),
+    ...(calendar ? { collection: { kind: 'calendar' as const, name: calendar.name, isShared: calendar.isShared, rest: location } } : {}),
     date: event.start ?? null,
     source,
     event,

@@ -151,14 +151,19 @@ describe('Pro compose tab - cross-account send routing (#461)', () => {
     expect(sendEmail.mock.calls[0][0]).toBe(activeClient);
   });
 
-  it('falls back to the active client when the owning account is no longer connected', async () => {
+  // The From identity belongs to a login that is no longer connected: nothing
+  // may leave through another login. The composer is told nothing was sent,
+  // so it keeps the message.
+  it('sends nothing when the login that owns the identity is no longer connected', async () => {
     payloadRef.current = { ...basePayload, localAccountId: 'local-gone' };
+    payloadRef.outcome = null;
     render(<ProComposeTabBody tabId="tab-1" data={TAB_DATA} />);
 
     fireEvent.click(screen.getByText('send'));
 
-    await waitFor(() => expect(sendEmail).toHaveBeenCalled());
-    expect(sendEmail.mock.calls[0][0]).toBe(activeClient);
+    await waitFor(() => expect(payloadRef.outcome).not.toBeNull());
+    await expect(payloadRef.outcome).resolves.toBe(false);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   // The composer removes a draft version saved through another login only
@@ -178,5 +183,37 @@ describe('Pro compose tab - cross-account send routing (#461)', () => {
     } finally {
       auth.client = connected;
     }
+  });
+});
+
+describe('Pro compose tab - what the composer chose', () => {
+  beforeEach(() => {
+    sendEmail.mockClear();
+  });
+
+  it('sends with the priority, read receipt, DSN, REQUIRETLS, plugin headers and label the composer chose', async () => {
+    payloadRef.current = {
+      ...basePayload,
+      requestReadReceipt: true,
+      requestDsn: true,
+      requireTls: true,
+      priority: 'high',
+      headers: { 'X-Plugin': '1' },
+      labelHeaders: { 'header:SIO-Label:asRaw': ' marking="CONFIDENTIAL"' },
+    };
+    render(<ProComposeTabBody tabId="tab-1" data={TAB_DATA} />);
+
+    fireEvent.click(screen.getByText('send'));
+
+    await waitFor(() => expect(sendEmail).toHaveBeenCalled());
+    const args = sendEmail.mock.calls[0] as unknown[];
+    expect(args[args.length - 1]).toMatchObject({
+      requestReadReceipt: true,
+      requestDsn: true,
+      requireTls: true,
+      priority: 'high',
+      headers: { 'X-Plugin': '1' },
+      labelHeaders: { 'header:SIO-Label:asRaw': ' marking="CONFIDENTIAL"' },
+    });
   });
 });

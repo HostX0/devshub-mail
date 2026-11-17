@@ -18,11 +18,9 @@
 import { configManager } from '@/lib/admin/config-manager';
 import { parseJmapServers, resolveTrustedJmapUrl } from '@/lib/admin/jmap-servers';
 import { fetchPublicUrl, type PublicFetchResponse } from '@/lib/security/url-guard';
-import {
-  isStoredCredentialRefused,
-  recordStoredCredentialStatus,
-  refusedCredentialResponse,
-} from '@/lib/stalwart/stored-credential-budget';
+import { observeUpstream } from '@/lib/metrics/upstream';
+import { desktopRedirectRefused } from '@/lib/desktop/server-redirect';
+import { acquireStoredCredential, refusedCredentialResponse } from '@/lib/stalwart/stored-credential-budget';
 
 const MAX_REDIRECTS = 5;
 /** Deadline for one upstream request when the caller sets none. */
@@ -40,6 +38,14 @@ export async function isTrustedJmapServerUrl(serverUrl: string): Promise<boolean
 }
 
 export type ServerFetchInit = RequestInit & { duplex?: 'half' };
+
+export interface JmapServerFetchOptions {
+  /**
+   * False when the Authorization header is not a stored credential but one
+   * typed in for this request: it then skips the stored-credential budget.
+   */
+  storedCredential?: boolean;
+}
 
 function headersToRecord(init: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -63,17 +69,41 @@ function headersToRecord(init: HeadersInit | undefined): Record<string, string> 
  *
  * A credential the server refused is not sent again for a while; the call
  * gets a 401 without a request (lib/stalwart/stored-credential-budget.ts).
+ * Requests that overlap are held to that too: while one request with an
+ * unproven credential is out, the others with it wait for its answer
+ * (acquireStoredCredential). That budget is for credentials replayed from a
+ * context cookie. A caller sending one that was typed in for this request
+ * passes `{ storedCredential: false }` and rate-limits it itself.
  */
 export async function fetchJmapServer(
   url: string,
   givenInit: ServerFetchInit = {},
   trusted: boolean | undefined,
+  options: JmapServerFetchOptions = {},
 ): Promise<Response> {
+  if (options.storedCredential === false) {
+    return observeUpstream('stalwart', (trace) => fetchUnbudgeted(url, withTraceHeaders(givenInit, trace), trusted));
+  }
   const authHeader = new Headers(givenInit.headers).get('authorization');
-  if (authHeader && isStoredCredentialRefused(authHeader)) return refusedCredentialResponse();
-  const response = await fetchUnbudgeted(url, givenInit, trusted);
-  if (authHeader) recordStoredCredentialStatus(authHeader, response.status);
+  const pass = authHeader ? await acquireStoredCredential(authHeader) : null;
+  if (authHeader && !pass) return refusedCredentialResponse();
+  let response: Response;
+  try {
+    // With tracing on, Stalwart gets the trace context and its spans join ours.
+    response = await observeUpstream('stalwart', (trace) => fetchUnbudgeted(url, withTraceHeaders(givenInit, trace), trusted));
+  } catch (error) {
+    pass?.failed();
+    throw error;
+  }
+  pass?.answered(response.status);
   return response;
+}
+
+function withTraceHeaders(init: ServerFetchInit, trace: Record<string, string>): ServerFetchInit {
+  if (Object.keys(trace).length === 0) return init;
+  const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(trace)) headers.set(name, value);
+  return { ...init, headers };
 }
 
 async function fetchUnbudgeted(
@@ -85,7 +115,9 @@ async function fetchUnbudgeted(
   // endpoints on, one the user chose) must not pin a connection for as long
   // as it likes. Callers with their own signal keep it.
   const init: ServerFetchInit = givenInit.signal ? givenInit : { ...givenInit, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) };
-  if (trusted !== false) {
+  // The desktop app's approved server gets its hops checked by hand as well.
+  const approvedOnDesktop = process.env.NEXT_PUBLIC_BULWARK_DESKTOP === '1' && trusted !== false;
+  if (trusted !== false && !approvedOnDesktop) {
     return fetch(url, init);
   }
 
@@ -96,12 +128,10 @@ async function fetchUnbudgeted(
   let body = rest.body;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const response: PublicFetchResponse = await fetchPublicUrl(currentUrl, {
-      ...(rest as Omit<ServerFetchInit, 'redirect' | 'headers'>),
-      method,
-      body: body as never,
-      headers,
-    });
+    const hop = { ...(rest as Omit<ServerFetchInit, 'redirect' | 'headers'>), method, body: body as never, headers };
+    const response: PublicFetchResponse = approvedOnDesktop
+      ? ((await fetch(currentUrl, { ...hop, redirect: 'manual' } as RequestInit)) as unknown as PublicFetchResponse)
+      : await fetchPublicUrl(currentUrl, hop);
 
     if (redirect === 'manual' || response.status < 300 || response.status >= 400) {
       return response as unknown as Response;
@@ -114,6 +144,9 @@ async function fetchUnbudgeted(
     await response.body?.cancel().catch(() => {});
 
     const next = new URL(location, currentUrl);
+    if (desktopRedirectRefused(currentUrl, next, approvedOnDesktop)) {
+      throw new Error(`${currentUrl} redirected to a server that has not been approved`);
+    }
     if (next.origin !== new URL(currentUrl).origin) {
       for (const key of Object.keys(headers)) {
         if (key.toLowerCase() === 'authorization' || key.toLowerCase() === 'cookie') {

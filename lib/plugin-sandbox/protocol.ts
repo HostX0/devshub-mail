@@ -8,7 +8,7 @@
 // the boundary must be structured-cloneable: no functions, no DOM nodes, no
 // class instances.
 
-import type { SlotName, PluginTier } from '../plugin-types';
+import type { SlotName, PluginTier, HostFeaturesView } from '../plugin-types';
 import type { ThemeSnapshot } from './host-theme';
 
 /** Resolved presentation/regional settings mirrored into plugin runtimes. */
@@ -50,6 +50,8 @@ export interface BackgroundInit {
   locale: string;
   /** Resolved presentation/regional preferences (time format, date locale, time zone). */
   regional?: RegionalSnapshot;
+  /** Bulwark features that replace plugins (api.host.features); host pushes updates via 'host-change'. */
+  hostFeatures?: HostFeaturesView;
 }
 
 /** Initialisation payload for a slot-instance iframe (one per slot mount). */
@@ -97,12 +99,19 @@ export interface SlotInit {
    * injected CSS + a `.dark` class. Host pushes updates via 'theme-change'.
    */
   theme: ThemeSnapshot;
+  /** Mirrors `BackgroundInit.hostFeatures`. */
+  hostFeatures?: HostFeaturesView;
 }
 
 export type InitPayload = BackgroundInit | SlotInit;
 
 // ─── Sandbox → Host messages ─────────────────────────────────
 
+/**
+ * The runtime is listening. Carries in `event.ports[0]` the port the runtime
+ * reports user input in the frame through, for the host's idle timeout; a
+ * message on it means "the user did something here just now".
+ */
 export interface ReadyMsg { type: 'sandbox-ready'; }
 
 export interface InitDoneMsg {
@@ -170,6 +179,12 @@ export interface SlotResizeMsg {
   width?: number;
 }
 
+/**
+ * Escape pressed inside a slot frame and left alone by the plugin. Keys in a
+ * frame never reach the host, so a plugin dialog would not close on it.
+ */
+export interface FrameEscapeMsg { type: 'frame-escape'; }
+
 export interface SlotShouldShowResultMsg {
   type: 'slot-should-show-result';
   id: string;
@@ -226,6 +241,7 @@ export type SandboxToHost =
   | CallbackInvokeMsg
   | HookResultMsg
   | SlotResizeMsg
+  | FrameEscapeMsg
   | ThemeAppliedMsg
   | SlotShouldShowResultMsg
   | FloatingDropdownOpenMsg
@@ -264,6 +280,9 @@ export interface ThemeChangeMsg { type: 'theme-change'; theme: ThemeSnapshot; }
 
 /** Host → sandbox: the user changed this plugin's settings. */
 export interface SettingsChangeMsg { type: 'settings-change'; settings: Record<string, unknown>; }
+
+/** Host → sandbox: a Bulwark feature that replaces plugins was turned on or off. */
+export interface HostChangeMsg { type: 'host-change'; features: HostFeaturesView; }
 
 export interface PropsUpdateMsg { type: 'props-update'; props: Record<string, unknown>; }
 
@@ -309,6 +328,7 @@ export type HostToSandbox =
   | LocaleChangeMsg
   | ThemeChangeMsg
   | SettingsChangeMsg
+  | HostChangeMsg
   | PropsUpdateMsg
   | SlotShouldShowMsg
   | FloatingDropdownSelectMsg

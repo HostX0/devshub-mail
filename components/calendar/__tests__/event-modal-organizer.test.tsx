@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventModal } from '../event-modal';
 import type { Calendar, CalendarEvent, CalendarParticipant } from '@/lib/jmap/types';
@@ -109,8 +109,8 @@ describe.each<['0.16' | '1.0']>([['0.16'], ['1.0']])('EventModal organizer and a
 
 // RFC 5546: when the organizer moves an event, the attendees are asked
 // again; every other save keeps their answers. The editor shows and writes
-// the event in the user's zone (here Tokyo, UTC+9), which is no move by
-// itself.
+// the event on its own clock (New York), whatever the user's zone (here
+// Tokyo, UTC+9) is (pim-2).
 describe.each<['0.16' | '1.0']>([['0.16'], ['1.0']])('EventModal answers after a move on Stalwart %s', (version) => {
   beforeEach(() => useSettingsStore.setState({ timeZone: 'Asia/Tokyo' }));
   afterEach(() => useSettingsStore.setState({ timeZone: AUTO_TIME_ZONE }));
@@ -141,7 +141,7 @@ describe.each<['0.16' | '1.0']>([['0.16'], ['1.0']])('EventModal answers after a
     return onSave.mock.calls[0][0] as Partial<CalendarEvent>;
   }
   const moveStartTo = (time: string) => (container: HTMLElement) => {
-    const [startTime] = container.querySelectorAll('input[type="time"]');
+    const startTime = within(container).getByLabelText('form.start_time');
     fireEvent.change(startTime, { target: { value: time } });
   };
   const statuses = (data: Partial<CalendarEvent>) => Object.fromEntries(
@@ -155,11 +155,11 @@ describe.each<['0.16' | '1.0']>([['0.16'], ['1.0']])('EventModal answers after a
     expect(statuses(data)).toEqual({ org: 'accepted', bob: 'needs-action', carol: 'needs-action' });
   });
 
-  it('keeps the answers when only the time zone is rewritten', async () => {
+  it('keeps the answers, and the event in its own zone, when nothing changes', async () => {
     const data = await save(own(), () => {});
 
-    // Written in the user's zone, at the same instant.
-    expect(data).toMatchObject({ start: '2026-10-12T21:00:00', timeZone: 'Asia/Tokyo', duration: 'PT1H' });
+    // Written in its own zone, as it was (pim-2); it was rewritten into the user's.
+    expect(data).toMatchObject({ start: '2026-10-12T08:00:00', timeZone: 'America/New_York', duration: 'PT1H' });
     expect(statuses(data)).toEqual({ org: 'accepted', bob: 'accepted', carol: 'declined' });
   });
 
@@ -291,7 +291,7 @@ describe.each<['0.16' | '1.0']>([['0.16'], ['1.0']])('EventModal on the owner\'s
   // (live on 0.16.23).
   it('asks the other attendees again when the user moves it, and keeps the user\'s answer', async () => {
     const { data } = await saveAs(inShared('userc@example.org', true), (container) => {
-      const [startTime] = container.querySelectorAll('input[type="time"]');
+      const startTime = within(container).getByLabelText('form.start_time');
       fireEvent.change(startTime, { target: { value: '11:00' } });
     });
 

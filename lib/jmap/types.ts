@@ -51,6 +51,8 @@ export interface Email {
   // subject / body excerpt with the matched terms in <mark>, set on search
   // hits only. See lib/search-snippet.ts.
   searchSnippet?: { subject: string | null; preview: string | null };
+  /** A search row only the local store found. It's no sign of new mail, whatever its date (lib/jmap/search-merge.ts). */
+  foundLocally?: boolean;
   textBody?: EmailBodyPart[];
   htmlBody?: EmailBodyPart[];
   bodyValues?: Record<string, EmailBodyValue>;
@@ -63,6 +65,8 @@ export interface Email {
   headers?: Record<string, string | string[]>;
   // Security headers parsed
   authenticationResults?: AuthenticationResults;
+  /** See authenticationResultsOnReceipt (lib/email-headers.ts); set by the full message fetch. */
+  authenticationResultsOnReceipt?: boolean;
   spamScore?: number;
   spamStatus?: string;
   spamLLM?: {
@@ -93,6 +97,8 @@ export interface Email {
   // views (All Mail, unified, cross-account) so the list can show where each
   // message lives. Transient/client-only, not part of the JMAP object.
   sourceFolder?: string;
+  // Role of that folder, so the list names it as the sidebar does ("Sent", not "Sent Items").
+  sourceFolderRole?: string;
   // Client-only scheduled-send metadata, populated from EmailSubmission/query.
   scheduledSendAt?: string;
   emailSubmissionId?: string;
@@ -107,10 +113,22 @@ export interface Email {
   scheduledAccountId?: string;
   isScheduled?: boolean;
   isSmimeScheduled?: boolean;
+  /**
+   * Client-only: a reply just sent, shown in the open conversation before the
+   * server's copy is read back (lib/held-send.ts).
+   */
+  sentEcho?: boolean;
 }
 
 export interface SendEmailResult {
   scheduled: boolean;
+  /**
+   * Kept in the offline outbox (#523), not sent yet: it goes out once the
+   * server can be reached again. Nothing else is set then.
+   */
+  queued?: boolean;
+  /** The outbox entry, when queued (see lib/offline/offline-mode.ts afterOutboxSend). */
+  outboxId?: number;
   emailId?: string;
   emailSubmissionId?: string;
   sendAt?: string;
@@ -122,6 +140,12 @@ export interface SendEmailResult {
    * search for it.
    */
   submissionAccountId?: string;
+  /**
+   * JMAP account the sent message (`emailId`) lies in: a shared or group
+   * account when sent from its identity. Ids repeat across accounts, so the
+   * id alone does not name the message.
+   */
+  emailAccountId?: string;
   /**
    * Set when the submission succeeded but a post-send step was rejected
    * (the implicit onSuccessUpdateEmail filing patch, or destroying the
@@ -268,6 +292,8 @@ export interface MailboxRights {
   mayDelete: boolean;
   maySubmit: boolean;
   mayShare?: boolean;
+  /** Stalwart 1.0: may change the mailbox's shared metadata (urn:ietf:params:jmap:metadata). */
+  maySetMetadata?: boolean;
 }
 
 export interface Thread {
@@ -659,10 +685,21 @@ export interface Calendar {
   // shared calendar (see lib/shared-calendar-colors). When true, the override
   // wins over per-event colors so the whole shared calendar paints uniformly.
   colorIsLocalOverride?: boolean;
+  // The server's own color, kept next to a local override so the sidebar can
+  // tell whether dropping the override brings it back or picks a new one.
+  serverColor?: string | null;
   // True when the calendar holds only tasks (VTODO) and no events, so it is
   // hidden from the event calendar UI while remaining available to the tasks
   // view (#761). Undefined means "not determined" (treated as not tasks-only).
   isTasksOnly?: boolean;
+  // True for a calendar made here to hold tasks ("Tasks", or "Events and
+  // tasks"). The server doesn't say which components a calendar takes, so
+  // while such a calendar is empty nothing else tells it from an events
+  // calendar (#1595). Kept in the browser (calendar-store taskCalendarKinds).
+  takesTasks?: boolean;
+  // A company calendar the admin set (lib/company-calendars.ts): a read-only
+  // calendar that exists only in the browser.
+  isCompany?: boolean;
 }
 
 /**
@@ -765,6 +802,11 @@ export interface CalendarParticipant {
   scheduleStatus: string[] | null;
   scheduleUpdated: string | null;
   invitedBy: string | null;
+  /**
+   * Who answered for this participant (RFC 5545 SENT-BY), as a
+   * `mailto:` address. Set when a delegate answers for the calendar's owner.
+   */
+  sentBy?: string | null;
   delegatedTo: Record<string, boolean> | null;
   delegatedFrom: Record<string, boolean> | null;
   memberOf: Record<string, boolean> | null;
@@ -877,15 +919,23 @@ export interface CalendarTask {
   created: string | null;
   updated: string;
   recurrenceRules: CalendarRecurrenceRule[] | null;
+  /** Client-only, on an occurrence the calendar expanded: its LocalDateTime key in the series' recurrenceOverrides. */
+  recurrenceId?: string;
+  /** Client-only, on an occurrence the calendar expanded: the id of the task it repeats. */
+  seriesId?: string;
+  recurrenceOverrides?: Record<string, Partial<CalendarTask> & { excluded?: boolean }> | null;
   // While on, Stalwart 1.0 fills the calendar's default alerts into `alerts`.
   useDefaultAlerts?: boolean;
   alerts: Record<string, CalendarEventAlert> | null;
   relatedTo: Record<string, CalendarRelation> | null;
+  links?: Record<string, CalendarLink> | null;
   // Client-only, set on tasks from a shared calendar account. Their `id` and
   // `calendarIds` are namespaced `accountId:id` like shared events.
   originalId?: string;
   accountId?: string;
   isShared?: boolean;
+  /** Client-only: the login the task belongs to while the calendar shows several (pim-12). */
+  localAccountId?: string;
 }
 
 /**

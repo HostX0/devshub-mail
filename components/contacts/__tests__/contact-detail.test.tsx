@@ -45,6 +45,14 @@ describe('ContactDetail', () => {
     expect(link.closest('a')).toHaveAttribute('href', 'mailto:alice@example.com');
   });
 
+  it('shows the copy and compose buttons on keyboard focus and touch, not only on hover', () => {
+    render(<ContactDetail contact={contact} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    const copy = screen.getByRole('button', { name: 'detail.copy_email' });
+    const actions = copy.closest('[data-row-actions]') as HTMLElement;
+    expect(actions.className).toContain('group-focus-within:opacity-100');
+    expect(actions.className).toContain('pointer-coarse:opacity-100');
+  });
+
   it('displays phone numbers', () => {
     render(<ContactDetail contact={contact} onEdit={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText('+33612345678')).toBeInTheDocument();
@@ -60,9 +68,54 @@ describe('ContactDetail', () => {
     render(<ContactDetail contact={typed} onEdit={vi.fn()} onDelete={vi.fn()} />);
     // The test translator returns the key, so a translated label shows up as its key.
     expect(screen.getByText('form.context_work')).toBeInTheDocument();
-    expect(screen.getByText('form.context_private · form.phone_cell, x-sat')).toBeInTheDocument();
+    expect(screen.getByText('ux_pim_contact.context_private · form.phone_cell, x-sat')).toBeInTheDocument();
     // Custom vCard types are shown as stored.
     expect(screen.getByText('form.context_work, x-hq')).toBeInTheDocument();
+  });
+
+  // #1578: relatedTo is keyed by the related card's uid, which is no name.
+  describe('related contacts', () => {
+    const jane: ContactCard = { id: '2', uid: 'urn:uuid:0C8B2B6E-1D0F-4F0E-9B1E-3D1A5C7E9F00', addressBookIds: {}, name: { full: 'Jane Doe' } };
+    const company: ContactCard = {
+      ...contact,
+      kind: 'org',
+      relatedTo: {
+        '0c8b2b6e-1d0f-4f0e-9b1e-3d1a5c7e9f00': { relation: { contact: true } },
+        'Max Mustermann': { relation: { 'x-assistant': true } },
+      },
+    };
+
+    afterEach(() => {
+      useContactStore.setState({ contacts: [] });
+    });
+
+    it('shows the related card by name, and opens it', () => {
+      useContactStore.setState({ contacts: [company, jane] });
+      const onOpenContact = vi.fn();
+      render(<ContactDetail contact={company} onEdit={vi.fn()} onDelete={vi.fn()} onOpenContact={onOpenContact} />);
+
+      expect(screen.queryByText('0c8b2b6e-1d0f-4f0e-9b1e-3d1a5c7e9f00')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Jane Doe' }));
+      expect(onOpenContact).toHaveBeenCalledExactlyOnceWith('2');
+    });
+
+    it('shows a value no card has as it is stored', () => {
+      useContactStore.setState({ contacts: [company] });
+      render(<ContactDetail contact={company} onEdit={vi.fn()} onDelete={vi.fn()} onOpenContact={vi.fn()} />);
+
+      expect(screen.getByText('0c8b2b6e-1d0f-4f0e-9b1e-3d1a5c7e9f00')).toBeInTheDocument();
+      expect(screen.getByText('Max Mustermann')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Max Mustermann' })).toBeNull();
+    });
+
+    it('takes the card of the same account when two accounts have one with that uid', () => {
+      const elsewhere: ContactCard = { ...jane, id: 'other::2', localAccountId: 'other', name: { full: 'Someone Else' } };
+      useContactStore.setState({ contacts: [elsewhere, company, jane] });
+      render(<ContactDetail contact={company} onEdit={vi.fn()} onDelete={vi.fn()} onOpenContact={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: 'Jane Doe' })).toBeInTheDocument();
+      expect(screen.queryByText('Someone Else')).toBeNull();
+    });
   });
 
   it('displays organization name', () => {

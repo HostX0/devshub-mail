@@ -12,6 +12,7 @@ import { DEFAULT_SEARCH_FILTERS } from '@/lib/jmap/search-utils';
 import { useIdentityStore } from '@/stores/identity-store';
 import { useVacationStore } from '@/stores/vacation-store';
 import { useFileStore } from '@/stores/file-store';
+import { useTaskStore } from '@/stores/task-store';
 import { clearContactPhotoCache } from '@/lib/contact-photo-cache';
 import { bumpStoreEpoch } from '@/lib/store-epoch';
 import { useAccountSecurityStore } from '@/stores/account-security-store';
@@ -155,6 +156,9 @@ export function clearAllStores(): void {
   clearContactPhotoCache();
   useVacationStore.getState().clearState();
   useCalendarStore.getState().clearState();
+  // The task list is the account's too: left in place, the next account shows
+  // it until its own arrives, and a fetch still under way could put it back.
+  useTaskStore.getState().clearTasks();
   useFilterStore.getState().clearState();
   // 2FA state, app passwords and API keys are the account's own: left in
   // place, the page shows them for the next account and "Remove" sends
@@ -174,9 +178,9 @@ export function clearAllStores(): void {
  * Drops what the mail list still shows of a login that was signed out while
  * another one stays active: the login's folder, when the Pro sidebar had it
  * open (`viewingAccountId`), for the active login's Inbox, and the login's
- * rows of a list that mixes accounts. Without the login's client every
- * action on those rows fell back to the active login's, where the same ids
- * name other messages: deleting them deleted the active login's mail.
+ * rows, its open message and its open conversations in a list that mixes
+ * accounts. Without the login's client nothing done to them could reach its
+ * server, and through any other login the same ids name other messages.
  */
 export function forgetAccountRows(accountId: string, activeClient: IJMAPClient | null): void {
   const state = useEmailStore.getState();
@@ -188,12 +192,16 @@ export function forgetAccountRows(accountId: string, activeClient: IJMAPClient |
     return;
   }
   const gone = (email: { sourceClientAccountId?: string } | null) => email?.sourceClientAccountId === accountId;
-  if (!state.emails.some(gone) && !gone(state.selectedEmail)) return;
+  // emailKeyFor and threadKeyFor: "<login>/<account>:<id>".
+  const goneKey = (key: string) => key.startsWith(`${accountId}/`);
+  const openThreads = [...state.expandedThreadIds, ...state.threadEmailsCache.keys()];
+  if (!state.emails.some(gone) && !gone(state.selectedEmail) && !openThreads.some(goneKey)) return;
   useEmailStore.setState((s) => ({
     emails: s.emails.filter((email) => !gone(email)),
     selectedEmail: gone(s.selectedEmail) ? null : s.selectedEmail,
-    // emailKeyFor: "<login>/<account>:<id>".
-    selectedEmailKeys: new Set([...s.selectedEmailKeys].filter((key) => !key.startsWith(`${accountId}/`))),
+    selectedEmailKeys: new Set([...s.selectedEmailKeys].filter((key) => !goneKey(key))),
+    expandedThreadIds: new Set([...s.expandedThreadIds].filter((key) => !goneKey(key))),
+    threadEmailsCache: new Map([...s.threadEmailsCache].filter(([key]) => !goneKey(key))),
   }));
 }
 

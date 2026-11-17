@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LiteLoginError,
@@ -8,13 +9,19 @@ import {
   liteTokenLogin,
   probeLiteTokenLogin,
   readLiteAccessToken,
+  revokeAllLiteSessions,
+  revokeLiteSlot,
   readLiteBasicSession,
   readLiteRefreshToken,
+  replaceLiteRefreshToken,
   resetLiteProbeCache,
+  retireLiteRefreshToken,
+  retireLiteSlot,
   resetLiteRegisteredClients,
   saveLiteAccessToken,
   saveLiteBasicSession,
   saveLiteRefreshToken,
+  settleLiteTokenStorage,
 } from '@/lib/auth/lite-tokens';
 
 type FetchInput = Parameters<typeof fetch>[0];
@@ -32,15 +39,19 @@ describe('lite token storage', () => {
     sessionStorage.clear();
   });
 
-  it('keeps a remembered refresh token in localStorage and a tab-only one in sessionStorage', () => {
-    saveLiteRefreshToken(0, { serverUrl: `${SERVER}/`, username: 'alice', refreshToken: 'r0' }, true);
-    saveLiteRefreshToken(1, { serverUrl: SERVER, username: 'bob', refreshToken: 'r1' }, false);
+  it('keeps a remembered refresh token in localStorage and a tab-only one in sessionStorage, sealed', async () => {
+    saveLiteRefreshToken(0, { serverUrl: `${SERVER}/`, username: 'alice', refreshToken: 'refresh-r0' }, true);
+    saveLiteRefreshToken(1, { serverUrl: SERVER, username: 'bob', refreshToken: 'refresh-r1' }, false);
+    await settleLiteTokenStorage();
 
-    expect(JSON.parse(localStorage.getItem('bulwark-lite:refresh:0')!)).toEqual({ serverUrl: SERVER, username: 'alice', refreshToken: 'r0' });
+    // The record names the account; the token itself is only there sealed.
+    expect(JSON.parse(localStorage.getItem('bulwark-lite:refresh:0')!)).toEqual({ serverUrl: SERVER, username: 'alice', id: expect.any(String), sealed: expect.any(String) });
+    expect(localStorage.getItem('bulwark-lite:refresh:0')).not.toContain('refresh-r0');
     expect(localStorage.getItem('bulwark-lite:refresh:1')).toBeNull();
-    expect(JSON.parse(sessionStorage.getItem('bulwark-lite:refresh:1')!).refreshToken).toBe('r1');
-    expect(readLiteRefreshToken(0)?.refreshToken).toBe('r0');
-    expect(readLiteRefreshToken(1)?.refreshToken).toBe('r1');
+    expect(JSON.parse(sessionStorage.getItem('bulwark-lite:refresh:1')!)).toMatchObject({ username: 'bob', sealed: expect.any(String) });
+    expect(sessionStorage.getItem('bulwark-lite:refresh:1')).not.toContain('refresh-r1');
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('refresh-r0');
+    expect(readLiteRefreshToken(1)?.refreshToken).toBe('refresh-r1');
     expect(readLiteRefreshToken(2)).toBeNull();
   });
 
@@ -96,7 +107,8 @@ describe('lite access token cache (#552)', () => {
     saveLiteAccessToken(1, 'AT1', 600, false);
 
     expect(localStorage.getItem('bulwark-lite:access:1')).toBeNull();
-    expect(JSON.parse(sessionStorage.getItem('bulwark-lite:access:1')!).accessToken).toBe('AT1');
+    expect(sessionStorage.getItem('bulwark-lite:access:1')).not.toBeNull();
+    expect(sessionStorage.getItem('bulwark-lite:access:1')).not.toContain('accessToken');
     vi.advanceTimersByTime(300_000);
     expect(readLiteAccessToken(0)).toEqual({ accessToken: 'AT0', expiresIn: 1500 });
     expect(readLiteAccessToken(1)).toEqual({ accessToken: 'AT1', expiresIn: 300 });
@@ -288,10 +300,14 @@ describe('liteRefreshTokens', () => {
     const tokens = await liteRefreshTokens(2);
 
     expect(tokens).toEqual({ accessToken: 'AT2', expiresIn: 900, refreshToken: 'RT2' });
-    expect(JSON.parse(localStorage.getItem('bulwark-lite:refresh:2')!).refreshToken).toBe('RT2');
+    expect(readLiteRefreshToken(2)?.refreshToken).toBe('RT2');
+    expect(JSON.parse(localStorage.getItem('bulwark-lite:refresh:2')!)).toMatchObject({ username: 'alice', sealed: expect.any(String) });
+    expect(localStorage.getItem('bulwark-lite:refresh:2')).not.toContain('refreshToken');
     expect(sessionStorage.getItem('bulwark-lite:refresh:2')).toBeNull();
-    // The new access token is cached beside it for the next reload.
-    expect(JSON.parse(localStorage.getItem('bulwark-lite:access:2')!).accessToken).toBe('AT2');
+    // The new access token is cached beside it for the next reload, sealed.
+    expect(readLiteAccessToken(2)?.accessToken).toBe('AT2');
+    expect(JSON.parse(localStorage.getItem('bulwark-lite:access:2')!)).toMatchObject({ sealed: expect.any(String) });
+    expect(localStorage.getItem('bulwark-lite:access:2')).not.toContain('accessToken');
   });
 
   it('keeps a tab-only token in sessionStorage after rotation', async () => {
@@ -380,5 +396,104 @@ describe('probeLiteTokenLogin', () => {
     const err = new LiteLoginError('endpoint_missing', 404, 'nope');
     expect(err.message).toBe('endpoint_missing: nope');
     expect(err.status).toBe(404);
+  });
+});
+
+describe('lite sign-out revocation (#1388)', () => {
+  const REVOKE = `${SERVER}/auth/revoke`;
+  const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    fetchMock.mockClear();
+    vi.stubGlobal('fetch', fetchMock);
+    saveLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'r0', revocationEndpoint: REVOKE }, true);
+    saveLiteRefreshToken(1, { serverUrl: SERVER, username: 'b', refreshToken: 'r1', revocationEndpoint: REVOKE }, false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('revokes the refresh token by default', async () => {
+    await revokeLiteSlot(0);
+
+    expect(fetchMock).toHaveBeenCalledWith(REVOKE, expect.objectContaining({ method: 'POST' }));
+    expect(readLiteRefreshToken(0)).toBeNull();
+  });
+
+  it('only forgets the tokens when revocation is turned off', async () => {
+    await revokeLiteSlot(0, false);
+    await revokeAllLiteSessions(false);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(readLiteRefreshToken(0)).toBeNull();
+    expect(readLiteRefreshToken(1)).toBeNull();
+  });
+});
+
+describe('lite tokens replaced by a new sign-in (#1571)', () => {
+  const REVOKE = `${SERVER}/auth/revoke`;
+  const fetchMock = vi.fn(async (_input: FetchInput, _init?: FetchInit) => new Response(null, { status: 200 }));
+  const revoked = () => fetchMock.mock.calls.map(([, init]) => new URLSearchParams(String(init?.body)).get('token'));
+
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    fetchMock.mockClear();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('revokes the token the slot held before and keeps the new one', async () => {
+    saveLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'old', revocationEndpoint: REVOKE }, true);
+
+    await replaceLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'new', revocationEndpoint: REVOKE }, true, true);
+
+    expect(revoked()).toEqual(['old']);
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('new');
+  });
+
+  it('revokes a Stalwart OAuth token, whose endpoints are on the server origin', async () => {
+    saveLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'old', tokenEndpoint: `${SERVER}/auth/token`, revocationEndpoint: REVOKE }, true);
+
+    await replaceLiteRefreshToken(0, { serverUrl: SERVER, username: '', refreshToken: 'new' }, true, true);
+
+    expect(revoked()).toEqual(['old']);
+  });
+
+  it('revokes nothing for the same token, with revocation off, or for an external provider', async () => {
+    saveLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'same', revocationEndpoint: REVOKE }, true);
+    await replaceLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'same', revocationEndpoint: REVOKE }, true, true);
+
+    await replaceLiteRefreshToken(0, { serverUrl: SERVER, username: 'a', refreshToken: 'next', revocationEndpoint: REVOKE }, true, false);
+
+    saveLiteRefreshToken(1, {
+      serverUrl: SERVER, username: 'b', refreshToken: 'sso',
+      tokenEndpoint: 'https://id.example.org/token', revocationEndpoint: 'https://id.example.org/revoke',
+    }, true);
+    await replaceLiteRefreshToken(1, { serverUrl: SERVER, username: 'b', refreshToken: 'sso-2' }, true, true);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('next');
+    expect(readLiteRefreshToken(1)?.refreshToken).toBe('sso-2');
+  });
+
+  it('retiring a slot forgets and revokes its token', async () => {
+    saveLiteRefreshToken(2, { serverUrl: SERVER, username: 'c', refreshToken: 'r2', revocationEndpoint: REVOKE }, false);
+    saveLiteBasicSession(2, { serverUrl: SERVER, username: 'c', password: 'p' });
+    saveLiteRefreshToken(3, { serverUrl: SERVER, username: 'd', refreshToken: 'r3', revocationEndpoint: REVOKE }, true);
+
+    await retireLiteSlot(2, true);
+    await retireLiteRefreshToken(3, true);
+
+    expect(revoked()).toEqual(['r2', 'r3']);
+    expect(readLiteRefreshToken(2)).toBeNull();
+    expect(readLiteBasicSession(2)).toBeNull();
+    expect(readLiteRefreshToken(3)).toBeNull();
   });
 });

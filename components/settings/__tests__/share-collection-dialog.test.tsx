@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShareCollectionDialog } from '../share-collection-dialog';
 import { JMAPClient } from '@/lib/jmap/client';
 import type { CalendarRights } from '@/lib/jmap/types';
+import { DEFAULT_POLICY } from '@/lib/admin/types';
+import { usePolicyStore } from '@/stores/policy-store';
 
 // P1-8: Stalwart 1.0 refuses to list its directory unless the administrator
 // allows directory queries (off by default). The dialog used to say "No other
@@ -15,6 +17,8 @@ const ME = { id: 'me', type: 'individual', name: 'me@example.com', description: 
 const ANNA = { id: 'anna', type: 'individual', name: 'anna@example.com', description: null, email: 'anna@example.com' };
 const SALES = { id: 'grp', type: 'group', name: 'Sales', description: null, email: 'sales@example.com' };
 const JANE = { id: 'jane', type: 'individual', name: 'Jane', description: null, email: 'jane@example.com' };
+const NICO = { id: 'nico', type: 'individual', name: 'nico@example.net', description: null, email: 'nico@example.net' };
+const OLGA = { id: 'olga', type: 'individual', name: 'olga@example.org', description: null, email: 'olga@example.org' };
 
 const DIRECTORY_OFF: MethodResponse[] = [
   ['error', { type: 'forbidden', description: 'The administrator has disabled directory queries.' }, '0'],
@@ -93,6 +97,29 @@ describe('ShareCollectionDialog directory', () => {
     expect(screen.queryByText('no_principals')).toBeNull();
   });
 
+  it("offers only the account's own domains, aliases included, under the policy's directory rules", async () => {
+    const policy = usePolicyStore.getState();
+    const client = makeClient((calls) => (calls[0][0] === 'Identity/get'
+      ? [['Identity/get', { list: [
+        { id: 'i1', name: 'Me', email: 'me@example.com' },
+        { id: 'i2', name: 'Me', email: 'me@example.net' },
+      ] }, '0']]
+      : [
+        ['Principal/query', { ids: ['me', 'anna', 'nico', 'olga'] }, '0'],
+        ['Principal/get', { list: [ME, ANNA, NICO, OLGA], notFound: [] }, '1'],
+      ]));
+    usePolicyStore.setState({ policy: { ...DEFAULT_POLICY, directorySameDomainOnly: true }, loaded: true, partial: false });
+    try {
+      renderDialog(client);
+      fireEvent.click(screen.getByText('add_person'));
+      await waitFor(() => expect(screen.getByText('anna@example.com')).toBeInTheDocument());
+      expect(screen.getByText('nico@example.net')).toBeInTheDocument();
+      expect(screen.queryByText('olga@example.org')).toBeNull();
+    } finally {
+      usePolicyStore.setState(policy, true);
+    }
+  });
+
   it('explains a restricted directory on Stalwart 1.0 and still offers groups and sharers', async () => {
     const onShare = renderDialog(restrictedDirectory());
     fireEvent.click(screen.getByText('add_person'));
@@ -158,5 +185,14 @@ describe('ShareCollectionDialog directory', () => {
 
     await waitFor(() => expect(screen.getByText('directory_failed')).toBeInTheDocument());
     expect(screen.queryByText('no_principals')).toBeNull();
+  });
+});
+
+describe('ShareCollectionDialog focus', () => {
+  it('takes the focus when it opens and has a named close button', async () => {
+    renderDialog(fullDirectory());
+    const dialog = screen.getByRole('dialog');
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    expect(screen.getAllByRole('button', { name: 'close' }).length).toBeGreaterThan(0);
   });
 });

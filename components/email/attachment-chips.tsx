@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { FileText, FileSpreadsheet, FileImage, FileArchive, File as FileIcon } from "@/components/icons";
+import { FileText, FileSpreadsheet, FileImage, FileVideo, FileAudio, FileArchive, File as FileIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { stripBidiControls } from "@/lib/bidi";
+import { isReportPart } from "@/lib/attachment-visibility";
 import type { Attachment, Email } from "@/lib/jmap/types";
 import type { LoadListAttachments } from "@/lib/list-attachments";
 
@@ -12,27 +13,39 @@ import type { LoadListAttachments } from "@/lib/list-attachments";
  * pixels, spacers a couple of hundred bytes each — none of which anyone
  * wants to download. Only parts the sender actually attached belong in
  * the list, so anything marked inline or referenced by a Content-ID is
- * dropped.
+ * dropped, and so are the report parts of a bounce or read receipt, which
+ * the reader does not list either.
  */
 export function realAttachments(attachments?: Attachment[]): Attachment[] {
   if (!attachments?.length) return [];
   return attachments.filter(
-    (a) => a.disposition !== "inline" && !a.cid && !!a.name,
+    (a) => a.disposition !== "inline" && !a.cid && !!a.name && !isReportPart(a.type),
   );
 }
 
 // `badge` fills the square Mountain View draws behind a white glyph, as Gmail does.
-const ICON_BY_TYPE: { match: RegExp; icon: typeof FileIcon; className: string; badge: string }[] = [
-  { match: /^image\//, icon: FileImage, className: "text-violet-600 dark:text-violet-400", badge: "bg-red-600" },
-  { match: /pdf/, icon: FileText, className: "text-red-600 dark:text-red-400", badge: "bg-red-600" },
-  { match: /sheet|excel|csv/, icon: FileSpreadsheet, className: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-600" },
-  { match: /zip|compress|tar|rar|7z/, icon: FileArchive, className: "text-amber-600 dark:text-amber-400", badge: "bg-zinc-500" },
-  { match: /word|document|rtf|text\//, icon: FileText, className: "text-sky-600 dark:text-sky-400", badge: "bg-blue-600" },
+// The MIME type decides first; the extension catches parts sent as
+// application/octet-stream. Only the extension is matched, so a name like
+// "startup.docx" is not taken for a tar archive.
+const ICON_BY_TYPE: { mime: RegExp; ext: string[]; icon: typeof FileIcon; className: string; badge: string }[] = [
+  { mime: /^image\//, ext: ["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "heic", "avif"], icon: FileImage, className: "text-violet-600 dark:text-violet-400", badge: "bg-red-600" },
+  { mime: /^video\//, ext: ["mp4", "avi", "mov", "wmv", "mkv", "webm"], icon: FileVideo, className: "text-pink-600 dark:text-pink-400", badge: "bg-red-600" },
+  { mime: /^audio\//, ext: ["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"], icon: FileAudio, className: "text-purple-600 dark:text-purple-400", badge: "bg-red-600" },
+  { mime: /pdf/, ext: ["pdf"], icon: FileText, className: "text-red-600 dark:text-red-400", badge: "bg-red-600" },
+  { mime: /sheet|excel|csv/, ext: ["xls", "xlsx", "ods", "csv", "tsv", "numbers"], icon: FileSpreadsheet, className: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-600" },
+  { mime: /zip|compress|x-tar|rar|7z|bzip|xz|zstd/, ext: ["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "zst"], icon: FileArchive, className: "text-amber-600 dark:text-amber-400", badge: "bg-zinc-500" },
+  { mime: /word|presentation|powerpoint|opendocument|rtf|^text\//, ext: ["doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "txt", "md"], icon: FileText, className: "text-sky-600 dark:text-sky-400", badge: "bg-blue-600" },
 ];
 
-function iconFor(type: string, name: string) {
-  const probe = `${type || ""} ${name || ""}`.toLowerCase();
-  return ICON_BY_TYPE.find((e) => e.match.test(probe)) ?? { icon: FileIcon, className: "text-muted-foreground", badge: "bg-zinc-500" };
+const OTHER_ICON = { icon: FileIcon, className: "text-muted-foreground", badge: "bg-zinc-500" };
+
+/** The icon and its colours for an attachment, shared by the list chips and the reader. */
+export function attachmentIcon(type?: string | null, name?: string | null): { icon: typeof FileIcon; className: string; badge: string } {
+  const mime = (type || "").toLowerCase();
+  const dot = (name || "").lastIndexOf(".");
+  const ext = dot >= 0 ? (name || "").slice(dot + 1).toLowerCase() : "";
+  const byMime = mime && mime !== "application/octet-stream" ? ICON_BY_TYPE.find((e) => e.mime.test(mime)) : undefined;
+  return byMime ?? ICON_BY_TYPE.find((e) => e.ext.includes(ext)) ?? OTHER_ICON;
 }
 
 /** Long names are unreadable truncated at the tail — the extension is the
@@ -81,7 +94,7 @@ export function AttachmentChips({ attachments, onOpen, max = 2, leading, variant
     <div className={cn("flex items-center flex-wrap", mv ? "gap-2" : "gap-1.5", className)}>
       {leading}
       {shown.map((a) => {
-        const { icon: Icon, className: iconClass, badge } = iconFor(a.type, a.name ?? "");
+        const { icon: Icon, className: iconClass, badge } = attachmentIcon(a.type, a.name);
         return (
           <button
             key={a.blobId + a.partId}
@@ -91,8 +104,8 @@ export function AttachmentChips({ attachments, onOpen, max = 2, leading, variant
             onDoubleClick={(e) => e.stopPropagation()}
             title={stripBidiControls(a.name ?? "")}
             className={mv
-              ? cn(MV_CHIP_BOX_CLASS, "max-w-[14rem] bg-transparent text-foreground/80 hover:bg-muted")
-              : cn(CHIP_BOX_CLASS, "max-w-[12rem] bg-background/60 text-foreground/80 hover:bg-muted hover:text-foreground")}
+              ? cn(MV_CHIP_BOX_CLASS, "max-w-[14rem] bg-transparent text-foreground hover:bg-muted")
+              : cn(CHIP_BOX_CLASS, "max-w-[12rem] bg-background/60 text-foreground hover:bg-muted hover:text-foreground")}
           >
             {mv ? (
               <span className={cn(MV_CHIP_BADGE_CLASS, badge)}>
@@ -129,7 +142,8 @@ export function useListAttachments(email: Email, load?: LoadListAttachments): At
   // answer cached and takes it in the first render, so it mounts at its full
   // height instead of growing a frame later and making the list correct
   // the scroll position under the reader.
-  const [loaded, setLoaded] = useState<{ id: string; attachments: Attachment[] } | null>(() => {
+  // `attachments: null` is "asked, no answer yet".
+  const [loaded, setLoaded] = useState<{ id: string; attachments: Attachment[] | null } | null>(() => {
     const cached = needsLoad ? load?.peek?.(email) : undefined;
     return cached ? { id: email.id, attachments: cached } : null;
   });
@@ -145,7 +159,7 @@ export function useListAttachments(email: Email, load?: LoadListAttachments): At
     // The peek ran during render, before the list's owner had caught up with
     // a view change, so it may have read another account's entry for the
     // same id. The loader's answer is the real one; without one yet, wait.
-    if (!answered) setLoaded(null);
+    if (!answered) setLoaded({ id, attachments: null });
     return cancel;
     // The row's email object is replaced on every keyword change; only a
     // different message needs a different answer.
@@ -153,7 +167,12 @@ export function useListAttachments(email: Email, load?: LoadListAttachments): At
   }, [needsLoad, load, email.id]);
 
   if (email.attachments) return email.attachments;
-  return loaded?.id === email.id ? loaded.attachments : undefined;
+  if (loaded?.id === email.id) return loaded.attachments ?? undefined;
+  // A row the list keeps for another message (see useRowSlots) starts with
+  // the last one's state: read the cache for this one, as a new row does in
+  // its first render, or the paperclip showed for a frame on a message
+  // whose parts are all inline.
+  return (needsLoad ? load?.peek?.(email) : undefined) ?? undefined;
 }
 
 /**
@@ -171,11 +190,14 @@ export function useListHasAttachment(email: Email, load?: LoadListAttachments): 
 /**
  * Whether a list row will draw a chip row for this email, counting the room
  * it holds while the parts load. Lets the list estimate a row's height
- * before it has measured it.
+ * before it has measured it. Once the parts are in, they decide: a mail
+ * whose only parts are inline images draws no chips.
  */
 export function listRowShowsChips(email: Email, load?: LoadListAttachments): boolean {
   if (email.attachments) return realAttachments(email.attachments).length > 0;
-  return !!load && !!email.hasAttachment;
+  if (!load || !email.hasAttachment) return false;
+  const loaded = load.peek?.(email);
+  return loaded ? realAttachments(loaded).length > 0 : true;
 }
 
 interface ListAttachmentChipsProps extends Omit<AttachmentChipsProps, "attachments"> {
