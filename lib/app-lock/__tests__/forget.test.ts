@@ -20,7 +20,7 @@ vi.mock('@/lib/store/client/purge', async () => {
 });
 vi.mock('@/lib/offline/device-wipe', () => ({ forgetDeviceRows: async () => { events.push('rows'); } }));
 
-import { getAccountRecord, listAccountRecords, openAccountKey } from '@/lib/store/client/keys';
+import { deleteKeyDatabase, getAccountRecord, listAccountRecords, openAccountKey } from '@/lib/store/client/keys';
 import { enableAppLock, forgetEverything, lockEverywhere, resetAppLockForTests, setLeaveForTests, setReloadForTests } from '../controller';
 import { readAppLockFile } from '../state';
 import { deleteVault, readVault } from '../vault';
@@ -49,6 +49,7 @@ beforeEach(async () => {
   setReloadForTests(() => {});
   setLeaveForTests(() => { left += 1; });
   resetAppLockForTests();
+  await deleteKeyDatabase();
   await deleteVault();
   localStorage.setItem('account-registry', JSON.stringify({ state: { accounts: [{ id: 'a' }] } }));
   await openAccountKey('a');
