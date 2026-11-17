@@ -1,6 +1,7 @@
 {
   "meta_description": "以 JMAP 為基礎的自架網頁郵件，整合郵件、行事曆、聯絡人與檔案",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "網頁郵件",
     "username_label": "電子郵件地址",
     "username_placeholder": "user@example.com",
@@ -13,6 +14,8 @@
     "loading": "正在載入…",
     "reconnecting": "連線中斷，正在嘗試重新連線…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "電子郵件地址或密碼不正確。請檢查您的登入資訊後再試一次。",
       "invalid_token": "伺服器不接受此存取權杖。請確認權杖完整，且未過期或遭撤銷。",
       "connection_failed": "無法連線至伺服器。請檢查網路連線後再試一次。",

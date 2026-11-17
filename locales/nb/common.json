@@ -1,6 +1,7 @@
 {
   "meta_description": "Selvhostet nettpost for e-post, kalender, kontakter og filer, bygget på JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "Nettpost",
     "username_label": "E-post",
     "username_placeholder": "user@example.com",
@@ -13,6 +14,8 @@
     "loading": "Laster inn...",
     "reconnecting": "Tilkoblingen ble brutt. Forsøker å koble til på nytt...",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "Ugyldig e-postadresse eller passord. Sjekk påloggingsopplysningene dine og prøv igjen.",
       "invalid_token": "Serveren godtok ikke dette tilgangstokenet. Sjekk at det er fullstendig, og at det ikke har utløpt eller blitt tilbakekalt.",
       "connection_failed": "Kan ikke nå serveren. Sjekk internettforbindelsen og prøv igjen.",

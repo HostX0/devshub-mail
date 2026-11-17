@@ -607,6 +607,14 @@ describe('Stalwart target: entry document logic (runs in the browser)', () => {
     expect(resolveStalwartBoot('/webmailer/en/mail', '/webmail', locales, shells, 'en')).toBeNull();
   });
 
+  it('keeps self-hosted font and artwork URLs inside a runtime mount', () => {
+    const shell = `<head><link href="/assets/fonts/cairo/cairo.css"></head><div style="background-image:url('/assets/devshub-mail/editorial-banner.jpg')"></div>`;
+    const out = rewriteShellForMount(shell, '/webmail', 'b', '');
+    expect(out).toContain('href="/webmail/assets/fonts/cairo/cairo.css"');
+    expect(out).toContain("url('/webmail/assets/devshub-mail/editorial-banner.jpg')");
+    expect(rewriteFlightForMount('1:{"href":"/assets/fonts/cairo/cairo.css"}\n', '/webmail', 'b')).toContain('"/webmail/assets/fonts/cairo/cairo.css"');
+  });
+
   it('points a prerendered shell at the mount, in markup and in the inline RSC payload', () => {
     const shell = '<!DOCTYPE html><html><head><link rel="stylesheet" href="/_next/static/chunks/a.css"/>'
       + '<link rel="manifest" href="/manifest.webmanifest"/><link rel="icon" href="/branding/Bulwark_Favicon.svg"/>'

@@ -31,6 +31,8 @@ describe('page skeletons hydrate without a mismatch', () => {
 
     const container = document.createElement('div');
     container.innerHTML = html;
+    // Compare browser-normalized markup (e.g. decoded quotes in CSS URLs).
+    const normalizedHtml = container.innerHTML;
     document.body.appendChild(container);
     const errors: unknown[] = [];
     const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => { errors.push(args); });
@@ -39,7 +41,7 @@ describe('page skeletons hydrate without a mismatch', () => {
     });
     consoleError.mockRestore();
     expect(errors).toEqual([]);
-    expect(container.innerHTML).toBe(html);
+    expect(container.innerHTML).toBe(normalizedHtml);
   });
 
   it.each(SURFACES)('%s: one status message, busy, and nothing focusable', (surface) => {
@@ -72,6 +74,8 @@ describe('the calendar skeleton with its words', () => {
     const html = renderToString(element);
     const container = document.createElement('div');
     container.innerHTML = html;
+    // Compare browser-normalized markup (e.g. decoded quotes in CSS URLs).
+    const normalizedHtml = container.innerHTML;
     document.body.appendChild(container);
     const errors: unknown[] = [];
     const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => { errors.push(args); });
@@ -80,7 +84,7 @@ describe('the calendar skeleton with its words', () => {
     });
     consoleError.mockRestore();
     expect(errors).toEqual([]);
-    expect(container.innerHTML).toBe(html);
+    expect(container.innerHTML).toBe(normalizedHtml);
 
     const region = container.querySelector('[data-boot-skeleton="calendar"]')!;
     expect(region.textContent).toContain('Search events');

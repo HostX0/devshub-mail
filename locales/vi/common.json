@@ -1,6 +1,7 @@
 {
   "meta_description": "Webmail tự lưu trữ cho thư, lịch, danh bạ và tệp, xây dựng trên JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "Thư điện tử trên web",
     "username_label": "Email",
     "username_placeholder": "user@example.com",
@@ -13,6 +14,8 @@
     "loading": "Đang tải...",
     "reconnecting": "Mất kết nối. Đang cố gắng kết nối lại…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "Email hoặc mật khẩu không hợp lệ. Vui lòng kiểm tra thông tin đăng nhập của bạn và thử lại.",
       "invalid_token": "Máy chủ không chấp nhận mã truy cập này. Hãy kiểm tra xem mã có đầy đủ, còn hiệu lực và chưa bị thu hồi hay không.",
       "connection_failed": "Không thể truy cập vào máy chủ. Hãy kiểm tra kết nối Internet của bạn và thử lại.",

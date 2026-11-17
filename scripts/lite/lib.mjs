@@ -1283,7 +1283,10 @@ export function rewriteShellForMount(html, mount, buildId, bootScript) {
   var out = html
     .split(q + "/_next/").join(q + mount + "/_next/")
     .split(q + "/manifest.webmanifest" + q).join(q + mount + "/manifest.json?v=" + encodeURIComponent(buildId) + q)
-    .split(q + "/branding/").join(q + mount + "/branding/");
+    .split(q + "/branding/").join(q + mount + "/branding/")
+    .split(q + "/assets/").join(q + mount + "/assets/")
+    .split("url('/assets/").join("url('" + mount + "/assets/")
+    .split("url(&#x27;/assets/").join("url(&#x27;" + mount + "/assets/");
   var at = out.indexOf("<head>");
   return at === -1 ? bootScript + out : out.slice(0, at + 6) + bootScript + out.slice(at + 6);
 }
@@ -1302,7 +1305,10 @@ export function rewriteFlightForMount(text, mount, buildId) {
     return part
       .split(q + "/_next/").join(q + mount + "/_next/")
       .split(q + "/manifest.webmanifest" + q).join(q + mount + "/manifest.json?v=" + encodeURIComponent(buildId) + q)
-      .split(q + "/branding/").join(q + mount + "/branding/");
+      .split(q + "/branding/").join(q + mount + "/branding/")
+      .split(q + "/assets/").join(q + mount + "/assets/")
+      .split("url('/assets/").join("url('" + mount + "/assets/")
+      .split("url(&#x27;/assets/").join("url(&#x27;" + mount + "/assets/");
   }
   var out = "";
   var i = 0;
@@ -1410,7 +1416,7 @@ export const STALWART_SCRIPT_DIR = "_next/lite";
 export const STALWART_BOOT_FILE = `${STALWART_SCRIPT_DIR}/boot.js`;
 
 /** The root-absolute URLs rewriteShellForMount points at the mount. */
-const SHELL_URL_NEEDLES = ['"/_next/', '"/manifest.webmanifest"', '"/branding/'];
+const SHELL_URL_NEEDLES = ['"/_next/', '"/manifest.webmanifest"', '"/branding/', '"/assets/', "url('/assets/", "url(&#x27;/assets/"];
 // Stands for the mount while a script is rebuilt: private-use characters no payload holds.
 const MOUNT_MARK = String.fromCharCode(0xe000) + "bulwark-lite-mount" + String.fromCharCode(0xe001);
 
@@ -2120,7 +2126,7 @@ export function emulateStalwartRequest({ pathname, entries, prefixes, oauthClien
  * is never pointed at the mount. Returns the offending row ids.
  */
 export function flightTextRowsWithNeedles(text) {
-  const needles = ['"/_next/', '"/manifest.webmanifest"', '"/branding/'];
+  const needles = ['"/_next/', '"/manifest.webmanifest"', '"/branding/', '"/assets/', "url('/assets/", "url(&#x27;/assets/"];
   const hits = [];
   const buffer = Buffer.from(text, "utf8");
   const pattern = /(?:^|\n)([0-9a-f]+):T([0-9a-f]+),/g;

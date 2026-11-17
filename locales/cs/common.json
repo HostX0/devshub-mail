@@ -1,6 +1,7 @@
 {
   "meta_description": "Webmail pro vlastní hosting s poštou, kalendářem, kontakty a soubory, postavený na JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "Webmail",
     "username_label": "E-mail",
     "username_placeholder": "uzivatel@example.com",
@@ -13,6 +14,8 @@
     "loading": "Načítání...",
     "reconnecting": "Spojení ztraceno. Pokus o opětovné připojení…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "Neplatná e-mailová adresa nebo heslo. Zkontrolujte přihlašovací údaje a zkuste to znovu.",
       "invalid_token": "Server tento přístupový token nepřijal. Zkontrolujte, zda je úplný a zda nevypršel nebo nebyl odvolán.",
       "connection_failed": "Nelze se připojit k serveru. Zkontrolujte připojení k internetu a zkuste to znovu.",

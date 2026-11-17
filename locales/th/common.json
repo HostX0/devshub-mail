@@ -155,6 +155,7 @@
     "description": "ไม่มีหน้านี้หรือหน้านี้ถูกย้ายแล้ว ตรวจสอบที่อยู่ หรือกลับไปที่กล่องจดหมายเข้า"
   },
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "เข้าสู่ระบบจดหมายอิเล็กทรอนิกส์",
     "username_label": "อีเมล",
     "username_placeholder": "user@example.com",
@@ -167,6 +168,8 @@
     "loading": "กำลังโหลด...",
     "reconnecting": "การเชื่อมต่อขาดหาย กำลังพยายามเชื่อมต่อใหม่…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง",
       "invalid_token": "เซิร์ฟเวอร์ไม่ยอมรับโทเค็นการเข้าถึงนี้ กรุณาตรวจสอบว่าโทเค็นถูกต้องและยังไม่หมดอายุหรือถูกเพิกถอน",
       "connection_failed": "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง",

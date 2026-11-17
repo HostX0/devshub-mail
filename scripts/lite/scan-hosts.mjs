@@ -35,6 +35,7 @@ const PAGES = /\.(html|txt)$/;
 
 /** Strings in the bundle that are never requested, by where they may appear and why. */
 export const LITE_BUNDLE_NON_REQUEST = [
+  { files: /^assets\/fonts\/cairo\/OFL-Cairo\.txt$/, why: "SIL Open Font License documentation shipped with the self-hosted Cairo font", hosts: ["scripts.sil.org"] },
   { files: CHUNKS, why: "Bulwark's built-in hosts, off at runtime with noThirdPartyTraffic", hosts: LITE_BUILT_IN_HOSTS },
   { files: CHUNKS, why: "error and docs links of bundled libraries (Next.js, React, JSZip, ProseMirror, core-js, date-fns)", hosts: ["nextjs.org", "react.dev", "stuk.github.io", "prosemirror.net", "github.com", "foo.bar"] },
   { files: CHUNKS, why: "example addresses the translations localise", hosts: ["eksempel.dk", "mail.eksempel.dk", "piemers.lv", "pasts.piemers.lv", "ornek.com", "mail.ornek.com"] },

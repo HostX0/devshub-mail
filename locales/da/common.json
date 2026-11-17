@@ -1,6 +1,7 @@
 {
   "meta_description": "Selvhostet webmail til mail, kalender, kontakter og filer, bygget på JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "Webmail",
     "username_label": "Email",
     "username_placeholder": "bruger@example.com",
@@ -13,6 +14,8 @@
     "loading": "Indlæser...",
     "reconnecting": "Forbindelse mistet. Forsøger at genoprette forbindelse…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "Ugyldig e-mail eller adgangskode. Kontroller dine oplysninger og prøv igen.",
       "invalid_token": "Serveren accepterede ikke dette adgangstoken. Kontroller, at det er komplet og ikke er udløbet eller tilbagekaldt.",
       "connection_failed": "Kan ikke nå serveren. Kontrollér din internetforbindelse og prøv igen.",

@@ -1,6 +1,7 @@
 {
   "meta_description": "وب‌میل خودمیزبان برای ایمیل، تقویم، مخاطبان و فایل‌ها، ساخته‌شده بر پایه JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "ایمیل تحت وب",
     "username_label": "ایمیل",
     "username_placeholder": "user@example.com",
@@ -13,6 +14,8 @@
     "loading": "در حال بارگذاری...",
     "reconnecting": "ارتباط قطع شد. در حال تلاش برای اتصال مجدد…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "ایمیل یا رمز عبور نامعتبر است. اطلاعات خود را بررسی و دوباره تلاش کنید.",
       "invalid_token": "سرور این توکن دسترسی را نپذیرفت. بررسی کنید که کامل باشد و منقضی یا لغو نشده باشد.",
       "connection_failed": "امکان اتصال به سرور وجود ندارد. اتصال اینترنت خود را بررسی کنید.",

@@ -27,6 +27,11 @@ function fakeOut(files: Record<string, string>): string {
 afterAll(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
 
 describe('Lite bundle host scan', () => {
+  it('accounts for Cairo license documentation only in its shipped license file', () => {
+    const license = 'http://scripts.sil.org/OFL';
+    expect(scanBundleHosts(fakeOut({ 'assets/fonts/cairo/OFL-Cairo.txt': license }))).toEqual([]);
+    expect(scanBundleHosts(fakeOut({ '_next/static/chunks/a.js': `fetch("${license}")` }))).toEqual(['_next/static/chunks/a.js: scripts.sil.org']);
+  });
   it('knows the same built-in hosts and placeholders as the app', () => {
     expect((LITE_BUILT_IN_HOSTS as string[]).filter((h) => !h.endsWith('.')).sort()).toEqual([...BUILT_IN_HOSTNAMES].sort());
     for (const host of ['mail.example.com', 'x', '10.0.0.5', '93.184.216.34', 'acme.test', 'github.com', '*.vimeo.com']) {

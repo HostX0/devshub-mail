@@ -1,6 +1,7 @@
 {
   "meta_description": "메일, 캘린더, 연락처, 파일을 한곳에서 다루는 JMAP 기반 셀프 호스팅 웹메일",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "웹메일",
     "username_label": "이메일",
     "username_placeholder": "user@example.com",
@@ -13,6 +14,8 @@
     "loading": "불러오는 중...",
     "reconnecting": "연결이 끊어졌어요. 다시 연결을 시도할게요...",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "이메일이나 비밀번호가 맞지 않아요. 다시 확인해 주세요.",
       "invalid_token": "서버가 이 액세스 토큰을 받아들이지 않았어요. 토큰이 완전한지, 만료되거나 취소되지 않았는지 확인해 주세요.",
       "connection_failed": "서버에 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",

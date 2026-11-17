@@ -1,6 +1,7 @@
 {
   "meta_description": "Zelf gehoste webmail voor e-mail, agenda, contacten en bestanden, gebouwd op JMAP",
   "login": {
+    "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
     "title": "Webmail",
     "username_label": "E-mail",
     "username_placeholder": "gebruiker@voorbeeld.nl",
@@ -13,6 +14,8 @@
     "loading": "Laden...",
     "reconnecting": "Verbinding verloren. Opnieuw verbinden…",
     "error": {
+      "server_blocked": "The mail server refused this connection. Contact your administrator to check access or unblock it.",
+      "rate_limited": "Sign-in is temporarily blocked by the mail server.",
       "invalid_credentials": "Ongeldig e-mailadres of wachtwoord",
       "invalid_token": "De server heeft dit toegangstoken niet geaccepteerd. Controleer of het volledig is en niet is verlopen of ingetrokken.",
       "connection_failed": "Kan geen verbinding maken met de server",

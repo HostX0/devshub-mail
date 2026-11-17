@@ -886,6 +886,7 @@ function occasionCSS(primary: string, soft: string, darkPrimary: string): string
   return `:root {
     --color-primary: ${primary}; --color-ring: ${primary};
     --color-primary-foreground: #ffffff;
+    --color-popover: #ffffff; --color-popover-foreground: #171717;
     --color-info: ${primary}; --color-unread: ${primary};
     --color-info-foreground: #ffffff;
     --color-accent: ${soft}; --color-selection: ${soft};
@@ -896,6 +897,7 @@ function occasionCSS(primary: string, soft: string, darkPrimary: string): string
   .dark {
     --color-primary: ${darkPrimary}; --color-ring: ${darkPrimary};
     --color-primary-foreground: #171717;
+    --color-popover: #171717; --color-popover-foreground: #fafafa;
     --color-info: ${darkPrimary}; --color-unread: ${darkPrimary};
     --color-info-foreground: #171717;
     --color-accent: ${darkSoft}; --color-selection: ${darkSoft};
