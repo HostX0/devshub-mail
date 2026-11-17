@@ -231,7 +231,7 @@ describe('a token the server refused in a pop-out', () => {
     } finally {
       Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
     }
-    expect(locks.request.mock.calls[0][0]).toBe('bulwark-token-refresh:0');
+    expect(locks.request.mock.calls.map(([name]) => name)).toEqual(['devshub-session-cookie:0', 'bulwark-token-refresh:0']);
     expect(tokenCalls()).toHaveLength(1);
   });
 

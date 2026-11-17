@@ -429,6 +429,8 @@ export const DENIED_SETTINGS: readonly string[] = [
   'proofreading', 'proofreadingPlugins',
   // A browser voice id the model can't know.
   'readAloudVoice',
+  // Personal account photos are never organisation policy values.
+  'profileAvatarDataUrls',
   // Maps and lists keyed by server ids.
   'allMailFolderIds', 'hiddenSharedMailAccounts', 'sharedMailAccountOrder', 'notificationMutes', 'hiddenCompanyCalendars', 'sharedCalendarColors',
   'folderIcons', 'folderCountModes', 'preferredIdentityIds',

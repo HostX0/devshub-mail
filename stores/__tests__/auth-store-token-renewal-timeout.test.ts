@@ -84,7 +84,7 @@ describe('a token renewal that gets no answer', { timeout: 30_000 }, () => {
     void store.getState().refreshAccessToken({ accountId: 'A' }).then(done);
     await vi.advanceTimersByTimeAsync(0);
     expect(renewals).toBe(1);
-    expect(held.size, 'it holds the lock while it runs').toBe(1);
+    expect([...held].sort(), 'both cookie and token locks remain held during renewal').toEqual(['bulwark-token-refresh:0', 'devshub-session-cookie:0']);
     await vi.advanceTimersByTimeAsync(29_000);
     expect(done).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1_000);
@@ -109,7 +109,7 @@ describe('a token renewal that gets no answer', { timeout: 30_000 }, () => {
     const done = vi.fn();
     void store.getState().refreshAccessToken({ accountId: 'A' }).then(done);
     await vi.advanceTimersByTimeAsync(0);
-    expect(held.size).toBe(1);
+    expect([...held].sort()).toEqual(['bulwark-token-refresh:0', 'devshub-session-cookie:0']);
     reset();
     await vi.advanceTimersByTimeAsync(0);
     expect(held.size).toBe(0);

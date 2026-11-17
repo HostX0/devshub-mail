@@ -1084,11 +1084,20 @@ describe('two wipes at once', () => {
 
   it('takes the Web Lock where the browser has one', async () => {
     const names: string[] = [];
-    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), {
-      locks: { request: async (name: string, work: () => Promise<unknown>) => { names.push(name); return work(); } },
-    }));
-    await wipe.wipeAccountFromDevice(ALICE, 'admin');
-    vi.stubGlobal('navigator', Object.getPrototypeOf(navigator));
+    const before = Object.getOwnPropertyDescriptor(navigator, 'locks');
+    Object.defineProperty(navigator, 'locks', { configurable: true, value: {
+      request: async (name: string, optionsOrWork: unknown, callback?: () => Promise<unknown>) => {
+        names.push(name);
+        const work = typeof optionsOrWork === 'function' ? optionsOrWork as () => Promise<unknown> : callback!;
+        return work();
+      },
+    } });
+    try {
+      await wipe.wipeAccountFromDevice(ALICE, 'admin');
+    } finally {
+      if (before) Object.defineProperty(navigator, 'locks', before);
+      else Reflect.deleteProperty(navigator, 'locks');
+    }
     expect(names).toContain('bulwark-device-wipe');
   });
 });

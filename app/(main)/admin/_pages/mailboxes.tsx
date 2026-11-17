@@ -1,6 +1,8 @@
 'use client';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { AdminPageHeader } from '@/components/admin/page-header';
 import { apiFetch } from '@/lib/browser-navigation';
@@ -8,6 +10,7 @@ import type { MailboxRow, MailboxInput } from '@/lib/stalwart/mailbox-management
 
 const GiB = 1024 ** 3;
 export function MailboxesPage() {
+  const { confirm, dialogProps } = useConfirmDialog();
   const [rows, setRows] = useState<MailboxRow[]>([]);
   const [domains, setDomains] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,10 @@ export function MailboxesPage() {
       await refresh(); return true;
     } catch (e) { setError(e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم.'); return false; }
     finally { setBusy(false); }
+  }
+  async function remove(row: MailboxRow) {
+    if (!await confirm({ title: 'حذف بريد الموظف', message: `حذف ${row.email} وصندوقه ورسائله نهائياً؟`, confirmText: 'حذف نهائياً', cancelText: 'إلغاء', variant: 'destructive' })) return;
+    if (await change({ action: 'delete', id: row.id }) && editing?.id === row.id) clear();
   }
   function edit(row: MailboxRow) { setEditing(row); setDisplayName(row.displayName); setQuota(String(row.quotaBytes / GiB)); setPassword(''); setShowPassword(false); setNotice(''); }
   function generatePassword() {
@@ -84,8 +91,9 @@ export function MailboxesPage() {
       {!loading && !rows.length && <p className="text-sm text-muted-foreground">لا توجد صناديق موظفين متاحة للإدارة. حسابات الإدارة محمية ولا تظهر هنا.</p>}
       <div className="divide-y divide-border">{rows.map(row => <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div className="min-w-0"><p className="break-all font-medium" dir="ltr">{row.email}</p><p className="text-sm text-muted-foreground">{row.displayName} · {(row.quotaBytes / GiB).toLocaleString('en-US', { maximumFractionDigits: 3 })} GiB · {row.disabled ? 'معطّل' : 'فعّال'}</p></div>
-        <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => edit(row)} disabled={busy}>تعديل</Button><Button size="sm" variant="outline" onClick={() => void change({ action: row.disabled ? 'enable' : 'disable', id: row.id })} disabled={busy}>{row.disabled ? 'تفعيل' : 'تعطيل'}</Button><Button size="sm" variant="destructive" disabled={busy} onClick={() => { if (window.confirm(`حذف ${row.email} وصندوقه ورسائله نهائياً؟`)) void change({ action: 'delete', id: row.id }).then(ok => { if (ok && editing?.id === row.id) clear(); }); }}>حذف</Button></div>
+        <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => edit(row)} disabled={busy}>تعديل</Button><Button size="sm" variant="outline" onClick={() => void change({ action: row.disabled ? 'enable' : 'disable', id: row.id })} disabled={busy}>{row.disabled ? 'تفعيل' : 'تعطيل'}</Button><Button size="sm" variant="destructive" disabled={busy} onClick={() => void remove(row)}>حذف</Button></div>
       </div>)}</div>
     </section>
+    <ConfirmDialog {...dialogProps} />
   </div>;
 }

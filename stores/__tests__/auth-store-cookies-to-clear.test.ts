@@ -30,7 +30,7 @@ describe('the mark for cookies still to clear', () => {
     }));
     await useAuthStore.getState().checkAuth();
     expect(calls()).toContain('DELETE /api/auth/session?all=true');
-    expect(calls()).not.toContain('PUT /api/auth/session');
+    expect(calls()).not.toContain('PUT /api/auth/session?slot=0');
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(localStorage.getItem('bulwark-cookies-to-clear')).toBe('1');
   });
@@ -44,13 +44,13 @@ describe('the mark for cookies still to clear', () => {
     expect(localStorage.getItem('bulwark-cookies-to-clear')).toBeNull();
     const list = calls();
     expect(list.indexOf('DELETE /api/auth/session?all=true')).toBeGreaterThanOrEqual(0);
-    expect(list.indexOf('DELETE /api/auth/session?all=true')).toBeLessThan(list.indexOf('PUT /api/auth/session'));
+    expect(list.indexOf('DELETE /api/auth/session?all=true')).toBeLessThan(list.indexOf('PUT /api/auth/session?slot=0'));
   });
 
   it('isn\'t there normally: adoption goes on as before', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
     await useAuthStore.getState().checkAuth();
-    expect(calls()).toContain('PUT /api/auth/session');
+    expect(calls()).toContain('PUT /api/auth/session?slot=0');
     expect(calls()).not.toContain('DELETE /api/auth/session?all=true');
   });
 });

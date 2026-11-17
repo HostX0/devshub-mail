@@ -251,12 +251,12 @@ describe('config API route', () => {
     expect(config.rememberMeEnabled).toBe(true);
   });
 
-  it('hides the remember-me box unless LOGIN_SHOW_REMEMBER_ME turns it on', async () => {
+  it('shows the remember-me box by default and respects operator opt-out', async () => {
     vi.stubEnv('SESSION_SECRET', 'test-secret');
-    expect((await getConfig()).loginShowRememberMe).toBe(false);
-
-    vi.stubEnv('LOGIN_SHOW_REMEMBER_ME', 'true');
     expect((await getConfig()).loginShowRememberMe).toBe(true);
+
+    vi.stubEnv('LOGIN_SHOW_REMEMBER_ME', 'false');
+    expect((await getConfig()).loginShowRememberMe).toBe(false);
   });
 
   it('keeps unticked sign-ins until the browser closes only with BROWSER_SESSION_SIGN_IN and SESSION_SECRET', async () => {

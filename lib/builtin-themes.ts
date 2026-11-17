@@ -911,7 +911,7 @@ const OCCASION_THEMES: InstalledTheme[] = [
   ['devshub-new-year', 'New Year · رأس السنة', '#7056ad', '#eee9f7', '#b8a0ef'],
   ['devshub-valentine', 'Valentine · عيد الحب', '#b84170', '#fbe7ee', '#f498bb'],
   ['devshub-womens-day', 'Women’s Day · يوم المرأة', '#7752b2', '#eee9f7', '#b9a0ed'],
-  ['devshub-health-day', 'World Health Day · يوم الصحة', '#168479', '#e2f3ef', '#64d5c4'],
+  ['devshub-health-day', 'World Health Day · يوم الصحة', '#10776e', '#e2f3ef', '#64d5c4'],
   ['devshub-pink-october', 'Pink October · أكتوبر الوردي', '#b54779', '#fbe9f1', '#f19ac1'],
   ['devshub-halloween', 'Halloween · هالوين', '#ac5d18', '#fff0db', '#f2a954'],
   ['devshub-black-friday', 'Black Friday · الجمعة السوداء', '#5748a1', '#ebe9f7', '#a99cf0'],
