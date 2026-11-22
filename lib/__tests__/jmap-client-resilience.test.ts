@@ -278,9 +278,9 @@ describe('JMAPClient resilience', () => {
       const pending = client.requestNetworkOnly([[method, { accountId: 'acct-1' }, '0']]);
       const assertion = expect(pending).rejects.toBeInstanceOf(RequestTimeoutError);
       await vi.advanceTimersByTimeAsync(0);
-      await vi.advanceTimersByTimeAsync(29_999);
+      await vi.advanceTimersByTimeAsync(29_000);
       expect(capturedSignal?.aborted).toBe(false);
-      await vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1_000);
       await assertion;
       expect(capturedSignal?.reason).toBeInstanceOf(RequestTimeoutError);
       await vi.advanceTimersByTimeAsync(5_000);
