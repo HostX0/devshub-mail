@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "主要",
+    "promotions": "推广",
+    "social": "社交",
+    "updates": "更新"
+  },
+  "quick_mail_settings": {
+    "title": "快速设置",
+    "all": "查看所有设置",
+    "close": "关闭"
+  },
   "meta_description": "基于 JMAP 的自托管网页邮件，集邮件、日历、联系人和文件于一体",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}：{count, plural, =0 {没有邮件} other {# 封邮件}}",
       "search_results": "{count, plural, =0 {没有结果} other {# 个结果}}"
     },
+    "move_to_category": "移至类别",
     "category_tabs": "收件箱分类",
     "listbox_label": "邮件",
     "row_actions": "操作",

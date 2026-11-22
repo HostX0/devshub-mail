@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Galvenie",
+    "promotions": "Piedāvājumi",
+    "social": "Sociālie tīkli",
+    "updates": "Atjauninājumi"
+  },
+  "quick_mail_settings": {
+    "title": "Ātrie iestatījumi",
+    "all": "Skatīt visus iestatījumus",
+    "close": "Aizvērt"
+  },
   "meta_description": "Pašmitināms tīmekļa pasts e-pastam, kalendāram, kontaktiem un failiem, balstīts uz JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {nav vēstuļu} zero {# vēstules} one {# vēstule} other {# vēstules}}",
       "search_results": "{count, plural, =0 {Nav rezultātu} zero {# rezultāti} one {# rezultāts} other {# rezultāti}}"
     },
+    "move_to_category": "Pārvietot uz kategoriju",
     "category_tabs": "Iesūtnes kategorijas",
     "listbox_label": "Vēstules",
     "row_actions": "Darbības",

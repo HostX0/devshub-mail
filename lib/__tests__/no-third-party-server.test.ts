@@ -197,7 +197,7 @@ describe('version check', () => {
 
       await setMode(false);
       await checkOnce();
-      expect(calledHosts()).toEqual(['version.telemetry.bulwarkmail.org']);
+      expect(calledHosts()).toEqual(['api.github.com']);
     } finally {
       fetchMock.mockImplementation(async () => new Response(new Uint8Array(64).fill(1), { headers: { 'content-type': 'image/png' } }));
     }
@@ -320,7 +320,7 @@ describe('review follow-ups', () => {
       expect(fetchMock).not.toHaveBeenCalled();
       await setMode(false);
       await checkOnce();
-      expect(calledHosts()).toEqual(['version.telemetry.bulwarkmail.org']);
+      expect(calledHosts()).toEqual(['api.github.com']);
     } finally {
       await stopScheduler();
       fetchMock.mockImplementation(async () => new Response(new Uint8Array(64).fill(1), { headers: { 'content-type': 'image/png' } }));

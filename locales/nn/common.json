@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Primær",
+    "promotions": "Kampanjar",
+    "social": "Sosialt",
+    "updates": "Oppdateringar"
+  },
+  "quick_mail_settings": {
+    "title": "Hurtiginnstillingar",
+    "all": "Sjå alle innstillingane",
+    "close": "Lukk"
+  },
   "meta_description": "Sjølvhosta nettpost for e-post, kalender, kontaktar og filer, bygd på JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {ingen meldingar} one {# melding} other {# meldingar}}",
       "search_results": "{count, plural, =0 {Ingen treff} one {# treff} other {# treff}}"
     },
+    "move_to_category": "Flytt til kategori",
     "category_tabs": "Innbokskategoriar",
     "listbox_label": "Meldingar",
     "row_actions": "Handlingar",

@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Principal",
+    "promotions": "Promociones",
+    "social": "Social",
+    "updates": "Notificaciones"
+  },
+  "quick_mail_settings": {
+    "title": "Ajustes rápidos",
+    "all": "Ver todos los ajustes",
+    "close": "Cerrar"
+  },
   "meta_description": "Webmail autoalojado para correo, calendario, contactos y archivos, basado en JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {ningún mensaje} one {# mensaje} other {# mensajes}}",
       "search_results": "{count, plural, =0 {Sin resultados} one {# resultado} other {# resultados}}"
     },
+    "move_to_category": "Mover a una categoría",
     "category_tabs": "Categorías de la bandeja de entrada",
     "listbox_label": "Mensajes",
     "row_actions": "Acciones",

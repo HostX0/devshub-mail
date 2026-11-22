@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "หลัก",
+    "promotions": "โปรโมชัน",
+    "social": "โซเชียล",
+    "updates": "อัปเดต"
+  },
+  "quick_mail_settings": {
+    "title": "การตั้งค่าด่วน",
+    "all": "ดูการตั้งค่าทั้งหมด",
+    "close": "ปิด"
+  },
   "meta_description": "เว็บเมลแบบโฮสต์เองสำหรับอีเมล ปฏิทิน รายชื่อติดต่อ และไฟล์ สร้างบน JMAP",
   "common": {
     "print": "พิมพ์",
@@ -947,6 +958,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {ไม่มีข้อความ} other {# ข้อความ}}",
       "search_results": "{count, plural, =0 {ไม่พบผลลัพธ์} other {# ผลลัพธ์}}"
     },
+    "move_to_category": "ย้ายไปยังหมวดหมู่",
     "category_tabs": "หมวดหมู่กล่องจดหมายเข้า",
     "listbox_label": "ข้อความ",
     "row_actions": "การดำเนินการ",

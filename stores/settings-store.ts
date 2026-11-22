@@ -1088,7 +1088,7 @@ const DEFAULT_SETTINGS = {
   fontSize: 'medium' as FontSize,
   density: 'regular' as Density,
   interfaceLayout: 'default' as InterfaceLayout,
-  mvInboxType: 'default' as MvInboxType,
+  mvInboxType: 'unread-first' as MvInboxType,
   hiddenInboxCategories: [] as string[],
   mvUnreadSectionCollapsed: false,
   mvEverythingElseCollapsed: false,

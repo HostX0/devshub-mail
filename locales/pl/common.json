@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Główne",
+    "promotions": "Oferty",
+    "social": "Społeczności",
+    "updates": "Powiadomienia"
+  },
+  "quick_mail_settings": {
+    "title": "Szybkie ustawienia",
+    "all": "Zobacz wszystkie ustawienia",
+    "close": "Zamknij"
+  },
   "meta_description": "Samodzielnie hostowana poczta internetowa z pocztą, kalendarzem, kontaktami i plikami, oparta na JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {brak wiadomości} one {# wiadomość} few {# wiadomości} many {# wiadomości} other {# wiadomości}}",
       "search_results": "{count, plural, =0 {Brak wyników} one {# wynik} few {# wyniki} many {# wyników} other {# wyników}}"
     },
+    "move_to_category": "Przenieś do kategorii",
     "category_tabs": "Kategorie skrzynki odbiorczej",
     "listbox_label": "Wiadomości",
     "row_actions": "Akcje",

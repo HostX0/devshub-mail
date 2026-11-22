@@ -64,6 +64,8 @@ describe('JMAPClient archived items', () => {
       archivedEmail('i1', { accountId: undefined }),
     ], { impersonate: true });
     const spy = respondWith(server.answer);
+    // The sample archive expires on November 19. This case exercises account filtering.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T00:00:00Z'));
     const result = await client().listArchivedEmails(undefined, { days: 0 });
     expect(result.items.map((i) => i.id)).toEqual(['i3']);
     expect(queries(spy).every(([, args]) => (args.filter as { accountId?: string })?.accountId === ACCOUNT)).toBe(true);
@@ -77,6 +79,8 @@ describe('JMAPClient archived items', () => {
         ? [method, { ids: ['a', 'z', 'n'], total: 3 }, id]
         : [method, { list: [archivedEmail('a'), archivedEmail('z', { accountId: 'cz' }), archivedEmail('n', { accountId: undefined })] }, id]),
     }));
+    // The sample archive expires on November 19. This case exercises account filtering.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T00:00:00Z'));
     const result = await client().listArchivedEmails(undefined, { days: 0 });
     expect(result.items.map((i) => i.id)).toEqual(['a', 'n']);
   });

@@ -1203,6 +1203,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
       {mvShell && (
         <MvTopBar
           showMenuButton={false}
+          onOpenMailSearch={() => { parkAppCommand('search'); router.push('/mail'); }}
           onManageApps={handleManageApps}
           onInlineApp={handleInlineApp}
           onCloseInlineApp={closeInlineApp}
@@ -1377,7 +1378,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           <header className="shrink-0 border-b border-border bg-background">
             <h2 className="px-5 pt-4 pb-2 text-2xl font-normal">{t('title')}</h2>
             <nav className="mail-settings-sections" aria-label={t('title')}>
-              {Array.from(new Set(['general', 'organize', 'message_list', 'account', 'filters', 'composing', 'offline', 'appearance', effectiveActiveTab])).map(id => {
+              {Array.from(new Set(['general', 'organize', 'message_list', 'account', 'filters', 'vacation', 'addons', 'composing', 'offline', 'appearance', effectiveActiveTab])).map(id => {
                 const tab = listedTabs.find(item => item.id === id);
                 return tab && (
                   <button key={id} type="button" aria-current={id === effectiveActiveTab ? 'page' : undefined} onClick={() => handleTabSelect(tab.id)}>

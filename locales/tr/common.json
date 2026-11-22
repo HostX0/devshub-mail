@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Birincil",
+    "promotions": "Tanıtımlar",
+    "social": "Sosyal",
+    "updates": "Güncellemeler"
+  },
+  "quick_mail_settings": {
+    "title": "Hızlı ayarlar",
+    "all": "Tüm ayarları görüntüle",
+    "close": "Kapat"
+  },
   "meta_description": "E-posta, takvim, kişiler ve dosyalar için JMAP tabanlı, kendi sunucunuzda barındırılan web posta",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {ileti yok} other {# ileti}}",
       "search_results": "{count, plural, =0 {Sonuç yok} other {# sonuç}}"
     },
+    "move_to_category": "Kategoriye taşı",
     "category_tabs": "Gelen kutusu kategorileri",
     "listbox_label": "Mesajlar",
     "row_actions": "Eylemler",

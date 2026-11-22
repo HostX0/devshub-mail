@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Principale",
+    "promotions": "Promozioni",
+    "social": "Social",
+    "updates": "Aggiornamenti"
+  },
+  "quick_mail_settings": {
+    "title": "Impostazioni rapide",
+    "all": "Visualizza tutte le impostazioni",
+    "close": "Chiudi"
+  },
   "meta_description": "Webmail self-hosted per posta, calendario, contatti e file, basato su JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {nessun messaggio} one {# messaggio} other {# messaggi}}",
       "search_results": "{count, plural, =0 {Nessun risultato} one {# risultato} other {# risultati}}"
     },
+    "move_to_category": "Sposta nella categoria",
     "category_tabs": "Categorie della posta in arrivo",
     "listbox_label": "Messaggi",
     "row_actions": "Azioni",

@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Үндсэн",
+    "promotions": "Урамшуулал",
+    "social": "Нийгмийн сүлжээ",
+    "updates": "Шинэчлэлт"
+  },
+  "quick_mail_settings": {
+    "title": "Шуурхай тохиргоо",
+    "all": "Бүх тохиргоог харах",
+    "close": "Хаах"
+  },
   "meta_description": "Имэйл, хуанли, харилцагч, файлд зориулсан JMAP дээр суурилсан өөрөө байршуулдаг вэб шуудан",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {зурвас алга} other {# зурвас}}",
       "search_results": "{count, plural, =0 {Илэрц алга} other {# илэрц}}"
     },
+    "move_to_category": "Ангилал руу шилжүүлэх",
     "category_tabs": "Ирсэн шуудангийн ангиллууд",
     "listbox_label": "Зурвасууд",
     "row_actions": "Үйлдлүүд",

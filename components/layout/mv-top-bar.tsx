@@ -10,6 +10,7 @@ import {
   Mail,
   Menu,
   Puzzle,
+  Search,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -74,6 +75,7 @@ interface MvTopBarProps {
    * account avatar only.
    */
   search?: MvTopBarSearch;
+  onOpenMailSearch?: () => void;
   onQuickSettings?: () => void;
   quickSettingsOpen?: boolean;
   /** The hamburger folds the mail navigation, so only mail shows it. */
@@ -112,6 +114,7 @@ export function MvTopBar({
   search,
   onQuickSettings,
   quickSettingsOpen,
+  onOpenMailSearch,
   showMenuButton = true,
   onShowShortcuts,
   onManageApps,
@@ -275,6 +278,13 @@ export function MvTopBar({
             className="pointer-events-none absolute start-0 end-0 top-full h-0"
           />
         </div>
+      )}
+
+      {!search && onOpenMailSearch && (
+        <button type="button" onClick={onOpenMailSearch} className="flex h-12 min-w-0 max-w-[720px] flex-1 grow-[9999] items-center gap-3 rounded-full bg-[var(--mv-search-bg)] px-4 text-start text-muted-foreground">
+          <Search className="size-5 shrink-0" />
+          <span className="truncate">{t("search_placeholder")}</span>
+        </button>
       )}
 
       {/* Plugin buttons (top-bar-actions), next to the search field */}
