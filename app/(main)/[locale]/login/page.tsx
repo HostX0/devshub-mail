@@ -3,7 +3,7 @@
 import { freshLoginRequired } from "@/lib/app-lock/sign-out";
 import { ContextMenu, ContextMenuCheckItem } from "@/components/ui/context-menu";
 import { useContextMenu } from "@/hooks/use-context-menu";
-import { Suspense, useState, useEffect, useRef, useCallback, useId, useMemo, useSyncExternalStore } from "react";
+import { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback, useId, useMemo, useSyncExternalStore } from "react";
 import { IS_DESKTOP_BUILD } from "@/lib/desktop/flag";
 import { forgetDesktopServer, getDesktopBridge } from "@/lib/desktop/bridge";
 import { customServerAllowedByDesktopPolicy, jmapServerAllowedByDesktopPolicy, useDesktopPolicy } from "@/lib/desktop/policy";
@@ -452,6 +452,15 @@ function LoginPageContent() {
   const totpInputRef = useRef<HTMLInputElement>(null);
   const tokenInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  // Browser input and password-manager autofill can precede hydration by seconds.
+  // Preserve the live DOM values before client-side validation takes over.
+  useLayoutEffect(() => {
+    if (!initialConfig || !inputRef.current || !passwordInputRef.current) return;
+    const username = inputRef.current.value;
+    const password = passwordInputRef.current.value;
+    setFormData(previous => previous.username === username && previous.password === password
+      ? previous : { username, password });
+  }, [initialConfig]);
   const prevError = useRef<string | null>(null);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const themeButtonRef = useRef<HTMLButtonElement>(null);
@@ -1011,7 +1020,8 @@ function LoginPageContent() {
   };
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, username: e.target.value });
+    const username = e.target.value;
+    setFormData(previous => ({ ...previous, username }));
     setEmailNeeded(false);
   };
 
@@ -1026,7 +1036,8 @@ function LoginPageContent() {
 
   const selectSuggestion = (username: string) => {
     justSelectedSuggestion.current = true;
-    setFormData({ ...formData, username });
+    if (inputRef.current) inputRef.current.value = username;
+    setFormData(previous => ({ ...previous, username }));
     setShowSuggestions(false);
     document.getElementById("password")?.focus();
   };
@@ -2020,7 +2031,7 @@ function LoginPageContent() {
                       ref={inputRef}
                       id="username"
                       type="text"
-                      value={formData.username}
+                      defaultValue={formData.username}
                       onChange={handleUsernameChange}
                       onFocus={handleUsernameFocus}
                       onKeyDown={handleKeyDown}
@@ -2133,8 +2144,11 @@ function LoginPageContent() {
                       ref={passwordInputRef}
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      defaultValue={formData.password}
+                      onChange={(e) => {
+                        const password = e.target.value;
+                        setFormData(previous => ({ ...previous, password }));
+                      }}
                       className="pe-10 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20"
                       placeholder={t("password_placeholder")}
                       required={!liteSsoRequired && !signInWithToken}
