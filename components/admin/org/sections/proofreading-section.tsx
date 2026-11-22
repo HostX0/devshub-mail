@@ -1,11 +1,14 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 // Organisation > Proofreading: whether checker plugins may check what users
 // write, for everyone or a scope, per checker plugin, and the writing
 // language. Requiring proofreading only holds while a checker plugin can't
 // be turned off, so the page warns when none is forced on and offers to
 // force one (that part is global: plugins can't be forced per scope).
 
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { SettingItem, SettingsSection, Select } from '@/components/settings/settings-section';
 import { Button } from '@/components/ui/button';
@@ -59,6 +62,8 @@ function setPreset(draft: OrgPolicyDraft, key: string, value: unknown | undefine
 }
 
 export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
+  const { locale } = useAdminI18n();
   const [plugins, setPlugins] = useState<CheckerPlugin[] | null>(null);
   const [forcing, setForcing] = useState<string | null>(null);
   const [forceError, setForceError] = useState<string | null>(null);
@@ -105,7 +110,7 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, enabled: true, forceEnabled: true }),
       });
-      if (!res.ok) setForceError('Could not force the plugin on. Try it on its page under Plugins.');
+      if (!res.ok) setForceError(tr("Could not force the plugin on. Try it on its page under Plugins."));
       await loadPlugins();
     } finally {
       setForcing(null);
@@ -131,17 +136,17 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
   return (
     <SettingsSection
       id="proofreading"
-      title="Proofreading"
-      description="Proofreading plugins underline spelling and grammar mistakes while users write. The text users write (not their signature or quoted messages) goes to the service the plugin uses. Nothing is sent while a message is set to be signed or encrypted, also when proofreading is required; text written before the user turned that on may already have been checked."
+      title={tr("Proofreading")}
+      description={tr("Proofreading plugins underline spelling and grammar mistakes while users write. The text users write (not their signature or quoted messages) goes to the service the plugin uses. Nothing is sent while a message is set to be signed or encrypted, also when proofreading is required; text written before the user turned that on may already have been checked.")}
     >
-      <SettingItem label="Proofreading" description="Off and locked hides the setting. On and required keeps it on in every composer.">
+      <SettingItem label={tr("Proofreading")} description={tr("Off and locked hides the setting. On and required keeps it on in every composer.")}>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <Select
             value={draft.scope && !mainOwn ? INHERIT : mainState}
             onChange={(v) => writeMain(v as ProofreadingState | typeof INHERIT)}
             options={[
-              ...(draft.scope ? [{ value: INHERIT, label: `Same as Everyone (${stateLabel(everyoneState)})` }] : []),
-              ...PROOFREADING_STATES.map((o) => ({ value: o.value, label: o.label })),
+              ...(draft.scope ? [{ value: INHERIT, label: tr("Same as Everyone ({0})", { 0: stateLabel(everyoneState) }) }] : []),
+              ...PROOFREADING_STATES.map((o) => ({ value: o.value, label: tr(o.label) })),
             ]}
           />
           <InheritNote draft={draft} own={mainOwn} everyone={stateLabel(everyoneState)} onReset={() => writeMain(INHERIT)} />
@@ -149,16 +154,14 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
       </SettingItem>
 
       {plugins && plugins.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No proofreading plugin is installed. Install one, such as Proofreading (LanguageTool), under Marketplace or Plugins.
-        </p>
+        <p className="text-xs text-muted-foreground">{' '}{tr("No proofreading plugin is installed. Install one, such as Proofreading (LanguageTool), under Marketplace or Plugins.")}{' '}</p>
       )}
 
       {plugins?.map((p) => {
         const r = draft.restriction(pluginPolicyKey(p.id));
         const state = pluginProofreadingState(r.value);
         return (
-          <SettingItem key={p.id} nested label={p.name} description={p.enabled ? undefined : 'Turned off under Plugins: it checks nothing.'}>
+          <SettingItem key={p.id} nested label={p.name} description={p.enabled ? undefined : tr("Turned off under Plugins: it checks nothing.")}>
             <div className="flex flex-col items-start gap-1 sm:items-end">
               <Select
                 value={draft.scope && !r.own ? INHERIT : state}
@@ -167,10 +170,10 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
                   v === INHERIT ? undefined : pluginRestrictionFor(v as PluginProofreadingState) ?? (draft.scope ? {} : undefined),
                 )}
                 options={[
-                  ...(draft.scope ? [{ value: INHERIT, label: 'Same as Everyone' }] : []),
-                  ...PLUGIN_STATES.map((o) => ({ value: o.value, label: o.label })),
+                  ...(draft.scope ? [{ value: INHERIT, label: tr("Same as Everyone") }] : []),
+                  ...PLUGIN_STATES.map((o) => ({ value: o.value, label: tr(o.label) })),
                 ]}
-                ariaLabel={`Proofreading with ${p.name}`}
+                ariaLabel={tr("Proofreading with {0}", { 0: p.name })}
               />
             </div>
           </SettingItem>
@@ -181,18 +184,13 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
         <div role="status" data-testid="proofreading-force-warning" className="flex flex-col gap-2 rounded-md border border-warning/50 bg-warning/10 p-3 text-sm">
           <p className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>
-              Proofreading is required, but no proofreading plugin is forced on, so users can turn the plugin off under
-              Settings &gt; Add-ons and the check with it. Forcing a plugin on applies to everyone, not only this scope.
-            </span>
+            <span>{' '}{tr("Proofreading is required, but no proofreading plugin is forced on, so users can turn the plugin off under Settings > Add-ons and the check with it. Forcing a plugin on applies to everyone, not only this scope.")}{' '}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {toForce.map((id) => {
               const p = plugins!.find((x) => x.id === id)!;
               return (
-                <Button key={id} variant="outline" size="xs" disabled={forcing !== null} onClick={() => void force(id)}>
-                  Force {p.name} on for everyone
-                </Button>
+                <Button key={id} variant="outline" size="xs" disabled={forcing !== null} onClick={() => void force(id)}>{' '}{tr("Force")}{' '}{p.name}{' '}{tr("on for everyone")}{' '}</Button>
               );
             })}
           </div>
@@ -200,14 +198,14 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
         </div>
       )}
 
-      <SettingItem label="Writing language" description="Presets the language users write in; proofreading and the browser's spell check use it. Locked, users can't change it.">
+      <SettingItem label={tr("Writing language")} description={tr("Presets the language users write in; proofreading and the browser's spell check use it. Locked, users can't change it.")}>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <div className="flex flex-wrap items-center gap-3">
             <Select
               value={languageValue ?? ''}
               onChange={(v) => writeLanguage(v, languageLocked)}
-              options={[{ value: '', label: 'Users choose' }, { value: 'auto', label: 'Detect automatically' }, ...writingLanguageOptions('en')]}
-              ariaLabel="Writing language"
+              options={[{ value: '', label: tr("Users choose") }, { value: 'auto', label: tr("Detect automatically") }, ...writingLanguageOptions(locale)]}
+              ariaLabel={tr("Writing language")}
             />
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
               <input
@@ -216,18 +214,12 @@ export function ProofreadingSection({ draft }: { draft: OrgPolicyDraft }) {
                 checked={languageLocked}
                 disabled={!languageValue}
                 onChange={(e) => writeLanguage(languageValue ?? '', e.target.checked)}
-              />
-              Lock
-            </label>
+              />{' '}{tr("Lock")}{' '}</label>
           </div>
         </div>
       </SettingItem>
 
-      <p className="text-xs text-muted-foreground">
-        For a fully mandatory setup: force the plugin on, set Proofreading to &quot;On, required&quot; and, in the plugin&apos;s
-        settings, turn off users changing its language and rules. A plugin that reaches a server on your network needs that
-        address in PLUGIN_PROXY_PRIVATE_ORIGINS.
-      </p>
+      <p className="text-xs text-muted-foreground">{' '}{tr("For a fully mandatory setup: force the plugin on, set Proofreading to \"On, required\" and, in the plugin's settings, turn off users changing its language and rules. A plugin that reaches a server on your network needs that address in PLUGIN_PROXY_PRIVATE_ORIGINS.")}{' '}</p>
     </SettingsSection>
   );
 }

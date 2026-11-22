@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "اصلی",
+    "promotions": "تبلیغات",
+    "social": "اجتماعی",
+    "updates": "به‌روزرسانی‌ها"
+  },
+  "quick_mail_settings": {
+    "title": "تنظیمات سریع",
+    "all": "مشاهده همه تنظیمات",
+    "close": "بستن"
+  },
   "meta_description": "وب‌میل خودمیزبان برای ایمیل، تقویم، مخاطبان و فایل‌ها، ساخته‌شده بر پایه JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {بدون پیام} other {# پیام}}",
       "search_results": "{count, plural, =0 {نتیجه‌ای نیست} other {# نتیجه}}"
     },
+    "move_to_category": "انتقال به دسته",
     "category_tabs": "دسته‌های صندوق ورودی",
     "listbox_label": "پیام‌ها",
     "row_actions": "اقدامات",

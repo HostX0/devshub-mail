@@ -10,6 +10,7 @@ import {
   Mail,
   Menu,
   Puzzle,
+  Search,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -74,6 +75,9 @@ interface MvTopBarProps {
    * account avatar only.
    */
   search?: MvTopBarSearch;
+  onOpenMailSearch?: () => void;
+  onQuickSettings?: () => void;
+  quickSettingsOpen?: boolean;
   /** The hamburger folds the mail navigation, so only mail shows it. */
   showMenuButton?: boolean;
   onShowShortcuts?: () => void;
@@ -108,6 +112,9 @@ function useAllInboxesReachable(): boolean {
  */
 export function MvTopBar({
   search,
+  onQuickSettings,
+  quickSettingsOpen,
+  onOpenMailSearch,
   showMenuButton = true,
   onShowShortcuts,
   onManageApps,
@@ -220,7 +227,7 @@ export function MvTopBar({
         )}
         <Link href="/" onClick={(e) => { interceptLeave(e); }} className="flex items-center gap-2 pe-4 min-w-0" aria-label={appName}>
           {logoUrl ? <img src={logoUrl} alt="" className="w-8 h-8 object-contain" /> : null}
-          <span className="text-[1.375rem] leading-none text-foreground truncate">{appName}</span>
+          <span dir="auto" className="truncate px-0.5 text-xl leading-[1.75] text-foreground">{appName}</span>
         </Link>
       </div>
 
@@ -273,6 +280,13 @@ export function MvTopBar({
         </div>
       )}
 
+      {!search && onOpenMailSearch && (
+        <button type="button" onClick={onOpenMailSearch} className="flex h-12 min-w-0 max-w-[720px] flex-1 grow-[9999] items-center gap-3 rounded-full bg-[var(--mv-search-bg)] px-4 text-start text-muted-foreground">
+          <Search className="size-5 shrink-0" />
+          <span className="truncate">{t("search_placeholder")}</span>
+        </button>
+      )}
+
       {/* Plugin buttons (top-bar-actions), next to the search field */}
       <PluginActions surface="top-bar-actions" context={TOP_BAR_CONTEXT} compact className="shrink-0 flex-nowrap" />
 
@@ -312,7 +326,14 @@ export function MvTopBar({
             )}
           </a>
         )}
-        <Link
+        {onQuickSettings ? (
+          <button type="button" id="mail-quick-trigger" aria-controls="mail-quick-settings" aria-expanded={quickSettingsOpen}
+            onClick={onQuickSettings} title={t("settings")} aria-label={t("settings")}
+            className="grid size-12 place-items-center rounded-full text-muted-foreground hover:bg-muted aria-expanded:bg-muted">
+            <Settings className="size-5" />
+          </button>
+        ) : (
+          <Link
           href="/settings"
           onClick={(e) => { interceptLeave(e); }}
           className="grid place-items-center w-12 h-12 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -320,7 +341,8 @@ export function MvTopBar({
           aria-label={t("settings")}
         >
           <Settings className="w-5 h-5" />
-        </Link>
+          </Link>
+        )}
 
         <div className="relative">
           <button

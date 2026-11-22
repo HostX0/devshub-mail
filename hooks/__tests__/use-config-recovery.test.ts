@@ -32,6 +32,16 @@ afterEach(() => {
 });
 
 describe('server configuration recovery', () => {
+  it('uses the settings delivered with the sign-in form while offline', async () => {
+    mocks.apiFetch.mockRejectedValue(new TypeError('Network unavailable'));
+    const { useConfig, fetchConfig } = await import('../use-config');
+    const { result } = renderHook(() => useConfig(config));
+    expect(result.current).toMatchObject({ appName: config.appName, isLoading: false, error: null });
+    expect(await fetchConfig()).toEqual(config);
+    expect(mocks.apiFetch).not.toHaveBeenCalled();
+    expect(mocks.fetchPolicy).toHaveBeenCalledTimes(1);
+  });
+
   it('caches a successful first response without leaving a timeout', async () => {
     mocks.apiFetch.mockResolvedValueOnce(success());
     const { fetchConfig } = await import('../use-config');

@@ -8,15 +8,28 @@ import { configManager } from '@/lib/admin/config-manager';
 import { grantsAdminAccess, parseJmapServers } from '@/lib/admin/jmap-servers';
 import { rejectNonJsonBody } from '@/app/api/auth/json-request';
 import { requireAdminAuth, getClientIP } from '@/lib/admin/session';
+import { readMailboxAdminServiceCredentials } from '@/lib/stalwart/mailbox-admin-service-credentials';
 async function manager(request: NextRequest) {
   const mode = await getStalwartAdminAccessMode();
   if (mode === 'off') throw new MailboxAdminError(403, 'disabled', 'Stalwart administration is disabled by the server operator.');
+  let separateAdmin = false;
   if (mode === 'password') {
     const admin = await requireAdminAuth(request);
     if ('error' in admin) throw new MailboxAdminError(401, 'admin_sign_in_required', 'Sign in to the webmail administrator dashboard first.');
+    separateAdmin = true;
   }
-  const creds = await getStalwartCredentials(request);
-  if (!creds) throw new MailboxAdminError(401, 'sign_in_required', 'Sign in to your Stalwart super-admin mailbox first. The webmail settings password alone does not grant mailbox access.');
+  let creds = mode === 'password' && process.env.STALWART_MAILBOX_ADMIN_CREDENTIALS_FILE
+    ? await readMailboxAdminServiceCredentials() : await getStalwartCredentials(request);
+  let serviceCredentials = mode === 'password' && !!process.env.STALWART_MAILBOX_ADMIN_CREDENTIALS_FILE;
+  if (!creds && process.env.STALWART_MAILBOX_ADMIN_CREDENTIALS_FILE) {
+    if (!separateAdmin) {
+      const admin = await requireAdminAuth(request);
+      if ('error' in admin) throw new MailboxAdminError(401, 'admin_sign_in_required', 'Sign in to the webmail administrator dashboard first.');
+    }
+    creds = await readMailboxAdminServiceCredentials();
+    serviceCredentials = true;
+  }
+  if (!creds) throw new MailboxAdminError(401, 'sign_in_required', 'Sign in to your Stalwart super-admin mailbox, or ask the server operator to enable independent mailbox administration.');
   await configManager.ensureLoaded();
   // A configured secondary JMAP server can be another organisation's service.
   // Its superuser is not this webmail's administrator without operator opt-in.
@@ -27,7 +40,7 @@ async function manager(request: NextRequest) {
   }
   const m = new MailboxManager(creds, allowedMailboxDomains());
   await m.authorize();
-  return { m, actor: creds.accountName };
+  return { m, actor: serviceCredentials ? 'webmail-administrator' : creds.accountName };
 }
 function errorResponse(error: unknown) {
   const e = error instanceof MailboxAdminError ? error : new MailboxAdminError(502, 'server_unavailable', 'The mail server could not be reached. Refresh and retry.');

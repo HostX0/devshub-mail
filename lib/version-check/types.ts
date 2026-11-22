@@ -27,4 +27,4 @@ export interface VersionCheckStateFile {
   statuses?: Record<string, UpdateStatus>;
 }
 
-export const DEFAULT_VERSION_ENDPOINT = 'https://version.telemetry.bulwarkmail.org/';
+export { PROJECT_RELEASES_API as DEFAULT_VERSION_ENDPOINT } from '@/lib/company-project';

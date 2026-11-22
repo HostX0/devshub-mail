@@ -1,5 +1,5 @@
 import { getRequestConfig } from 'next-intl/server';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { mergeMessages } from './merge-messages';
 import { localeFromAcceptLanguage } from './locale-matcher';
 import { routing, type Locale } from './routing';
@@ -15,8 +15,9 @@ export default getRequestConfig(async ({ requestLocale }) => {
       // its locale via setRequestLocale, so this only covers the root layout.
       locale = routing.defaultLocale;
     } else {
+      const saved = (await cookies()).get('NEXT_LOCALE')?.value;
       const accept = (await headers()).get('accept-language');
-      locale = localeFromAcceptLanguage(accept, routing.locales) ?? routing.defaultLocale;
+      locale = saved && routing.locales.includes(saved as Locale) ? saved : localeFromAcceptLanguage(accept, routing.locales) ?? routing.defaultLocale;
     }
   }
 

@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { ArrowLeft, ChevronRight, KeyRound, LogOut, Search, Shield, X } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { NavigationRail } from '@/components/layout/navigation-rail';
-import { AboutFooter } from '@/components/settings/about-data-settings';
+import { AboutFooter } from '@/components/settings/about-footer';
 import { scrollToSettingsSection } from '@/components/settings/settings-section';
 import { useIsDesktop } from '@/hooks/use-media-query';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -15,11 +15,14 @@ import { useAdminLocation, navigateAdmin } from '@/hooks/use-admin-navigation';
 import { useUpdateStore, selectHasUpdate } from '@/stores/update-store';
 import { useAdminUnsavedStore } from '@/stores/admin-unsaved-store';
 import { apiFetch, getPathPrefix } from '@/lib/browser-navigation';
-import { ADMIN_PAGES, adminPath, type AdminPageDef, type AdminPageId, type AdminSectionDef } from '@/lib/admin/admin-nav';
+import { adminPath, type AdminPageDef, type AdminPageId, type AdminSectionDef } from '@/lib/admin/admin-nav';
 import { AdminSessionLinksSkeleton, AdminSkeleton } from '@/components/boot-skeleton/admin-skeleton';
 import { useSkeletonLabels } from '@/components/boot-skeleton/use-skeleton-labels';
 import { ADMIN_GROUPS, ADMIN_GROUP_LABELS, ADMIN_PAGE_ICONS as PAGE_ICONS } from './admin-page-icons';
 import { cn } from '@/lib/utils';
+import { useAdminI18n } from './use-admin-i18n';
+import { AdminLanguageSwitcher } from './language-switcher';
+import { localizedAdminPages } from '@/lib/admin/admin-nav-i18n';
 import { AdminLink } from './admin-link';
 import { AdminShellContext } from './shell-context';
 
@@ -46,6 +49,8 @@ const subscribeNothing = () => () => {};
  * and, on phones, the settings' list-then-page flow.
  */
 export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly, onLogout, children }: AdminShellProps) {
+  const { t, isArabic, dir } = useAdminI18n();
+  const pages = localizedAdminPages(isArabic);
   const pathname = usePathname();
   const tShell = useTranslations('shell');
   const tSettings = useTranslations('settings');
@@ -76,10 +81,10 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
 
   const onChangePassword = pathname === '/admin/change-password';
   const activePage: AdminPageId | null = location.page ?? (isDesktop && !onChangePassword ? 'dashboard' : null);
-  const activeDef = location.page ? ADMIN_PAGES.find((p) => p.id === location.page) ?? null : null;
+  const activeDef = location.page ? pages.find((p) => p.id === location.page) ?? null : null;
   // "<Page> - Admin - <app>", so the tab and the window list say which
   // admin page is open (WCAG 2.4.2).
-  const pageName = onChangePassword ? 'Change password' : ADMIN_PAGES.find((p) => p.id === activePage)?.label;
+  const pageName = onChangePassword ? t('Change password', 'تغيير كلمة المرور') : pages.find((p) => p.id === activePage)?.label;
   useDocumentTitle(pageName ? `${pageName} - ${tSidebar('admin')}` : tSidebar('admin'), { showAccount: false });
 
   // Match the navigation rail: red for security/deprecated, amber for normal.
@@ -135,22 +140,22 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
 
   const trimmed = query.trim().toLowerCase();
   const matches = useMemo<Match[]>(() => {
-    if (!trimmed) return ADMIN_PAGES.map((page) => ({ page, sections: [] }));
+    if (!trimmed) return pages.map((page) => ({ page, sections: [] }));
     const words = trimmed.split(/\s+/);
     const hits = (text: string) => words.every((w) => text.includes(w));
-    return ADMIN_PAGES.flatMap((page) => {
+    return pages.flatMap((page) => {
       const sections = page.sections.filter((s) => hits(`${s.title} ${s.keywords ?? ''}`.toLowerCase()));
       const pageHit = hits(`${page.label} ${page.description} ${page.keywords}`.toLowerCase());
       if (!pageHit && sections.length === 0) return [];
       return [{ page, sections: sections.slice(0, 5) }];
     });
-  }, [trimmed]);
+  }, [trimmed, pages]);
 
   const groups = useMemo(() => (
     ADMIN_GROUPS
-      .map((group) => ({ group, label: ADMIN_GROUP_LABELS[group], items: matches.filter((m) => m.page.group === group) }))
+      .map((group) => ({ group, label: group === 'top' ? null : t(ADMIN_GROUP_LABELS[group]!, { organisation: 'المستخدمون', extensions: 'الإضافات', system: 'النظام' }[group]), items: matches.filter((m) => m.page.group === group) }))
       .filter((g) => g.items.length > 0)
-  ), [matches]);
+  ), [matches, t]);
 
   const goTo = (page: AdminPageId, section?: string) => {
     requestLeave(() => {
@@ -166,7 +171,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
   const badgeFor = (id: AdminPageId): ReactNode => {
     if (id === 'plugins' && pendingApprovals > 0) {
       return (
-        <span className="ms-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[0.625rem] font-semibold leading-[1.125rem] text-white" title={`${pendingApprovals} plugin${pendingApprovals === 1 ? '' : 's'} waiting for approval`}>
+        <span className="ms-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[0.625rem] font-semibold leading-[1.125rem] text-white" title={t(`${pendingApprovals} plugins waiting for approval`, `${pendingApprovals} إضافات تنتظر الموافقة`)}>
           {pendingApprovals}
         </span>
       );
@@ -213,7 +218,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
   );
 
   const noResults = (
-    <div className="px-3 py-6 text-center text-sm text-muted-foreground">Nothing matches</div>
+    <div className="px-3 py-6 text-center text-sm text-muted-foreground">{t('Nothing matches', 'لا توجد نتائج مطابقة')}</div>
   );
 
   // The admin session is its own: a password admin signs out of the panel,
@@ -234,7 +239,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
         )}
       >
         <KeyRound className={cn('h-4 w-4 shrink-0', onChangePassword ? 'text-accent-foreground' : 'text-muted-foreground')} />
-        Change password
+        {t('Change password', 'تغيير كلمة المرور')}
       </AdminLink>
       <button
         type="button"
@@ -245,17 +250,16 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
         )}
       >
         <LogOut className="h-4 w-4 shrink-0 text-muted-foreground" />
-        Sign out of admin
+        {t('Sign out of admin', 'تسجيل الخروج من الإدارة')}
       </button>
     </>
   );
 
   const readOnlyBanner = configReadOnly && authenticated && (
     <div role="status" className="mb-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm">
-      <p className="font-medium text-foreground">The configuration is read-only</p>
+      <p className="font-medium text-foreground">{t('The configuration is read-only', 'الإعدادات للقراءة فقط')}</p>
       <p className="mt-1 text-muted-foreground">
-        ADMIN_CONFIG_READONLY is set, so you can look at the settings here but not save changes.
-        Change them in the mounted config files or environment instead.
+        {t('The configuration is read-only. Update the configuration files or environment to make changes.', 'يمكنك الاطلاع على الإعدادات دون حفظ التغييرات. لتعديلها، حدّث ملفات الإعدادات أو متغيرات البيئة.')}
       </p>
     </div>
   );
@@ -265,6 +269,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
   if (!hydrated) {
     return (
       <AdminSkeleton
+        isArabic={isArabic}
         page={location.page}
         label={loadingLabel}
         backLabel={tSettings('back_to_mail')}
@@ -278,11 +283,11 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
   const page = pageHost && (isDesktop || !showIndex) ? createPortal(children, pageHost) : null;
 
   if (!isDesktop) {
-    const title = onChangePassword ? 'Change password' : activeDef?.label ?? 'Admin';
+    const title = onChangePassword ? t('Change password', 'تغيير كلمة المرور') : activeDef?.label ?? t('Admin', 'الإدارة');
     const backHref = location.detail ? adminPath(location.page) : '/admin';
     return (
       <AdminShellContext.Provider value={contextValue}>
-        <div className="flex h-dvh flex-col bg-background pt-[var(--app-top-inset)]">
+        <div dir={dir} className="flex h-dvh flex-col bg-background pt-[var(--app-top-inset)]">
           <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border bg-background px-2">
             {showIndex ? (
               <a
@@ -291,7 +296,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
                 aria-label={tSettings('back_to_mail')}
                 title={tSettings('back_to_mail')}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
               </a>
             ) : (
               <AdminLink
@@ -299,13 +304,14 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
                 className="flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
                 aria-label={tShell('back')}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
               </AdminLink>
             )}
             <div className="flex min-w-0 items-center gap-2">
               {showIndex && <Shield className="h-5 w-5 text-muted-foreground" />}
               <h1 className="truncate text-lg font-semibold">{title}</h1>
             </div>
+            <div className="ms-auto shrink-0"><AdminLanguageSwitcher /></div>
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -337,7 +343,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
                                 {page.label}
                                 {badgeFor(page.id)}
                               </span>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
                             </AdminLink>
                             {sections.map((section) => (
                               <button
@@ -357,7 +363,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
                 </div>
                 {(showSessionLinks || !authenticated) && (
                   <div className="border-t border-border px-2 py-2">
-                    {showSessionLinks ? sessionLinks(true) : <AdminSessionLinksSkeleton mobile />}
+                    {showSessionLinks ? sessionLinks(true) : <AdminSessionLinksSkeleton isArabic={isArabic} mobile />}
                   </div>
                 )}
                 <div className="border-t border-border px-2 py-2"><AboutFooter /></div>
@@ -381,9 +387,9 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
 
   return (
     <AdminShellContext.Provider value={contextValue}>
-      <div className="flex h-dvh bg-background pt-[var(--app-top-inset)]">
+      <div dir={dir} className="flex h-dvh bg-background pt-[var(--app-top-inset)]">
         {/* The same rail as mail and settings, with Admin as the current app. */}
-        <div className="flex w-14 shrink-0 flex-col bg-secondary" style={{ borderRight: '1px solid rgba(128, 128, 128, 0.3)' }}>
+        <div className="flex w-14 shrink-0 flex-col bg-secondary" style={{ borderInlineEnd: '1px solid rgba(128, 128, 128, 0.3)' }}>
           <NavigationRail collapsed adminActive />
         </div>
 
@@ -395,13 +401,14 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
                 href={`${prefix}/`}
                 className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                <ArrowLeft className="me-2 h-4 w-4" />
+                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
                 {tSettings('back_to_mail')}
               </a>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto py-2">
+            <div className="px-3 pb-3 pt-1"><AdminLanguageSwitcher /></div>
             <div className="px-3 pb-1 pt-1">{searchBox}</div>
             <nav ref={navRef} className="space-y-0.5 px-2" aria-label={tShell('admin_pages')}>
               {groups.length === 0 && noResults}
@@ -454,7 +461,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
             {/* Held in place while the session is checked, as the boot skeleton draws them. */}
             {(showSessionLinks || !authenticated) && (
               <div className="space-y-0.5 px-1 py-1">
-                {showSessionLinks ? sessionLinks(false) : <AdminSessionLinksSkeleton mobile={false} />}
+                {showSessionLinks ? sessionLinks(false) : <AdminSessionLinksSkeleton isArabic={isArabic} mobile={false} />}
               </div>
             )}
             <AboutFooter />
@@ -464,7 +471,7 @@ export function AdminShell({ authenticated, isStalwartAutoLogin, configReadOnly,
         <main className="flex min-w-0 flex-1 flex-col">
           {/* Only for the window's controls: the sidebar says which page is open. */}
           <div data-window-only="" aria-hidden="true" className="h-14 box-content shrink-0 items-center border-b border-border px-6 text-sm font-semibold">
-            <span className="truncate">{pageName ?? 'Admin'}</span>
+            <span className="truncate">{pageName ?? t('Admin', 'الإدارة')}</span>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-3xl px-6 py-6">

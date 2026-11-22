@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/admin/settings' }));
 vi.mock('@/components/layout/navigation-rail', () => ({ NavigationRail: () => null }));
-vi.mock('@/components/settings/about-data-settings', () => ({ AboutFooter: () => null }));
+vi.mock('@/components/settings/about-footer', () => ({ AboutFooter: () => null }));
 vi.mock('@/lib/browser-navigation', () => ({
   apiFetch: vi.fn(() => Promise.resolve({ ok: false })),
   getPathPrefix: () => '',

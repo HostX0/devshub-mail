@@ -17,7 +17,7 @@ import { isMainModule, resolveRepoRoot } from "./lib.mjs";
 
 export const LITE_BUILT_IN_HOSTS = [
   "telemetry.bulwarkmail.org",
-  "version.telemetry.bulwarkmail.org",
+  "api.github.com",
   "notifications.relay.bulwarkmail.org",
   "extensions.bulwarkmail.org",
   "connector.bulwarkmail.org",

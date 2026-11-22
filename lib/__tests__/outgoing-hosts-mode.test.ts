@@ -61,7 +61,7 @@ const probes: Record<string, () => Promise<boolean>> = {
   'version-check': async () => {
     const { checkOnce } = await import('@/lib/version-check');
     await checkOnce();
-    return fetchedHosts().includes('version.telemetry.bulwarkmail.org');
+    return fetchedHosts().includes('api.github.com');
   },
   'push-relay': async () => {
     const { resolvePushRelayOptions, resolveDefaultRelayUrl } = await import('@/lib/push-relays');

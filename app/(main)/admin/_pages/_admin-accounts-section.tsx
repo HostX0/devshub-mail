@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from '@/components/icons';
 import type { AdminAccountEntry } from '@/lib/admin/admin-accounts';
@@ -35,6 +37,7 @@ function toDrafts(value: AdminAccountEntry[]): AdminAccountEntry[] {
 }
 
 export function AdminAccountsSection({ value, source, servers, mode, onChange, onRevert }: Props) {
+  const tr = useCoreAdminI18n();
   const [drafts, setDrafts] = useState<AdminAccountEntry[]>(() => toDrafts(value));
   const lastEmittedRef = useRef(value);
 
@@ -76,27 +79,23 @@ export function AdminAccountsSection({ value, source, servers, mode, onChange, o
     <div className="space-y-3 py-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:pe-4">
-          <span className="text-sm font-medium text-foreground">Additional admin accounts</span>
-          <p className="text-xs text-muted-foreground mt-1">
-            These mail accounts get the same access as Stalwart admin accounts, following the setting above, without needing an admin role in Stalwart. Each entry applies to one mail server only. Enter the account name the user signs in with.
-          </p>
+          <span className="text-sm font-medium text-foreground">{tr("Additional admin accounts")}</span>
+          <p className="text-xs text-muted-foreground mt-1">{' '}{tr("These mail accounts get the same access as Stalwart admin accounts, following the setting above, without needing an admin role in Stalwart. Each entry applies to one mail server only. Enter the account name the user signs in with.")}{' '}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <SourceBadge source={source} />
           {source === 'admin' && <RevertButton onClick={onRevert} />}
           <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={add} disabled={noServers}>
-            <Plus className="w-3.5 h-3.5" />
-            Add account
-          </Button>
+            <Plus className="w-3.5 h-3.5" />{' '}{tr("Add account")}{' '}</Button>
         </div>
       </div>
 
       {noServers && (
-        <p className="text-xs text-muted-foreground">Configure a mail server first (Settings &gt; JMAP servers).</p>
+        <p className="text-xs text-muted-foreground">{tr("Configure a mail server first (Settings > JMAP servers).")}</p>
       )}
 
       {drafts.length === 0 && (
-        <div className="text-xs text-muted-foreground italic">No additional admin accounts.</div>
+        <div className="text-xs text-muted-foreground italic">{tr("No additional admin accounts.")}</div>
       )}
 
       {drafts.map((d, i) => {
@@ -108,11 +107,11 @@ export function AdminAccountsSection({ value, source, servers, mode, onChange, o
               <select
                 value={server?.url ?? d.serverUrl}
                 onChange={(e) => update(i, { serverUrl: e.target.value })}
-                aria-label="Mail server"
+                aria-label={tr("Mail server")}
                 className={cn(inputClass, 'w-full min-w-0 pe-8 cursor-pointer sm:w-64', stale && 'border-amber-500 dark:border-amber-600')}
               >
                 {!server && (
-                  <option value={d.serverUrl} disabled>{d.serverUrl || 'Choose a server'}</option>
+                  <option value={d.serverUrl} disabled>{d.serverUrl || tr("Choose a server")}</option>
                 )}
                 {servers.map((s) => (
                   <option key={s.url} value={s.url}>{s.label}</option>
@@ -124,7 +123,7 @@ export function AdminAccountsSection({ value, source, servers, mode, onChange, o
                   value={d.account}
                   onChange={(e) => update(i, { account: e.target.value })}
                   placeholder="user@example.com"
-                  aria-label="Account"
+                  aria-label={tr("Account")}
                   autoComplete="off"
                   spellCheck={false}
                   maxLength={256}
@@ -134,22 +133,22 @@ export function AdminAccountsSection({ value, source, servers, mode, onChange, o
                   type="button"
                   onClick={() => remove(i)}
                   className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
-                  title="Remove account"
-                  aria-label="Remove account"
+                  title={tr("Remove account")}
+                  aria-label={tr("Remove account")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
             {stale && (
-              <p className="text-[0.6875rem] text-amber-700 dark:text-amber-400">This server is no longer configured; the entry is ignored.</p>
+              <p className="text-[0.6875rem] text-amber-700 dark:text-amber-400">{tr("This server is no longer configured; the entry is ignored.")}</p>
             )}
           </div>
         );
       })}
 
       {mode === 'off' && (
-        <p className="text-xs text-muted-foreground">Ignored while Stalwart admin accounts is set to Off.</p>
+        <p className="text-xs text-muted-foreground">{tr("Ignored while Stalwart admin accounts is set to Off.")}</p>
       )}
     </div>
   );

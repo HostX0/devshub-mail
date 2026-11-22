@@ -1,0 +1,61 @@
+name: "Deploy: Company webmail"
+
+on:
+  push:
+    branches: [fix/independent-company-mail-admin]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never interrupt a promotion or its automatic rollback. New pushes queue.
+concurrency:
+  group: company-webmail-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'HostX0/devshub-mail' && github.ref == 'refs/heads/fix/independent-company-mail-admin'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: company-production
+      url: https://webmail.alahmadmungharco.iq
+    steps:
+      - name: Check out the exact pushed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure the restricted deployment connection
+        env:
+          SSH_KEY: ${{ secrets.COMPANY_DEPLOY_SSH_KEY }}
+          HOST_KEY: ${{ secrets.COMPANY_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_KEY" && test -n "$HOST_KEY"
+          install -m 700 -d "$RUNNER_TEMP/company-ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/company-ssh/key"
+          printf '%s\n' "$HOST_KEY" > "$RUNNER_TEMP/company-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/company-ssh/"*
+
+      - name: Validate, build, and deploy on the company server
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz "$REVISION" | ssh \
+            -i "$RUNNER_TEMP/company-ssh/key" \
+            -o UserKnownHostsFile="$RUNNER_TEMP/company-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+            company-mail-deploy@169.58.183.252 "deploy $REVISION"
+
+      - name: Verify the public endpoint
+        run: |
+          curl --fail --silent --show-error --retry 4 --retry-delay 3 \
+            --connect-timeout 10 --max-time 30 \
+            https://webmail.alahmadmungharco.iq/api/health > /dev/null
+
+      - name: Remove the runner credential
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/company-ssh"

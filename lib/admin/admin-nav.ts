@@ -76,7 +76,7 @@ export const ADMIN_PAGES: readonly AdminPageDef[] = [
     keywords: 'dashboard home status warnings accounts activity recent',
     sections: [],
   },
-  { id: 'mailboxes', label: 'بريد الموظفين', description: 'Employee mailboxes, passwords and storage limits', group: 'top', keywords: 'mailboxes employees users super admin quota storage password بريد موظفين مساحة', sections: [] },
+  { id: 'mailboxes', label: 'Employee mailboxes', description: 'Employee mailboxes, passwords and storage limits', group: 'top', keywords: 'mailboxes employees users super admin quota storage password بريد موظفين مساحة', sections: [] },
   {
     id: 'settings',
     label: 'Server',

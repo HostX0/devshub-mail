@@ -1,37 +1,47 @@
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// While the admin session is checked, the content column shows the page's
-// header and section placeholders where the boot skeleton drew them, not a
-// line of text at a different height.
+// The management shell is private, including while authentication is pending.
 
+const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => router,
   usePathname: () => '/admin/settings',
 }));
+vi.mock('next-intl', () => ({ useLocale: () => 'ar' }));
+const apiFetch = vi.hoisted(() => vi.fn((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+  init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+})));
 vi.mock('@/lib/browser-navigation', () => ({
-  // The session check never answers.
-  apiFetch: vi.fn(() => new Promise(() => {})),
+  apiFetch,
   getPathPrefix: () => '',
   withBasePath: (href: string) => href,
 }));
 vi.mock('@/components/admin/admin-shell', () => ({
   AdminShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
+vi.mock('@/components/ui/toast', () => ({ ToastContainer: () => null }));
 vi.mock('../_unsaved-changes-guard', () => ({ UnsavedChangesGuard: () => null }));
 
 const { AdminLayoutClient } = await import('../_layout-client');
 
 describe('admin layout while the session is checked', () => {
-  it('draws the page header and section placeholders in the content slot', () => {
+  afterEach(() => { cleanup(); vi.useRealTimers(); apiFetch.mockClear(); });
+  it('keeps the management shell hidden until authenticated', () => {
     render(<AdminLayoutClient><p>page</p></AdminLayoutClient>);
-    const main = screen.getByRole('main');
-    expect(main.querySelector('[data-testid="admin-body-skeleton"]')).not.toBeNull();
-    // The open page's own title and description, as AdminPageHeader shows them.
-    expect(main.textContent).toContain('How this Bulwark connects and what the login page offers');
-    expect(screen.getByRole('status').textContent).toBe('Loading admin panel…');
-    expect(screen.getByRole('status').className).toContain('sr-only');
+    expect(screen.queryByRole('main')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('جارٍ التحقق من تسجيل الدخول…');
+    expect(screen.queryByText('page')).toBeNull();
+  });
+  it('ends a stalled request and only retries when requested', async () => {
+    vi.useFakeTimers();
+    render(<AdminLayoutClient><p>page</p></AdminLayoutClient>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20001); });
+    expect(screen.getByRole('alert').textContent).toContain('أعد المحاولة');
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'إعادة المحاولة' }));
+    expect(apiFetch).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('page')).toBeNull();
   });
 });

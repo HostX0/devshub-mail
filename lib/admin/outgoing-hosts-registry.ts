@@ -46,10 +46,10 @@ export const OUTGOING_HOSTS: readonly OutgoingHost[] = [
   },
   {
     id: 'version-check',
-    host: 'version.telemetry.bulwarkmail.org',
-    files: ['lib/version-check/types.ts'],
+    host: 'api.github.com',
+    files: ['lib/company-project.ts'],
     side: 'server',
-    usedBy: 'Hourly check for a newer Bulwark release, shown to admins.',
+    usedBy: 'Hourly check for a newer DevsHub Mail release, shown to admins.',
     off: 'BULWARK_UPDATE_CHECK=off, or BULWARK_UPDATE_CHECK_URL= (empty).',
     inMode: 'Not checked; System > Updates says why. Checks resume when the switch goes off.',
     lite: false,
@@ -167,6 +167,7 @@ export const OUTGOING_HOSTS: readonly OutgoingHost[] = [
  * has to be looked at again.
  */
 export const NON_REQUEST_HOSTS: readonly { host: string; files: readonly string[]; why: string }[] = [
+  { host: 'version.telemetry.bulwarkmail.org', why: 'Recognize and migrate the previous release channel in saved settings', files: ['lib/version-check/state.ts'] },
   { host: 'schemas.microsoft.com', why: 'XML namespace of the ADMX templates', files: ['lib/desktop/policy-templates.ts'] },
   { host: 'www.apple.com', why: 'DTD named in the sample .mobileconfig', files: ['lib/desktop/policy-templates.ts'] },
   { host: 'bulwarkmail.org', why: 'docs links, comments and the contact URL in User-Agent headers', files: ['app/(main)/admin/_pages/telemetry.tsx', 'app/api/fetch-ical/route.ts', 'app/api/translate/route.ts', 'components/admin/org/sections/recovery-section.tsx', 'components/admin/org/sections/company-calendars-section.tsx', 'components/admin/org/sections/free-busy-section.tsx', 'components/admin/org/sections/labels-section.tsx', 'components/admin/org/sections/out-of-office-calendar-section.tsx', 'components/admin/org/sections/phishing-report-section.tsx', 'instrumentation.node.ts', 'lib/telemetry/state.ts', 'lib/telemetry/types.ts', 'app/(main)/admin/_pages/monitoring.tsx', 'lib/admin/types.ts', 'lib/error-reporting/client.ts', 'lib/error-reporting/lite.ts', 'lib/error-reporting/scrub.ts', 'instrumentation.ts', 'app/api/health/live/route.ts', 'app/api/health/ready/route.ts', 'app/api/metrics/route.ts', 'lib/metrics/index.ts', 'lib/tracing/config.ts', 'lib/tracing/scrub.ts', 'lib/tracing/start.ts'] },
@@ -176,7 +177,7 @@ export const NON_REQUEST_HOSTS: readonly { host: string; files: readonly string[
   { host: 'extensions.bulwarkmail.org', why: 'signed statement type URIs', files: ['lib/admin/directory-keys.ts'] },
   { host: 'www.w3.org', why: 'XML namespaces', files: ['components/ui/flag-icons.tsx', 'lib/favicon-badge.ts'] },
   { host: 'creativecommons.org', why: 'licence metadata inside an SVG', files: ['components/ui/flag-icons.tsx'] },
-  { host: 'github.com', why: 'source code link (AGPL) and SVG metadata', files: ['components/settings/about-data-settings.tsx', 'components/ui/flag-icons.tsx'] },
+  { host: 'github.com', why: 'source code link (AGPL) and SVG metadata', files: ['lib/company-project.ts', 'components/ui/flag-icons.tsx'] },
   { host: 'www.rfc-editor.org', why: 'comments', files: ['lib/jmap/client.ts'] },
   { host: 'devguide.calconnect.org', why: 'comment', files: ['lib/jmap/client.ts'] },
   { host: 'stalw.art', why: 'comment', files: ['app/api/auth/impersonate/route.ts'] },

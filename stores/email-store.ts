@@ -4302,10 +4302,10 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
     if (target.__prefetchPromise) return target.__prefetchPromise;
     target.__prefetchPromise = (async () => {
       try {
-        await Promise.all([
-          get().fetchMailboxes(client),
-          get().fetchQuota(client),
-        ]);
+        // Quota only feeds the sidebar meter; it must not hold up the inbox.
+        const mailboxes = get().fetchMailboxes(client);
+        void get().fetchQuota(client);
+        await mailboxes;
         const { selectedMailbox } = get();
         if (selectedMailbox) {
           await get().fetchEmails(client, selectedMailbox);

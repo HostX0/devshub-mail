@@ -1,5 +1,6 @@
 'use client';
 
+import { useExtensionI18n, extensionError, extensionDate, extensionWarning } from './extension-translations';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Check, Code, Loader2, X } from '@/components/icons';
 import { apiFetch } from '@/lib/browser-navigation';
@@ -48,6 +49,7 @@ const STATUS_TONE: Record<ApprovalEntry['status'], BadgeTone> = {
  * only while there is something to decide or to look back on.
  */
 export function PluginApprovalsPanel() {
+  const tr = useExtensionI18n();
   const [entries, setEntries] = useState<ApprovalEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -64,9 +66,9 @@ export function PluginApprovalsPanel() {
         Number(b.status === 'pending') - Number(a.status === 'pending') || b.requestedAt.localeCompare(a.requestedAt)));
       setError(null);
     } catch (e) {
-      setError(`Could not load approval requests (${(e as Error).message})`);
+      setError(tr("Could not load approval requests ({0})", extensionError((e as Error).message, 'Request failed', tr)));
     }
-  }, []);
+  }, [tr]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -85,7 +87,7 @@ export function PluginApprovalsPanel() {
       await load();
       refreshBadges?.();
     } catch (e) {
-      setError(`Could not save the decision (${(e as Error).message})`);
+      setError(tr("Could not save the decision ({0})", extensionError((e as Error).message, 'Request failed', tr)));
     } finally {
       setBusy(null);
     }
@@ -99,7 +101,7 @@ export function PluginApprovalsPanel() {
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setSource({ entry, code: data.code, warnings: data.warnings });
     } catch (e) {
-      setSource({ entry, error: (e as Error).message });
+      setSource({ entry, error: extensionError((e as Error).message, 'Request failed', tr) });
     }
   }
 
@@ -117,11 +119,11 @@ export function PluginApprovalsPanel() {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-sm font-medium text-foreground">{entry.manifest.name ?? entry.pluginId}</span>
           <span className="text-xs text-muted-foreground">v{entry.manifest.version}</span>
-          <Badge tone={STATUS_TONE[entry.status]}>{entry.status}</Badge>
+          <Badge tone={STATUS_TONE[entry.status]}>{tr(entry.status)}</Badge>
         </div>
         {entry.manifest.description && <p className="text-xs text-muted-foreground">{entry.manifest.description}</p>}
         <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-          <code className="font-mono">{entry.pluginId}</code> &middot; by {entry.manifest.author ?? 'unknown'} &middot; requested by {entry.requestedBy} on {new Date(entry.requestedAt).toLocaleString()}
+          <code className="font-mono">{entry.pluginId}</code> {tr(" &middot; by ")}{entry.manifest.author ?? tr("unknown")} {tr(" &middot; requested by ")}{entry.requestedBy} {tr(" on ")}{extensionDate(entry.requestedAt, tr, true)}
         </div>
         {perms.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -131,26 +133,22 @@ export function PluginApprovalsPanel() {
           </div>
         )}
         {sendsTo.length > 0 && (
-          <div className="break-all text-xs text-muted-foreground">Can send data to: {sendsTo.join(', ')}</div>
+          <div className="break-all text-xs text-muted-foreground">{tr("Can send data to: ")}{sendsTo.join(', ')}</div>
         )}
         <div className="flex flex-wrap gap-2 pt-1">
           <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => viewSource(entry)}>
-            <Code className="h-3.5 w-3.5" /> View code
-          </Button>
+            <Code className="h-3.5 w-3.5" /> {tr(" View code ")}</Button>
           {entry.status !== 'approved' && (
             <Button type="button" size="sm" className="h-8 gap-1.5 text-xs" disabled={busy === key} onClick={() => decide(entry, 'approved')}>
-              <Check className="h-3.5 w-3.5" /> Approve
-            </Button>
+              <Check className="h-3.5 w-3.5" /> {tr(" Approve ")}</Button>
           )}
           {entry.status !== 'denied' && (
             <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={busy === key} onClick={() => decide(entry, 'denied')}>
-              <X className="h-3.5 w-3.5" /> Deny
-            </Button>
+              <X className="h-3.5 w-3.5" /> {tr(" Deny ")}</Button>
           )}
           {entry.status !== 'pending' && (
             <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-destructive" disabled={busy === key} onClick={() => decide(entry, 'revoke')}>
-              Forget decision
-            </Button>
+              {tr(" Forget decision ")}</Button>
           )}
         </div>
       </div>
@@ -160,8 +158,8 @@ export function PluginApprovalsPanel() {
   return (
     <SettingsSection
       id="approvals"
-      title={pending.length > 0 ? `Approval requests (${pending.length})` : 'Approval requests'}
-      description="Plugins users installed themselves. Read the code before you approve: an approved plugin runs in that user's mail."
+      title={pending.length > 0 ? tr("Approval requests ({0})", pending.length) : tr("Approval requests")}
+      description={tr("Plugins users installed themselves. Read the code before you approve: an approved plugin runs in that user's mail.")}
     >
       {error && <p className="text-sm text-destructive">{error}</p>}
       {pending.length > 0 && (
@@ -177,7 +175,7 @@ export function PluginApprovalsPanel() {
             className="text-xs font-medium text-muted-foreground hover:text-foreground"
             aria-expanded={showPast}
           >
-            {showPast ? 'Hide' : 'Show'} {past.length} past decision{past.length === 1 ? '' : 's'}
+            {showPast ? tr("Hide") : tr("Show")} {past.length} {tr(" past decision")}{tr(past.length === 1 ? '' : 's')}
           </button>
           {showPast && (
             <div className="mt-2 divide-y divide-border rounded-lg border border-border">
@@ -192,19 +190,19 @@ export function PluginApprovalsPanel() {
       <Dialog
         isOpen={!!source}
         onClose={() => setSource(null)}
-        title={source ? `Code of ${source.entry.manifest.name ?? source.entry.pluginId} v${source.entry.manifest.version}` : ''}
+        title={source ? tr("Code of {0} v{1}", source.entry.manifest.name ?? source.entry.pluginId, source.entry.manifest.version) : ''}
         size="lg"
         className="max-w-4xl"
         bodyClassName="flex flex-col"
       >
         {source?.warnings && source.warnings.length > 0 && (
           <div className="mb-2 flex items-start gap-2 text-xs text-foreground">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" aria-hidden="true" /> {source.warnings.join('; ')}
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" aria-hidden="true" /> {source.warnings.map(warning => extensionWarning(warning, tr)).join('; ')}
           </div>
         )}
         {/* Focusable, so the keyboard can scroll the code. */}
-        <pre tabIndex={0} aria-label="Plugin code" className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border p-4 font-mono text-[0.6875rem] leading-relaxed">
-          {source?.error ?? source?.code ?? (<span className="inline-flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Loading</span>)}
+        <pre tabIndex={0} aria-label={tr("Plugin code")} className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border p-4 font-mono text-[0.6875rem] leading-relaxed">
+          {source?.error ?? source?.code ?? (<span className="inline-flex items-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> {tr(" Loading")}</span>)}
         </pre>
       </Dialog>
     </SettingsSection>

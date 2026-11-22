@@ -3,10 +3,11 @@
 import { AppMain, SkipLink } from "@/components/layout/app-landmarks";
 import { LEGACY_TAB_MAP, MOVED_SECTIONS } from "@/lib/settings-tabs";
 import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
+import { parkAppCommand } from '@/lib/app-commands';
 import { useTranslations, useMessages } from 'next-intl';
 import {
-  ArrowLeft,
+  ArrowLeft, Inbox, Star, Send, FileText, Pencil,
   ChevronRight,
   LogOut,
   Settings as SettingsIcon,
@@ -1187,7 +1188,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   // Desktop layout
   const settingsMain = (
       <AppMain key={effectiveActiveTab} ref={attachContentScroll as (el: HTMLElement | null) => void} embedded={isEmbedded} label={activeTabLabel} className="relative flex-1 overflow-y-auto">
-        <div className={effectiveActiveTab.startsWith(PLUGIN_PAGE_PREFIX) ? "px-6 py-6" : "max-w-3xl mx-auto px-6 py-6"}>
+        <div className={mvShell || effectiveActiveTab.startsWith(PLUGIN_PAGE_PREFIX) ? "px-6 py-6" : "max-w-3xl mx-auto px-6 py-6"}>
           {/* The page's heading for screen readers; the sidebar shows which
               page is open (the phone header has a visible one). */}
           <h1 className="sr-only">{activeTabLabel}</h1>
@@ -1202,6 +1203,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
       {mvShell && (
         <MvTopBar
           showMenuButton={false}
+          onOpenMailSearch={() => { parkAppCommand('search'); router.push('/mail'); }}
           onManageApps={handleManageApps}
           onInlineApp={handleInlineApp}
           onCloseInlineApp={closeInlineApp}
@@ -1239,7 +1241,25 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
         )}
         style={{ width: `${settingsSidebarWidth}px` }}
       >
-        {!proInterface && (
+        {mvShell && (
+          <div className="shrink-0 border-b border-border px-2 py-2">
+            <button type="button" className="mb-2 inline-flex h-14 items-center gap-3 rounded-2xl bg-[var(--mv-compose-bg)] px-5 font-medium text-[var(--mv-compose-fg)]"
+              onClick={() => { parkAppCommand('compose'); router.push('/mail'); }}>
+              <Pencil className="size-5" />{tSidebar('compose')}
+            </button>
+            {[
+              { folder: 'inbox', label: tSidebar('mailboxes.inbox'), Icon: Inbox },
+              { folder: 'cross-starred', label: tRoot('email_list.starred'), Icon: Star },
+              { folder: 'sent', label: tSidebar('mailboxes.sent'), Icon: Send },
+              { folder: 'drafts', label: tSidebar('mailboxes.drafts'), Icon: FileText },
+            ].map(({ folder, label, Icon }) => (
+              <Link key={folder} href={`/mail/folder/${folder}`} className="flex items-center gap-4 rounded-full px-4 py-1.5 text-sm hover:bg-muted">
+                <Icon className="size-4" />{label}
+              </Link>
+            ))}
+          </div>
+        )}
+        {!proInterface && !mvShell && (
           // Same h-14 box as the mail sidebar's account switcher, so the apps line up.
           <div className="border-b border-border">
             <div className="flex items-center h-14 px-2">
@@ -1354,6 +1374,21 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           row. The same element with or without the panel, so a page keeps
           what was typed when the panel starts or stops docking. */}
       <div className="flex-1 min-w-0 flex flex-col" data-settings-side-panel-column="">
+        {mvShell && (
+          <header className="shrink-0 border-b border-border bg-background">
+            <h2 className="px-5 pt-4 pb-2 text-2xl font-normal">{t('title')}</h2>
+            <nav className="mail-settings-sections" aria-label={t('title')}>
+              {Array.from(new Set(['general', 'organize', 'message_list', 'account', 'filters', 'vacation', 'addons', 'composing', 'offline', 'appearance', effectiveActiveTab])).map(id => {
+                const tab = listedTabs.find(item => item.id === id);
+                return tab && (
+                  <button key={id} type="button" aria-current={id === effectiveActiveTab ? 'page' : undefined} onClick={() => handleTabSelect(tab.id)}>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </header>
+        )}
         {(sidePanel.docks || !isEmbedded) && (
           <div data-window-only={sidePanel.docks ? undefined : ""} className={cn("items-center gap-2 h-14 box-content border-b border-border px-2 sm:px-4 lg:px-6 shrink-0", sidePanel.docks ? "flex" : "hidden")} data-settings-panel-row="">
             {/* The page's h1 below names it for screen readers. */}

@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Primær",
+    "promotions": "Promoveringer",
+    "social": "Sociale netværk",
+    "updates": "Opdateringer"
+  },
+  "quick_mail_settings": {
+    "title": "Hurtige indstillinger",
+    "all": "Se alle indstillinger",
+    "close": "Luk"
+  },
   "meta_description": "Selvhostet webmail til mail, kalender, kontakter og filer, bygget på JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {ingen beskeder} one {# besked} other {# beskeder}}",
       "search_results": "{count, plural, =0 {Ingen resultater} one {# resultat} other {# resultater}}"
     },
+    "move_to_category": "Flyt til kategori",
     "category_tabs": "Indbakkekategorier",
     "listbox_label": "Beskeder",
     "row_actions": "Handlinger",

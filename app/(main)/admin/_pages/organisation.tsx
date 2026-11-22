@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from '@/components/icons';
 import { SettingsSection } from '@/components/settings/settings-section';
@@ -36,6 +38,7 @@ function ListField({ label, value, placeholder, valid, onCommit }: {
   valid: (item: string) => boolean;
   onCommit: (items: string[]) => void;
 }) {
+  const tr = useCoreAdminI18n();
   const [text, setText] = useState<string | null>(null);
   const shown = text ?? value.join(', ');
   const invalid = splitList(shown).filter((item) => !valid(item));
@@ -57,13 +60,14 @@ function ListField({ label, value, placeholder, valid, onCommit }: {
         }}
       />
       {invalid.length > 0 && (
-        <span className="mt-1 block text-xs text-destructive">Not valid, ignored when saved: {invalid.join(', ')}</span>
+        <span className="mt-1 block text-xs text-destructive">{tr("Not valid, ignored when saved:")}{' '}{invalid.join(', ')}</span>
       )}
     </label>
   );
 }
 
 function ScopeCard({ draft, scope, index, count }: { draft: OrgPolicyDraft; scope: PolicyScope; index: number; count: number }) {
+  const tr = useCoreAdminI18n();
   const move = (delta: number) => draft.update((p) => {
     const list = p.scopes ?? [];
     const [item] = list.splice(index, 1);
@@ -77,7 +81,7 @@ function ScopeCard({ draft, scope, index, count }: { draft: OrgPolicyDraft; scop
     <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3" data-testid={`org-scope-${scope.id}`}>
       <div className="flex flex-wrap items-end gap-3">
         <label className="block min-w-[10rem] flex-1">
-          <span className={fieldLabelClass}>Name</span>
+          <span className={fieldLabelClass}>{tr("Name")}</span>
           <input
             type="text"
             value={scope.label}
@@ -86,15 +90,15 @@ function ScopeCard({ draft, scope, index, count }: { draft: OrgPolicyDraft; scop
           />
         </label>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => move(-1)} disabled={index === 0} aria-label="Move up" title="Move up"
+          <button type="button" onClick={() => move(-1)} disabled={index === 0} aria-label={tr("Move up")} title={tr("Move up")}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
             <ArrowUp className="h-3.5 w-3.5" />
           </button>
-          <button type="button" onClick={() => move(1)} disabled={index === count - 1} aria-label="Move down" title="Move down"
+          <button type="button" onClick={() => move(1)} disabled={index === count - 1} aria-label={tr("Move down")} title={tr("Move down")}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30">
             <ArrowDown className="h-3.5 w-3.5" />
           </button>
-          <button type="button" aria-label="Remove" title="Remove"
+          <button type="button" aria-label={tr("Remove")} title={tr("Remove")}
             onClick={() => draft.update((p) => { p.scopes = (p.scopes ?? []).filter((s) => s.id !== scope.id); })}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" />
@@ -103,14 +107,14 @@ function ScopeCard({ draft, scope, index, count }: { draft: OrgPolicyDraft; scop
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <ListField
-          label="Domains"
+          label={tr("Domains")}
           value={scope.match.domains ?? []}
           placeholder="example.com, *.example.com"
           valid={(d) => DOMAIN_RE.test(d)}
           onCommit={(domains) => draft.updateScope(scope.id, (s) => { s.match = { ...s.match, domains }; })}
         />
         <ListField
-          label="Groups"
+          label={tr("Groups")}
           value={scope.match.groups ?? []}
           placeholder="sales@example.com"
           valid={(g) => GROUP_RE.test(g)}
@@ -118,17 +122,17 @@ function ScopeCard({ draft, scope, index, count }: { draft: OrgPolicyDraft; scop
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge tone="muted">{overrides === 0 ? 'No settings of its own yet' : `${overrides} setting${overrides === 1 ? '' : 's'} of its own`}</Badge>
+        <Badge tone="muted">{overrides === 0 ? tr("No settings of its own yet") : tr("{0} setting{1} of its own", { 0: overrides, 1: overrides === 1 ? '' : 's' })}</Badge>
         <button type="button" className="underline-offset-2 hover:underline" onClick={() => draft.setScopeId(scope.id)}>
-          {draft.scopeId === scope.id ? 'Selected on the Organisation pages' : 'Edit its settings on the Organisation pages'}
+          {draft.scopeId === scope.id ? tr("Selected on the Organisation pages") : tr("Edit its settings on the Organisation pages")}
         </button>
       </div>
     </div>
   );
 }
 
-function sourceLabel(source: string, scopes: PolicyScope[]): string {
-  if (source === 'global') return 'Everyone';
+function sourceLabel(source: string, scopes: PolicyScope[], tr: (text: string) => string = (text) => text): string {
+  if (source === 'global') return tr('Everyone');
   return scopes.find((s) => s.id === source)?.label ?? source;
 }
 
@@ -147,6 +151,7 @@ function formatValue(value: unknown): string {
 }
 
 function EffectivePolicy({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const [email, setEmail] = useState('');
   const [groupsText, setGroupsText] = useState('');
   const subject = email.includes('@') ? { email: email.trim().toLowerCase(), groups: splitList(groupsText) } : null;
@@ -162,12 +167,12 @@ function EffectivePolicy({ draft }: { draft: OrgPolicyDraft }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row">
         <label className="block min-w-0 flex-1">
-          <span className={fieldLabelClass}>User address</span>
+          <span className={fieldLabelClass}>{tr("User address")}</span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="anna@example.com"
             className={cn(inputClass, 'w-full')} spellCheck={false} autoComplete="off" />
         </label>
         <label className="block min-w-0 flex-1">
-          <span className={fieldLabelClass}>Groups the user is a member of</span>
+          <span className={fieldLabelClass}>{tr("Groups the user is a member of")}</span>
           <input type="text" value={groupsText} onChange={(e) => setGroupsText(e.target.value)} placeholder="sales@example.com"
             className={cn(inputClass, 'w-full')} spellCheck={false} autoComplete="off" />
         </label>
@@ -176,19 +181,19 @@ function EffectivePolicy({ draft }: { draft: OrgPolicyDraft }) {
         <div className="space-y-3" data-testid="org-effective-policy">
           <p className="text-sm text-foreground">
             {resolved.matched.length === 0
-              ? 'No domain or group applies; this user gets Everyone\'s settings.'
-              : `Applies, in this order: Everyone, ${resolved.matched.map((id) => sourceLabel(id, draft.scopes)).join(', ')}.`}
+              ? tr("No domain or group applies; this user gets Everyone's settings.")
+              : tr("Applies, in this order: Everyone, {0}.", { 0: resolved.matched.map((id) => sourceLabel(id, draft.scopes, tr)).join(', ') })}
           </p>
           {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Everything is at Bulwark&apos;s defaults.</p>
+            <p className="text-sm text-muted-foreground">{tr("Everything is at Bulwark's defaults.")}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-start font-medium">Setting</th>
-                    <th className="px-3 py-2 text-start font-medium">Value</th>
-                    <th className="px-3 py-2 text-start font-medium">Set by</th>
+                    <th className="px-3 py-2 text-start font-medium">{tr("Setting")}</th>
+                    <th className="px-3 py-2 text-start font-medium">{tr("Value")}</th>
+                    <th className="px-3 py-2 text-start font-medium">{tr("Set by")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -196,16 +201,14 @@ function EffectivePolicy({ draft }: { draft: OrgPolicyDraft }) {
                     <tr key={path} className="border-t border-border">
                       <td className="px-3 py-1.5 font-mono text-xs break-all">{path}</td>
                       <td className="px-3 py-1.5 font-mono text-xs break-all"><div className="min-w-[5ch]">{formatValue(valueAt(resolved.policy as unknown as Record<string, unknown>, path))}</div></td>
-                      <td className="px-3 py-1.5 text-xs">{sourceLabel(source, draft.scopes)}</td>
+                      <td className="px-3 py-1.5 text-xs">{sourceLabel(source, draft.scopes, tr)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">
-            Bulwark can only see groups that have a mailbox: a user counts as a member when the group&apos;s account is in their session.
-          </p>
+          <p className="text-xs text-muted-foreground">{' '}{tr("Bulwark can only see groups that have a mailbox: a user counts as a member when the group's account is in their session.")}{' '}</p>
         </div>
       )}
     </div>
@@ -213,12 +216,13 @@ function EffectivePolicy({ draft }: { draft: OrgPolicyDraft }) {
 }
 
 export function OrganisationPage() {
+  const tr = useCoreAdminI18n();
   const draft = useOrgPolicyDraft('organisation');
   const addScope = (kind: 'domain' | 'group') => draft.update((p) => {
     const id = newScopeId(p.scopes ?? []);
     p.scopes = [...(p.scopes ?? []), {
       id,
-      label: kind === 'domain' ? 'New domain' : 'New group',
+      label: kind === 'domain' ? tr("New domain") : tr("New group"),
       match: {},
       policy: {},
     }];
@@ -227,19 +231,17 @@ export function OrganisationPage() {
     <OrgPage pageId="organisation" draft={draft} scoped={false}>
       <SettingsSection
         id="scopes"
-        title="Domains and groups"
-        description="Each entry gives the users of some domains or the members of some groups their own settings. Pick one at the top of the other Organisation pages to change its settings; everything it doesn't change comes from Everyone. When several apply, domains come first, then groups, each in the order of this list, and the later one wins."
+        title={tr("Domains and groups")}
+        description={tr("Each entry gives the users of some domains or the members of some groups their own settings. Pick one at the top of the other Organisation pages to change its settings; everything it doesn't change comes from Everyone. When several apply, domains come first, then groups, each in the order of this list, and the later one wins.")}
       >
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addScope('domain')}>
-            <Plus className="h-3.5 w-3.5" /> Add domains
-          </Button>
+            <Plus className="h-3.5 w-3.5" />{' '}{tr("Add domains")}{' '}</Button>
           <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => addScope('group')}>
-            <Plus className="h-3.5 w-3.5" /> Add groups
-          </Button>
+            <Plus className="h-3.5 w-3.5" />{' '}{tr("Add groups")}{' '}</Button>
         </div>
         {draft.scopes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">None yet: every user gets Everyone&apos;s settings.</p>
+          <p className="text-sm text-muted-foreground">{tr("None yet: every user gets Everyone's settings.")}</p>
         ) : (
           <div className="space-y-3">
             {draft.scopes.map((scope, index) => (
@@ -248,16 +250,15 @@ export function OrganisationPage() {
           </div>
         )}
         {draft.scopeId !== EVERYONE && draft.scope && (
-          <p className="text-xs text-muted-foreground">
-            Selected for editing: {draft.scope.label} ({scopeMatchSummary(draft.scope)}).
+          <p className="text-xs text-muted-foreground">{' '}{tr("Selected for editing:")}{' '}{draft.scope.label} ({scopeMatchSummary(draft.scope, tr)}).
           </p>
         )}
       </SettingsSection>
 
       <SettingsSection
         id="effective"
-        title="Effective policy"
-        description="What a given user gets, and which entry set each value. Uses the settings on this page, saved or not."
+        title={tr("Effective policy")}
+        description={tr("What a given user gets, and which entry set each value. Uses the settings on this page, saved or not.")}
       >
         <EffectivePolicy draft={draft} />
       </SettingsSection>

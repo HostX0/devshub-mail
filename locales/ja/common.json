@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "メイン",
+    "promotions": "プロモーション",
+    "social": "ソーシャル",
+    "updates": "新着"
+  },
+  "quick_mail_settings": {
+    "title": "クイック設定",
+    "all": "すべての設定を表示",
+    "close": "閉じる"
+  },
   "meta_description": "メール、カレンダー、連絡先、ファイルを一つにまとめたセルフホスト型ウェブメール（JMAP ベース）",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder}: {count, plural, =0 {メッセージはありません} other {#件のメッセージ}}",
       "search_results": "{count, plural, =0 {結果はありません} other {#件の結果}}"
     },
+    "move_to_category": "カテゴリに移動",
     "category_tabs": "受信トレイのカテゴリ",
     "listbox_label": "メッセージ",
     "row_actions": "アクション",

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Loader2 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useBottomControls } from '@/hooks/use-bottom-controls';
+import { useAdminI18n } from './use-admin-i18n';
 import { useAdminShell } from './shell-context';
 
 interface AdminSaveBarProps {
@@ -25,7 +26,8 @@ interface AdminSaveBarProps {
  * It registers as a bottom bar, so toasts sit above it instead of over its
  * buttons.
  */
-export function AdminSaveBar({ dirty, saving = false, onSave, onDiscard, saveLabel = 'Save changes', note }: AdminSaveBarProps) {
+export function AdminSaveBar({ dirty, saving = false, onSave, onDiscard, saveLabel, note }: AdminSaveBarProps) {
+  const { t } = useAdminI18n();
   const host = useAdminShell()?.saveBarHost ?? null;
   const barRef = useBottomControls(dirty);
 
@@ -47,24 +49,24 @@ export function AdminSaveBar({ dirty, saving = false, onSave, onDiscard, saveLab
     <div
       ref={barRef}
       role="region"
-      aria-label="Unsaved changes"
+      aria-label={t('Unsaved changes', 'تغييرات غير محفوظة')}
       data-testid="admin-save-bar"
       className="border-t border-border bg-background px-4 py-3 sm:px-6"
     >
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 text-sm">
-          <span className="font-medium text-foreground">Unsaved changes</span>
+          <span className="font-medium text-foreground">{t('Unsaved changes', 'تغييرات غير محفوظة')}</span>
           {note && <span className="text-muted-foreground"> &middot; {note}</span>}
         </div>
         <div className="flex items-center gap-2">
           {onDiscard && (
             <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
-              Discard
+              {t('Discard', 'تجاهل التغييرات')}
             </Button>
           )}
           <Button type="button" size="sm" onClick={onSave} disabled={saving} className="gap-2">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saveLabel}
+            {saveLabel ?? t('Save changes', 'حفظ التغييرات')}
           </Button>
         </div>
       </div>

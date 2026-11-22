@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Plus, Trash2, ChevronDown, ChevronRight } from '@/components/icons';
@@ -107,6 +109,7 @@ const fieldLabelClass = 'block text-[0.6875rem] font-medium text-muted-foregroun
 const fieldClass = cn(inputClass, 'w-full');
 
 export function JmapServersSection({ value, source, onChange, onRevert }: Props) {
+  const tr = useCoreAdminI18n();
   const tAdminAccess = useTranslations('admin_access');
   const [drafts, setDrafts] = useState<RowDraft[]>(() => value.map(entryToDraft));
   // Ids that tie each row's labels to its fields.
@@ -152,23 +155,19 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
     <div className="space-y-3 py-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:pe-4">
-          <span className="text-sm font-medium text-foreground">Servers</span>
-          <p className="text-xs text-muted-foreground mt-1">
-            Each entry appears as an option on the login dropdown. Leave the list empty to fall back to the single <code className="text-[0.6875rem]">JMAP server URL</code> above.
-          </p>
+          <span className="text-sm font-medium text-foreground">{tr("Servers")}</span>
+          <p className="text-xs text-muted-foreground mt-1">{' '}{tr("Each entry appears as an option on the login dropdown. Leave the list empty to fall back to the single")}{' '}<code className="text-[0.6875rem]">{tr("JMAP server URL")}</code>{' '}{tr("above.")}{' '}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <SourceBadge source={source} />
           {source === 'admin' && <RevertButton onClick={onRevert} />}
           <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={add}>
-            <Plus className="w-3.5 h-3.5" />
-            Add server
-          </Button>
+            <Plus className="w-3.5 h-3.5" />{' '}{tr("Add server")}{' '}</Button>
         </div>
       </div>
 
       {drafts.length === 0 && (
-        <div className="text-xs text-muted-foreground italic">No servers configured.</div>
+        <div className="text-xs text-muted-foreground italic">{tr("No servers configured.")}</div>
       )}
 
       {drafts.map((d, i) => {
@@ -177,7 +176,7 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
           <div key={i} className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
               <div className="sm:col-span-3">
-                <label htmlFor={labelFor(i)("id")} className={fieldLabelClass}>ID</label>
+                <label htmlFor={labelFor(i)("id")} className={fieldLabelClass}>{tr("ID")}</label>
                 <input
                   id={labelFor(i)("id")}
                   type="text"
@@ -186,21 +185,21 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
                   placeholder="main"
                   className={cn(fieldClass, isDuplicate && 'border-destructive')}
                 />
-                {isDuplicate && <p className="text-[0.625rem] text-destructive mt-0.5">Duplicate id</p>}
+                {isDuplicate && <p className="text-[0.625rem] text-destructive mt-0.5">{tr("Duplicate id")}</p>}
               </div>
               <div className="sm:col-span-4">
-                <label htmlFor={labelFor(i)("label")} className={fieldLabelClass}>Label</label>
+                <label htmlFor={labelFor(i)("label")} className={fieldLabelClass}>{tr("Label")}</label>
                 <input
                   id={labelFor(i)("label")}
                   type="text"
                   value={d.label}
                   onChange={(e) => update(i, { label: e.target.value })}
-                  placeholder="Main server"
+                  placeholder={tr("Main server")}
                   className={fieldClass}
                 />
               </div>
               <div className="sm:col-span-5">
-                <label htmlFor={labelFor(i)("url")} className={fieldLabelClass}>JMAP URL</label>
+                <label htmlFor={labelFor(i)("url")} className={fieldLabelClass}>{tr("JMAP URL")}</label>
                 <div className="flex items-center gap-2">
                   <input
                     id={labelFor(i)("url")}
@@ -214,8 +213,8 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
                     type="button"
                     onClick={() => remove(i)}
                     className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
-                    title="Remove server"
-                    aria-label="Remove server"
+                    title={tr("Remove server")}
+                    aria-label={tr("Remove server")}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -223,9 +222,7 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
               </div>
             </div>
             <div>
-              <label htmlFor={labelFor(i)("domains")} className={fieldLabelClass}>
-                Email domains (comma-separated, used for auto-pick)
-              </label>
+              <label htmlFor={labelFor(i)("domains")} className={fieldLabelClass}>{' '}{tr("Email domains (comma-separated, used for auto-pick)")}{' '}</label>
               <input
                 id={labelFor(i)("domains")}
                 type="text"
@@ -256,13 +253,11 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               type="button"
             >
-              {d.oauthExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              Per-server OAuth (optional, overrides global)
-            </button>
+              {d.oauthExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}{' '}{tr("Per-server OAuth (optional, overrides global)")}{' '}</button>
             {d.oauthExpanded && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 ps-4 border-s border-border">
                 <div>
-                  <label htmlFor={labelFor(i)("oauth-client-id")} className={fieldLabelClass}>OAuth Client ID</label>
+                  <label htmlFor={labelFor(i)("oauth-client-id")} className={fieldLabelClass}>{tr("OAuth Client ID")}</label>
                   <input
                     id={labelFor(i)("oauth-client-id")}
                     type="text"
@@ -272,7 +267,7 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
                   />
                 </div>
                 <div>
-                  <label htmlFor={labelFor(i)("oauth-issuer")} className={fieldLabelClass}>OAuth Issuer URL</label>
+                  <label htmlFor={labelFor(i)("oauth-issuer")} className={fieldLabelClass}>{tr("OAuth Issuer URL")}</label>
                   <input
                     id={labelFor(i)("oauth-issuer")}
                     type="url"
@@ -283,33 +278,31 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
                   />
                 </div>
                 <div>
-                  <label htmlFor={labelFor(i)("oauth-secret")} className={fieldLabelClass}>OAuth Client Secret</label>
+                  <label htmlFor={labelFor(i)("oauth-secret")} className={fieldLabelClass}>{tr("OAuth Client Secret")}</label>
                   <input
                     id={labelFor(i)("oauth-secret")}
                     type="password"
                     value={d.oauthClientSecret}
                     onChange={(e) => update(i, { oauthClientSecret: e.target.value })}
-                    placeholder={d.hasClientSecret ? '••••••••  (saved - type to replace)' : undefined}
+                    placeholder={d.hasClientSecret ? tr("•••••••• (saved - type to replace)") : undefined}
                     className={fieldClass}
                   />
                 </div>
                 <div className="sm:col-span-3">
-                  <label htmlFor={labelFor(i)("oauth-button")} className={fieldLabelClass}>Sign-in button label</label>
+                  <label htmlFor={labelFor(i)("oauth-button")} className={fieldLabelClass}>{tr("Sign-in button label")}</label>
                   <input
                     id={labelFor(i)("oauth-button")}
                     type="text"
                     value={d.oauthButtonLabel}
                     onChange={(e) => update(i, { oauthButtonLabel: e.target.value })}
-                    placeholder="Sign in with Google"
+                    placeholder={tr("Sign in with Google")}
                     maxLength={64}
                     className={fieldClass}
                   />
-                  <p className="mt-1 text-[0.6875rem] text-muted-foreground">
-                    With a client ID, this label gives the server its own sign-in button on the login page, whichever server is selected and even while OAuth is off globally.
-                  </p>
+                  <p className="mt-1 text-[0.6875rem] text-muted-foreground">{' '}{tr("With a client ID, this label gives the server its own sign-in button on the login page, whichever server is selected and even while OAuth is off globally.")}{' '}</p>
                 </div>
                 <div className="sm:col-span-3">
-                  <label htmlFor={labelFor(i)("logout-url")} className={fieldLabelClass}>Provider logout URL</label>
+                  <label htmlFor={labelFor(i)("logout-url")} className={fieldLabelClass}>{tr("Provider logout URL")}</label>
                   <input
                     id={labelFor(i)("logout-url")}
                     type="url"
@@ -318,9 +311,7 @@ export function JmapServersSection({ value, source, onChange, onRevert }: Props)
                     placeholder="https://auth.example.com/logout"
                     className={fieldClass}
                   />
-                  <p className="mt-1 text-[0.6875rem] text-muted-foreground">
-                    Where signing out sends the browser to end the provider&apos;s session, instead of the end_session_endpoint from discovery. Set it for providers that advertise none, such as Stalwart. Must be https.
-                  </p>
+                  <p className="mt-1 text-[0.6875rem] text-muted-foreground">{' '}{tr("Where signing out sends the browser to end the provider's session, instead of the end_session_endpoint from discovery. Set it for providers that advertise none, such as Stalwart. Must be https.")}{' '}</p>
                 </div>
               </div>
             )}

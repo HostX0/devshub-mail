@@ -15,6 +15,26 @@ function stalledFetch() {
     });
 }
 
+/** Headers arrive, but the body stays open until finished or the fetch is aborted. */
+function pendingBodyResponse(signal?: AbortSignal | null) {
+  let body!: ReadableStreamDefaultController<Uint8Array>;
+  const response = new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      body = controller;
+      signal?.addEventListener('abort', () => {
+        controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+      }, { once: true });
+    },
+  }), { status: 200 });
+  return {
+    response,
+    finish(value: string) {
+      body.enqueue(new TextEncoder().encode(value));
+      body.close();
+    },
+  };
+}
+
 // Minimal valid JMAP session response
 function makeSession(overrides?: Record<string, unknown>) {
   return {
@@ -247,7 +267,29 @@ describe('JMAPClient resilience', () => {
       expect(downloadCalls()).toHaveLength(1);
     });
 
-    it('clears the deadline once the response arrives, leaving the body alone', async () => {
+    it.each(['Email/query', 'EmailSubmission/set'])('bounds a stalled %s JSON body without replaying it', async (method) => {
+      const client = await createConnectedClient();
+      let capturedSignal: AbortSignal | undefined;
+      fetchSpy.mockImplementationOnce(async (_url: string, init?: RequestInit) => {
+        capturedSignal = init?.signal ?? undefined;
+        return pendingBodyResponse(capturedSignal).response;
+      });
+
+      const pending = client.requestNetworkOnly([[method, { accountId: 'acct-1' }, '0']]);
+      const assertion = expect(pending).rejects.toBeInstanceOf(RequestTimeoutError);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(29_000);
+      expect(capturedSignal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await assertion;
+      expect(capturedSignal?.reason).toBeInstanceOf(RequestTimeoutError);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const requests = fetchSpy.mock.calls.filter(([, init]: [unknown, RequestInit?]) =>
+        typeof init?.body === 'string' && JSON.parse(init.body).methodCalls?.some(([name]: [string]) => name === method));
+      expect(requests).toHaveLength(1);
+    });
+
+    it('clears the deadline once the JSON response body finishes', async () => {
       const client = await createConnectedClient();
       const echoResponse = { methodResponses: [['Core/echo', { ping: 'pong' }, '0']] };
       let capturedSignal: AbortSignal | undefined;
@@ -259,10 +301,35 @@ describe('JMAPClient resilience', () => {
 
       await expect(client.ping()).resolves.toBeUndefined();
 
-      // Long after the deadline would have fired, a streaming body handed back
-      // to the caller (SSE) must still be readable.
+      // A completed request must not be aborted by a leftover body deadline.
       await vi.advanceTimersByTimeAsync(120_000);
       expect(capturedSignal?.aborted).toBe(false);
+    });
+
+    it.each(['complete', 'cancel'])('leaves a slow blob body available to %s after the JSON deadline', async (action) => {
+      const client = await createConnectedClient();
+      const controller = new AbortController();
+      let capturedSignal: AbortSignal | undefined;
+      let finish!: (value: string) => void;
+      fetchSpy.mockImplementationOnce(async (_url: string, init?: RequestInit) => {
+        capturedSignal = init?.signal ?? undefined;
+        const body = pendingBodyResponse(capturedSignal);
+        finish = body.finish;
+        return body.response;
+      });
+
+      const pending = client.fetchBlobForTransfer('blob-1', undefined, controller.signal);
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(capturedSignal?.aborted).toBe(false);
+      if (action === 'complete') {
+        finish('mail body');
+        expect(Array.from(await pending)).toEqual(Array.from(new TextEncoder().encode('mail body')));
+      } else {
+        const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        controller.abort();
+        await assertion;
+      }
+      expect(downloadCalls()).toHaveLength(1);
     });
 
     it('gives blob transfers a longer budget than ordinary requests', async () => {

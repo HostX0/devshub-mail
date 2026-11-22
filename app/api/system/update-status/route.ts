@@ -11,7 +11,7 @@ import { storedDataUnavailableResponse } from '@/lib/stored-data-errors';
 //
 // In development we force a fresh fetch on every hit so changes to the
 // version server's overrides take effect on the next page reload instead of
-// requiring a dev-server restart. The 5s upstream timeout in fetchStatus
+// requiring a dev-server restart. The upstream timeout in fetchStatus
 // caps the worst-case latency added to a dev reload.
 export async function GET(request: NextRequest) {
   let state;

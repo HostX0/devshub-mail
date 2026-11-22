@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // open one.
 
 const replace = vi.fn();
+vi.mock('next-intl', () => ({ useLocale: () => 'en' }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn() }),
   usePathname: () => '/admin/settings',
@@ -20,6 +21,7 @@ vi.mock('@/lib/browser-navigation', () => ({
 vi.mock('@/components/admin/admin-shell', () => ({
   AdminShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
+vi.mock('@/components/ui/toast', () => ({ ToastContainer: () => null }));
 vi.mock('../_unsaved-changes-guard', () => ({ UnsavedChangesGuard: () => null }));
 
 const { AdminLayoutClient } = await import('../_layout-client');

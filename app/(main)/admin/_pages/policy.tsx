@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown } from '@/components/icons';
 import { iconForName } from '@/components/icons';
@@ -76,6 +78,7 @@ function isValidDefaultAppUrl(raw: string): boolean {
 }
 
 export function PolicyPage() {
+  const tr = useCoreAdminI18n();
   const [policy, setPolicy] = useState<SettingsPolicy>({ ...DEFAULT_POLICY });
   const [savedPolicy, setSavedPolicy] = useState<SettingsPolicy>({ ...DEFAULT_POLICY });
   const [loading, setLoading] = useState(true);
@@ -254,14 +257,14 @@ export function PolicyPage() {
         } else {
           setSavedPolicy(policy);
         }
-        setMessage({ type: 'success', text: 'Saved. Users get the change within 15 minutes.' });
+        setMessage({ type: 'success', text: tr("Saved. Users get the change within 15 minutes.") });
         setDirty(false);
       } else {
         const data = await res.json().catch(() => ({}));
-        setMessage({ type: 'error', text: data.error || 'Could not save the policy' });
+        setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Could not save the policy") }) });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Could not save the policy' });
+      setMessage({ type: 'error', text: tr("Could not save the policy") });
     } finally {
       setSaving(false);
     }
@@ -274,19 +277,19 @@ export function PolicyPage() {
 
   return (
     <div>
-      <AdminPageHeader title={PAGE.label} description={PAGE.description} />
+      <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
 
 
       {loading ? (
-        <AdminBodySkeleton status="Loading" />
+        <AdminBodySkeleton status={tr("Loading")} />
       ) : (
         <div className="space-y-10">
           <SectionNav />
 
           <SettingsSection
             id="features"
-            title="Features"
-            description="Turn whole features on or off for users. Plugins and themes have their own pages."
+            title={tr("Features")}
+            description={tr("Turn whole features on or off for users. Plugins and themes have their own pages.")}
           >
             <ScopePicker policy={policy} scopeId={scopeId} onPick={setScopeId} />
             {(Object.keys(DEFAULT_FEATURE_GATES) as (keyof FeatureGates)[])
@@ -299,19 +302,19 @@ export function PolicyPage() {
                 const globalOnly = GLOBAL_ONLY_FEATURES.has(key);
                 const at = featureAt(policy, globalOnly ? EVERYONE_SCOPE : scopeId, key);
                 return (
-                  <SettingItem key={key} label={label} description={description} term={term}>
+                  <SettingItem key={key} label={tr(label)} description={tr(description)} term={term}>
                     <ToggleSwitch
                       checked={at.value}
                       disabled={scoped && globalOnly}
                       onChange={(v) => setFeature(key, v)}
                     />
                     {scoped && globalOnly ? (
-                      <p className="mt-1 text-xs text-muted-foreground">Applies to everyone</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{tr("Applies to everyone")}</p>
                     ) : (
                       <InheritLine
                         scoped={scoped}
                         own={at.own}
-                        everyone={at.everyone ? 'On' : 'Off'}
+                        everyone={at.everyone ? tr("On") : tr("Off")}
                         onReset={() => setFeature(key, undefined)}
                       />
                     )}
@@ -322,28 +325,24 @@ export function PolicyPage() {
 
           <SettingsSection
             id="push-relays"
-            title="Push relays"
-            description="Relays users can pick from in notification settings. The built-in Bulwark relay is always offered; add your own here. Users choose from this list - they cannot enter a URL. Applies to everyone."
+            title={tr("Push relays")}
+            description={tr("Relays users can pick from in notification settings. The built-in Bulwark relay is always offered; add your own here. Users choose from this list - they cannot enter a URL. Applies to everyone.")}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <span className="text-sm font-medium text-foreground">Relays</span>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Mark one as the default. Relays without a valid URL are not offered to users.
-                </p>
+                <span className="text-sm font-medium text-foreground">{tr("Relays")}</span>
+                <p className="mt-0.5 text-xs text-muted-foreground">{' '}{tr("Mark one as the default. Relays without a valid URL are not offered to users.")}{' '}</p>
               </div>
               <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={addPushRelay}>
-                <Plus className="h-3.5 w-3.5" />
-                Add relay
-              </Button>
+                <Plus className="h-3.5 w-3.5" />{' '}{tr("Add relay")}{' '}</Button>
             </div>
 
             <div className={cardClass}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-foreground">Bulwark relay</span>
-                    <Badge>built-in</Badge>
+                    <span className="text-sm text-foreground">{tr("Bulwark relay")}</span>
+                    <Badge>{tr("built-in")}</Badge>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">{DEFAULT_RELAY_BASE_URL}</p>
                 </div>
@@ -354,9 +353,7 @@ export function PolicyPage() {
                     checked={defaultRelayUrl === normalizeRelayUrl(DEFAULT_RELAY_BASE_URL)}
                     onChange={() => setPushRelayUrl('')}
                     className="border-input"
-                  />
-                  Default
-                </label>
+                  />{' '}{tr("Default")}{' '}</label>
               </div>
             </div>
 
@@ -364,23 +361,23 @@ export function PolicyPage() {
               <div key={index} className={cn(cardClass, 'space-y-2')}>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-12">
                   <div className="sm:col-span-4">
-                    <label className={fieldLabelClass}>Name</label>
+                    <label className={fieldLabelClass}>{tr("Name")}</label>
                     <input
-                      aria-label="Name"
+                      aria-label={tr("Name")}
                       type="text"
                       autoComplete="off"
                       spellCheck={false}
                       value={relay.label}
                       onChange={(e) => updatePushRelay(index, { label: e.target.value })}
-                      placeholder="Company relay"
+                      placeholder={tr("Company relay")}
                       className={cn(inputClass, 'w-full')}
                     />
                   </div>
                   <div className="sm:col-span-8">
-                    <label className={fieldLabelClass}>Relay URL</label>
+                    <label className={fieldLabelClass}>{tr("Relay URL")}</label>
                     <div className="flex items-center gap-2">
                       <input
-                        aria-label="Relay URL"
+                        aria-label={tr("Relay URL")}
                         type="url"
                         inputMode="url"
                         autoComplete="off"
@@ -394,8 +391,8 @@ export function PolicyPage() {
                         type="button"
                         onClick={() => removePushRelay(index)}
                         className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
-                        title="Remove relay"
-                        aria-label="Remove relay"
+                        title={tr("Remove relay")}
+                        aria-label={tr("Remove relay")}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -410,26 +407,24 @@ export function PolicyPage() {
                     disabled={!isValidRelayUrl(relay.url)}
                     onChange={() => setPushRelayUrl(normalizeRelayUrl(relay.url))}
                     className="border-input disabled:opacity-40"
-                  />
-                  Default
-                </label>
+                  />{' '}{tr("Default")}{' '}</label>
               </div>
             ))}
 
-            <SettingItem label="Pin users to the default relay" description="Lock the relay choice: users cannot pick another relay in their notification settings.">
+            <SettingItem label={tr("Pin users to the default relay")} description={tr("Lock the relay choice: users cannot pick another relay in their notification settings.")}>
               <ToggleSwitch checked={!!policy.pushRelayUrlLocked} onChange={togglePushRelayLocked} />
             </SettingItem>
           </SettingsSection>
 
           <SettingsSection
             id="recipient-directory"
-            title="Recipient directory"
-            description="Which server accounts people see in Bulwark: the contacts directory, recipient suggestions, sharing, delegation and free/busy. Stalwart itself still lists every account to a client that asks for them."
+            title={tr("Recipient directory")}
+            description={tr("Which server accounts people see in Bulwark: the contacts directory, recipient suggestions, sharing, delegation and free/busy. Stalwart itself still lists every account to a client that asks for them.")}
           >
-            <SettingItem label="Own domains only" description="Show only accounts in the domains of the signed-in account's addresses, aliases included. Accounts whose name isn't an address (name@domain) are left out.">
+            <SettingItem label={tr("Own domains only")} description={tr("Show only accounts in the domains of the signed-in account's addresses, aliases included. Accounts whose name isn't an address (name@domain) are left out.")}>
               <ToggleSwitch checked={!!policy.directorySameDomainOnly} onChange={toggleDirectorySameDomain} />
             </SettingItem>
-            <SettingItem label="Hidden accounts" description="Account names before the @, separated by commas, hidden from everyone. For function accounts such as noreply.">
+            <SettingItem label={tr("Hidden accounts")} description={tr("Account names before the @, separated by commas, hidden from everyone. For function accounts such as noreply.")}>
               <input
                 type="text"
                 autoComplete="off"
@@ -437,7 +432,7 @@ export function PolicyPage() {
                 value={(policy.directoryHiddenLocalparts ?? []).join(',')}
                 onChange={(e) => setDirectoryHiddenLocalparts(e.target.value)}
                 placeholder="noreply, spam"
-                aria-label="Hidden accounts"
+                aria-label={tr("Hidden accounts")}
                 className={cn(inputClass, 'w-full min-w-0 sm:w-64')}
               />
             </SettingItem>
@@ -445,16 +440,13 @@ export function PolicyPage() {
 
           <SettingsSection
             id="sidebar-apps"
-            title="Default sidebar apps"
-            description="Apps every user gets in the navigation rail without configuring anything. They appear above the user's own apps and cannot be edited or removed by users. Independent of the Sidebar apps feature above, which only covers apps users add themselves. Applies to everyone."
+            title={tr("Default sidebar apps")}
+            description={tr("Apps every user gets in the navigation rail without configuring anything. They appear above the user's own apps and cannot be edited or removed by users. Independent of the Sidebar apps feature above, which only covers apps users add themselves. Applies to everyone.")}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <span className="text-sm font-medium text-foreground">Apps</span>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Entries without a name or a valid http(s) URL are dropped when saving. Inline apps
-                  are framed inside the webmail, so the target must allow being embedded.
-                </p>
+                <span className="text-sm font-medium text-foreground">{tr("Apps")}</span>
+                <p className="mt-0.5 text-xs text-muted-foreground">{' '}{tr("Entries without a name or a valid http(s) URL are dropped when saving. Inline apps are framed inside the webmail, so the target must allow being embedded.")}{' '}</p>
               </div>
               <Button
                 type="button"
@@ -464,15 +456,11 @@ export function PolicyPage() {
                 onClick={addDefaultApp}
                 disabled={defaultSidebarApps.length >= MAX_DEFAULT_SIDEBAR_APPS}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Add app
-              </Button>
+                <Plus className="h-3.5 w-3.5" />{' '}{tr("Add app")}{' '}</Button>
             </div>
 
             {defaultSidebarApps.length === 0 && (
-              <p className="py-2 text-xs text-muted-foreground">
-                No default apps. Users only see the apps they add themselves.
-              </p>
+              <p className="py-2 text-xs text-muted-foreground">{' '}{tr("No default apps. Users only see the apps they add themselves.")}{' '}</p>
             )}
 
             {defaultSidebarApps.map((app, index) => {
@@ -482,23 +470,23 @@ export function PolicyPage() {
                 <div key={app.id} className={cn(cardClass, 'space-y-2')}>
                   <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-12">
                     <div className="sm:col-span-4">
-                      <label className={fieldLabelClass}>Name</label>
+                      <label className={fieldLabelClass}>{tr("Name")}</label>
                       <input
-                        aria-label="Name"
+                        aria-label={tr("Name")}
                         type="text"
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={50}
                         value={app.name}
                         onChange={(e) => updateDefaultApp(index, { name: e.target.value })}
-                        placeholder="Intranet"
+                        placeholder={tr("Intranet")}
                         className={cn(inputClass, 'w-full')}
                       />
                     </div>
                     <div className="sm:col-span-5">
-                      <label className={fieldLabelClass}>URL</label>
+                      <label className={fieldLabelClass}>{tr("URL")}</label>
                       <input
-                        aria-label="URL"
+                        aria-label={tr("URL")}
                         type="url"
                         inputMode="url"
                         autoComplete="off"
@@ -510,18 +498,16 @@ export function PolicyPage() {
                         className={cn(inputClass, 'w-full', urlInvalid && 'border-destructive')}
                       />
                       {urlInvalid && (
-                        <p className="mt-1 text-[0.6875rem] text-destructive">Enter a valid http or https URL</p>
+                        <p className="mt-1 text-[0.6875rem] text-destructive">{tr("Enter a valid http or https URL")}</p>
                       )}
                     </div>
                     <div className="sm:col-span-3">
-                      <label className={fieldLabelClass}>
-                        Icon (
-                        <a href="https://tabler.io/icons" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Tabler</a>
+                      <label className={fieldLabelClass}>{' '}{tr("Icon (")}{' '}<a href="https://tabler.io/icons" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Tabler</a>
                         )
                       </label>
                       <div className="flex items-center gap-2">
                         <input
-                          aria-label="Icon"
+                          aria-label={tr("Icon")}
                           type="text"
                           autoComplete="off"
                           spellCheck={false}
@@ -533,7 +519,7 @@ export function PolicyPage() {
                         />
                         <span
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground"
-                          title={AppIcon ? app.icon : 'Unknown icon - falls back to Globe'}
+                          title={AppIcon ? app.icon : tr("Unknown icon - falls back to Globe")}
                         >
                           {AppIcon ? <AppIcon className="h-4 w-4" /> : <span className="text-[0.625rem]">?</span>}
                         </span>
@@ -550,9 +536,7 @@ export function PolicyPage() {
                           checked={app.openMode !== 'inline'}
                           onChange={() => updateDefaultApp(index, { openMode: 'tab' })}
                           className="border-input"
-                        />
-                        New tab
-                      </label>
+                        />{' '}{tr("New tab")}{' '}</label>
                       <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                         <input
                           type="radio"
@@ -560,9 +544,7 @@ export function PolicyPage() {
                           checked={app.openMode === 'inline'}
                           onChange={() => updateDefaultApp(index, { openMode: 'inline' })}
                           className="border-input"
-                        />
-                        Inline
-                      </label>
+                        />{' '}{tr("Inline")}{' '}</label>
                     </div>
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                       <input
@@ -570,17 +552,15 @@ export function PolicyPage() {
                         checked={app.showOnMobile}
                         onChange={() => updateDefaultApp(index, { showOnMobile: !app.showOnMobile })}
                         className="rounded border-input"
-                      />
-                      Show on mobile
-                    </label>
+                      />{' '}{tr("Show on mobile")}{' '}</label>
                     <div className="ms-auto flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => moveDefaultApp(index, -1)}
                         disabled={index === 0}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                        title="Move up"
-                        aria-label="Move up"
+                        title={tr("Move up")}
+                        aria-label={tr("Move up")}
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </button>
@@ -589,8 +569,8 @@ export function PolicyPage() {
                         onClick={() => moveDefaultApp(index, 1)}
                         disabled={index === defaultSidebarApps.length - 1}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-                        title="Move down"
-                        aria-label="Move down"
+                        title={tr("Move down")}
+                        aria-label={tr("Move down")}
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </button>
@@ -598,8 +578,8 @@ export function PolicyPage() {
                         type="button"
                         onClick={() => removeDefaultApp(index)}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
-                        title="Remove app"
-                        aria-label="Remove app"
+                        title={tr("Remove app")}
+                        aria-label={tr("Remove app")}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -621,8 +601,8 @@ export function PolicyPage() {
         saving={saving}
         onSave={handleSave}
         onDiscard={discard}
-        saveLabel="Save policy"
-        note="Users get the change within 15 minutes"
+        saveLabel={tr("Save policy")}
+        note={tr("Users get the change within 15 minutes")}
       />
     </div>
   );

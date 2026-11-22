@@ -6,13 +6,16 @@
 // mailbox query by email-store.fetchEmails. Plugins only contribute tab
 // DEFINITIONS (stores/message-list-tabs-store.ts) - no plugin iframe here.
 
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { iconForName } from '@/components/icons';
 import { useMessageListTabsStore } from '@/stores/message-list-tabs-store';
 import { useEmailStore } from '@/stores/email-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { isFilterEmpty } from '@/lib/jmap/search-utils';
+import { toast } from '@/stores/toast-store';
+import { emailKeyFor } from '@/lib/thread-utils';
+import { inboxRegistration } from '@/lib/company-inbox-categories';
 import { cn } from '@/lib/utils';
 
 /**
@@ -62,6 +65,10 @@ export function useMessageListPanelProps(panelId: string): { id: string; role?: 
 export function MessageListTabs({ panelId }: { panelId: string }) {
   const t = useTranslations('email_list');
   const tShell = useTranslations('shell');
+  const messages = useTranslations('notifications');
+  const companyTabs = useMessageListTabsStore(s => !!s.registrations[inboxRegistration]);
+  const selection = useEmailStore(s => s.selectedEmailKeys);
+  const [moving, setMoving] = useState(false);
   const tabs = useMessageListTabsStore((s) => s.tabs);
   const activeTabId = useMessageListTabsStore((s) => s.activeTabId);
   const tabCounts = useMessageListTabsStore((s) => s.tabCounts);
@@ -122,8 +129,36 @@ export function MessageListTabs({ panelId }: { panelId: string }) {
     buttons[next].focus();
   };
 
+  async function moveSelection(target: string) {
+    if (!client || !target || !mailbox || moving) return;
+    const mail = useEmailStore.getState();
+    const ids = mail.emails.filter(email => mail.selectedEmailKeys.has(emailKeyFor(email))).map(email => email.id);
+    if (!ids.length) return;
+    const categories = useMessageListTabsStore.getState();
+    setMoving(true);
+    try {
+      if (await categories.categorizeEmails(client, ids, target)) mail.clearSelection();
+    } catch {
+      toast.error(messages('error_updating'));
+    } finally {
+      setMoving(false);
+      void categories.refreshCounts(client, mailbox.originalId || mailbox.id, mailbox.isShared ? mailbox.accountId : undefined);
+    }
+  }
+
   return (
+    <>
+    {companyTabs && selection?.size > 0 && mailbox?.myRights?.maySetKeywords && (
+      <label className="flex shrink-0 items-center gap-3 bg-secondary px-4 py-2 text-sm">
+        {t('move_to_category')}
+        <select disabled={moving} value="" onChange={event => void moveSelection(event.target.value)} className="rounded border border-border bg-background px-2 py-1">
+          <option value="" disabled>{t('category_tabs')}</option>
+          {tabs.filter(tab => tab.id !== activeTabId).map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+        </select>
+      </label>
+    )}
     <div
+      data-mail-category-tabs=""
       className="flex items-stretch gap-1 px-2 border-b border-border overflow-x-auto shrink-0"
       style={{ scrollbarWidth: 'none' }}
       role="tablist"
@@ -177,5 +212,6 @@ export function MessageListTabs({ panelId }: { panelId: string }) {
         );
       })}
     </div>
+    </>
   );
 }

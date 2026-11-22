@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/admin/empty-state';
 import { AdminBodySkeleton } from '@/components/boot-skeleton/admin-skeleton';
 import { AdminSaveBar } from '@/components/admin/save-bar';
 import { useAdminFeedback } from '@/components/admin/feedback';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { ConfigNote, inputClass } from '@/components/admin/config-items';
 import { adminPageDef } from '@/lib/admin/admin-nav';
 import { apiFetch } from '@/lib/browser-navigation';
@@ -36,27 +37,39 @@ type ErrorsMode = 'on' | 'off' | 'instant';
 
 const PAGE = adminPageDef('telemetry');
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'never';
-  const d = Date.now() - new Date(iso).getTime();
-  if (d < 0) return new Date(iso).toLocaleString();
-  const m = Math.floor(d / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} min ago`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h} hours ago`;
-  const days = Math.floor(h / 24);
-  return `${days} days ago`;
+type Translate = (english: string, arabic: string) => string;
+function timeAgo(iso: string | null, t: Translate, locale: string): string {
+  if (!iso) return t('Never', 'لم يحدث بعد');
+  const elapsed = Date.now() - new Date(iso).getTime();
+  if (elapsed < 0) return new Date(iso).toLocaleString(locale);
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return t('Just now', 'الآن');
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (minutes < 60) return relative.format(-minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return relative.format(-hours, 'hour');
+  return relative.format(-Math.floor(hours / 24), 'day');
 }
 
 /** When the next heartbeat goes out; a time already past means it is due. */
-function nextRun(iso: string | null): string {
+function nextRun(iso: string | null, t: Translate, locale: string): string {
   if (!iso) return '-';
   const at = new Date(iso);
-  return at.getTime() <= Date.now() ? 'Due now' : at.toLocaleString();
+  return at.getTime() <= Date.now() ? t('Due now', 'حان موعد الإرسال') : at.toLocaleString(locale);
+}
+
+function failureText(status: number, error: string | undefined, t: Translate): string {
+  if (status === 401) return t('Your administrator session has ended. Sign in again.', 'انتهت جلسة الإدارة. سجّل الدخول مجدداً.');
+  if (error === 'turn on the heartbeat first') return t('Enable anonymous usage reports first.', 'فعّل تقارير الاستخدام المجهولة أولاً.');
+  if (status === 409) return t('These settings are controlled by the server environment. Contact your system administrator.', 'تتحكم إعدادات الخادم بهذه الخيارات. تواصل مع مسؤول النظام.');
+  if (error === 'not a URL') return t('not a URL', 'العنوان ليس رابطاً صحيحاً');
+  if (status === 400) return t('Check the collector URL and selected settings, then try again.', 'تحقّق من عنوان خدمة جمع البيانات والإعدادات المحددة، ثم حاول مجدداً.');
+  return t('The request could not be completed. Try again.', 'تعذّر إكمال الطلب. حاول مجدداً.');
 }
 
 export function TelemetryPage() {
+  const { t, isArabic } = useAdminI18n();
+  const dateLocale = isArabic ? 'ar-u-nu-latn' : 'en-US';
   const [status, setStatus] = useState<TelemetryStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -98,7 +111,7 @@ export function TelemetryPage() {
     });
     if (r.ok) return null;
     const j = (await r.json().catch(() => ({}))) as { error?: string };
-    return j.error ?? 'failed';
+    return failureText(r.status, j.error, t);
   }
 
   async function save(): Promise<void> {
@@ -108,23 +121,25 @@ export function TelemetryPage() {
       const errors: string[] = [];
       if (consentDirty && consentDraft) {
         const error = await post({ action: 'set-consent', consent: consentDraft });
-        if (error) errors.push(`Heartbeats: ${error}`);
+        if (error) errors.push(t(`Usage reports: ${error}`, `تقارير الاستخدام: ${error}`));
       }
       // After the heartbeat switch: error counts need it on.
       if (errorsDirty && errorsDraft) {
         const error = await post({ action: 'set-errors-consent', consent: errorsDraft });
-        if (error) errors.push(`Error counts: ${error}`);
+        if (error) errors.push(t(`Error counts: ${error}`, `أعداد الأخطاء: ${error}`));
       }
       if (endpointDirty) {
         const error = await post({ action: 'set-endpoint', endpoint: endpointDraft });
-        if (error) errors.push(`Endpoint: ${error}`);
+        if (error) errors.push(t(`Endpoint: ${error}`, `خدمة جمع البيانات: ${error}`));
       }
       setConsentDraft(null);
       setErrorsDraft(null);
       setMessage(errors.length > 0
-        ? { type: 'error', text: `Couldn't save: ${errors.join('; ')}` }
-        : { type: 'success', text: 'Telemetry settings saved.' });
+        ? { type: 'error', text: t(`Couldn't save: ${errors.join('; ')}`, `تعذّر الحفظ: ${errors.join('؛ ')}`) }
+        : { type: 'success', text: t('Telemetry settings saved.', 'تم حفظ إعدادات إحصاءات الاستخدام.') });
       await refresh();
+    } catch {
+      setMessage({ type: 'error', text: t('Connection failed. Please try again.', 'تعذّر الاتصال. أعد المحاولة.') });
     } finally { setBusy(null); }
   }
 
@@ -139,9 +154,11 @@ export function TelemetryPage() {
       });
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; status?: number; error?: string };
       setMessage(j.ok
-        ? { type: 'success', text: `sent (HTTP ${j.status ?? '?'})` }
-        : { type: 'error', text: `failed: ${j.error ?? 'unknown'}` });
+        ? { type: 'success', text: t(`Sent successfully (HTTP ${j.status ?? '?'}).`, `تم الإرسال بنجاح (رمز الاستجابة ${j.status ?? '?'}).`) }
+        : { type: 'error', text: failureText(r.status, j.error, t) });
       await refresh();
+    } catch {
+      setMessage({ type: 'error', text: t('Connection failed. Please try again.', 'تعذّر الاتصال. أعد المحاولة.') });
     } finally { setBusy(null); }
   }
 
@@ -152,8 +169,8 @@ export function TelemetryPage() {
       <div>
         {header}
         <EmptyState
-          title="Could not load the usage stats"
-          action={<Button type="button" size="sm" onClick={() => void refresh()}>Retry</Button>}
+          title={t('Could not load the usage stats', 'تعذّر تحميل إحصاءات الاستخدام')}
+          action={<Button type="button" size="sm" onClick={() => void refresh()}>{t('Retry', 'إعادة المحاولة')}</Button>}
         />
       </div>
     );
@@ -164,7 +181,7 @@ export function TelemetryPage() {
     return (
       <div>
         {header}
-        <AdminBodySkeleton status="Loading" />
+        <AdminBodySkeleton status={t('Loading', 'جارٍ التحميل')} />
       </div>
     );
   }
@@ -179,13 +196,13 @@ export function TelemetryPage() {
   const errorsMode: ErrorsMode = shownOn ? (errorsDraft ?? status.errorsConsent ?? 'off') : 'off';
   const errorsShownOn = errorsMode !== 'off';
   const errorsDescription = [
-    'Adds how often each error happened yesterday, the error name and where in the code it happened. No message text, no URLs, no instance id goes to the error tracker.',
-    !shownOn && 'Needs the heartbeat on.',
-    status.errorsConsentSource === 'env' && 'Locked by the BULWARK_TELEMETRY_ERRORS env var.',
+    t("Adds how often each error happened yesterday, the error name and where in the code it happened. No message text, no URLs, no instance id goes to the error tracker.", "يتضمن عدد مرات حدوث كل خطأ بالأمس، واسم الخطأ، وموضعه في الشفرة. لا تُرسل نصوص الرسائل أو الروابط أو معرّف النسخة إلى خدمة تتبّع الأخطاء."),
+    !shownOn && t("Needs the heartbeat on.", "يتطلب تفعيل تقارير الاستخدام."),
+    status.errorsConsentSource === 'env' && t("Locked by the BULWARK_TELEMETRY_ERRORS env var.", "يتحكم متغير البيئة BULWARK_TELEMETRY_ERRORS بهذا الخيار."),
   ].filter(Boolean).join(' ');
   const instantDescription = [
-    'Also sends today\'s counts within about a minute when an error is new or happens noticeably more often, so a broken release shows up the same day. The same fields as the daily counts; the collector learns roughly when errors happen.',
-    !errorsShownOn && 'Needs error counts on.',
+    t("Also sends today's counts within about a minute when an error is new or happens noticeably more often, so a broken release shows up the same day. The same fields as the daily counts; the collector learns roughly when errors happen.", "يرسل أيضاً أعداد أخطاء اليوم خلال دقيقة تقريباً عند ظهور خطأ جديد أو زيادة تكراره، لتسهيل اكتشاف المشكلات في اليوم نفسه. تُرسل الحقول نفسها الواردة في التقرير اليومي، مع توقيت تقريبي لحدوث الأخطاء."),
+    !errorsShownOn && t("Needs error counts on.", "يتطلب تفعيل إرسال أعداد الأخطاء."),
   ].filter(Boolean).join(' ');
 
   // The payload as it will be once the switches are saved.
@@ -194,12 +211,12 @@ export function TelemetryPage() {
     : (({ errors: _omit, ...v1 }) => ({ ...v1, schema: '1' }))(status.payloadPreview as Record<string, unknown> & { errors?: unknown });
 
   const consentDescription = [
-    status.consent === 'pending' && 'Initialising - no heartbeats sent yet.',
-    status.consent === 'on' && status.endpoint && 'Heartbeats are enabled. Thanks for helping us improve!',
-    status.consent === 'on' && !status.endpoint && 'Heartbeats are on, but none are sent because the collector URL is empty.',
-    status.consent === 'off' && 'Heartbeats are off (default).',
-    noThirdParty && 'Locked off: no third-party traffic is on (Users > Security).',
-    envOverridden && !noThirdParty && 'Locked by the BULWARK_TELEMETRY env var.',
+    status.consent === 'pending' && t("Initialising - no heartbeats sent yet.", "جارٍ التهيئة. لم تُرسل تقارير الاستخدام بعد."),
+    status.consent === 'on' && status.endpoint && t("Heartbeats are enabled. Thanks for helping us improve!", "تقارير الاستخدام مفعّلة. شكراً للمساهمة في تحسين المنتج."),
+    status.consent === 'on' && !status.endpoint && t("Heartbeats are on, but none are sent because the collector URL is empty.", "تقارير الاستخدام مفعّلة، لكن لا تُرسل لأن عنوان خدمة جمع البيانات فارغ."),
+    status.consent === 'off' && t("Heartbeats are off (default).", "تقارير الاستخدام متوقفة، وهذا هو الإعداد الافتراضي."),
+    noThirdParty && t("Locked off: no third-party traffic is on (Users > Security).", "متوقف بسبب تفعيل منع الاتصالات الخارجية في المستخدمون ← الأمان."),
+    envOverridden && !noThirdParty && t("Locked by the BULWARK_TELEMETRY env var.", "يتحكم متغير البيئة BULWARK_TELEMETRY بهذا الخيار."),
   ].filter(Boolean).join(' ');
 
   return (
@@ -209,22 +226,19 @@ export function TelemetryPage() {
 
       <div className="space-y-10">
         <ConfigNote>
-          Bulwark can send one anonymous heartbeat per day so we can see how many instances are
-          running, on what platforms, and which features they use. It&apos;s <strong>off by
-          default</strong>; one click below enables it and helps us make the product better. No
-          email addresses, no hostnames, no IPs are sent.{' '}
+          {t('The application can send one anonymous usage report per day to help measure active installations, platforms and features. This is off by default. Enable it below to help improve the product. Email addresses, hostnames and IP addresses are not sent. ', 'يمكن للتطبيق إرسال تقرير استخدام مجهول يومياً لقياس عدد النسخ النشطة، والمنصات، والمزايا المستخدمة. الإرسال متوقف افتراضياً. يمكنك تفعيله أدناه للمساعدة في تحسين المنتج. لا تُرسل عناوين البريد أو أسماء الخوادم أو عناوين الشبكة. ')}
           <a
             href="https://bulwarkmail.org/docs/legal/privacy/telemetry"
             target="_blank"
             rel="noreferrer"
             className="underline inline-flex items-center gap-1"
           >
-            Full schema and policy <ExternalLink className="h-3 w-3" />
+            {t('Full data schema and policy', 'تفاصيل البيانات والسياسة')} <ExternalLink className="h-3 w-3" />
           </a>
         </ConfigNote>
 
-        <SettingsSection id="status" title="Status">
-          <SettingItem label="Send anonymous heartbeats" description={consentDescription}>
+        <SettingsSection id="status" title={t('Status', 'الحالة')}>
+          <SettingItem label={t('Send anonymous heartbeats', 'إرسال تقارير استخدام مجهولة')} description={consentDescription}>
             <ToggleSwitch
               checked={shownOn}
               disabled={busy === 'save' || envOverridden}
@@ -235,32 +249,32 @@ export function TelemetryPage() {
               }}
             />
           </SettingItem>
-          <SettingItem label="Also send anonymous error counts" description={errorsDescription}>
+          <SettingItem label={t('Also send anonymous error counts', 'إرسال أعداد الأخطاء بشكل مجهول أيضاً')} description={errorsDescription}>
             <ToggleSwitch
               checked={errorsShownOn}
               disabled={busy === 'save' || errorsLocked}
               onChange={(checked) => { setErrorsDraft(checked ? 'on' : 'off'); setMessage(null); }}
             />
           </SettingItem>
-          <SettingItem label="Send error counts right away" description={instantDescription}>
+          <SettingItem label={t('Send error counts right away', 'إرسال أعداد الأخطاء فوراً')} description={instantDescription}>
             <ToggleSwitch
               checked={errorsMode === 'instant'}
               disabled={busy === 'save' || errorsLocked || !errorsShownOn}
               onChange={(checked) => { setErrorsDraft(checked ? 'instant' : 'on'); setMessage(null); }}
             />
           </SettingItem>
-          <SettingItem label="Last sent">
-            <span className="text-sm text-foreground">{timeAgo(status.lastSentAt)}</span>
+          <SettingItem label={t('Last sent', 'آخر إرسال')}>
+            <span className="text-sm text-foreground">{timeAgo(status.lastSentAt, t, dateLocale)}</span>
           </SettingItem>
           {/* Only a running schedule has a next send and a consent date; with
               heartbeats off they were stale ("Next scheduled: 7 hours ago"). */}
           {isOn && (
             <>
-              <SettingItem label="Next scheduled">
-                <span className="text-sm text-foreground">{nextRun(status.nextScheduledAt)}</span>
+              <SettingItem label={t('Next scheduled', 'موعد الإرسال القادم')}>
+                <span className="text-sm text-foreground">{nextRun(status.nextScheduledAt, t, dateLocale)}</span>
               </SettingItem>
-              <SettingItem label="Consented at">
-                <span className="text-sm text-foreground">{status.consentedAt ? new Date(status.consentedAt).toLocaleString() : '-'}</span>
+              <SettingItem label={t('Consented at', 'وقت التفعيل')}>
+                <span className="text-sm text-foreground">{status.consentedAt ? new Date(status.consentedAt).toLocaleString(dateLocale) : '-'}</span>
               </SettingItem>
             </>
           )}
@@ -268,29 +282,29 @@ export function TelemetryPage() {
 
         <SettingsSection
           id="accounts"
-          title="Account activity"
-          description="Unique accounts that have logged in over the last 90 days. Identities are stored as a per-instance HMAC, never as plaintext usernames. These are the numbers reported in the heartbeat as bucketed ranges."
+          title={t('Account activity', 'نشاط الحسابات')}
+          description={t('Unique accounts that signed in during the last 90 days. Identities are stored as a per-installation HMAC, never as plain usernames. Reports include these counts as ranges.', 'الحسابات الفريدة التي سجّلت الدخول خلال آخر 90 يوماً. تُخزّن الهويات بتوقيع مشفّر خاص بكل نسخة، وليس بأسماء مستخدمين صريحة. تتضمن التقارير هذه الأعداد ضمن نطاقات إحصائية.')}
         >
-          <SettingItem label="Total (90 days)">
+          <SettingItem label={t('Total (90 days)', 'الإجمالي خلال 90 يوماً')}>
             <span className="text-sm font-mono text-foreground">{status.accountCounts?.total ?? 0}</span>
           </SettingItem>
-          <SettingItem label="Active (7 days)">
+          <SettingItem label={t('Active (7 days)', 'النشطة خلال 7 أيام')}>
             <span className="text-sm font-mono text-foreground">{status.accountCounts?.active7d ?? 0}</span>
           </SettingItem>
         </SettingsSection>
 
         <SettingsSection
           id="endpoint"
-          title="Endpoint"
-          description={`Where heartbeats are sent. The project's collector is ${status.defaultEndpoint}. Point at your own collector (open source at bulwarkmail/dashboard), or clear this field to stop sending.`}
+          title={t('Endpoint', 'خدمة جمع البيانات')}
+          description={t(`Where usage reports are sent. The default collector is ${status.defaultEndpoint}. Use your own collector or clear this field to stop sending.`, `عنوان إرسال تقارير الاستخدام. الخدمة الافتراضية هي ${status.defaultEndpoint}. يمكنك استخدام خدمة جمع بيانات خاصة بك أو إفراغ الحقل لإيقاف الإرسال.`)}
         >
-          <SettingItem label="Collector URL">
+          <SettingItem label={t('Collector URL', 'عنوان خدمة جمع البيانات')}>
             <input
               type="url"
               value={endpointDraft}
               onChange={(e) => { setEndpointDraft(e.target.value); setMessage(null); }}
-              placeholder="Empty: no heartbeats are sent"
-              aria-label="Collector URL"
+              placeholder={t('Leave empty to stop sending reports', 'اتركه فارغاً لإيقاف إرسال التقارير')}
+              aria-label={t('Collector URL', 'عنوان خدمة جمع البيانات')}
               autoComplete="off"
               spellCheck={false}
               className={cn(inputClass, 'w-full sm:w-80')}
@@ -300,8 +314,8 @@ export function TelemetryPage() {
 
         <SettingsSection
           id="payload"
-          title="Payload preview"
-          description="Exactly what the next heartbeat would send from this install, right now."
+          title={t('Payload preview', 'معاينة البيانات المُرسلة')}
+          description={t('The exact data the next usage report would send from this installation.', 'البيانات التي سيرسلها تقرير الاستخدام القادم من هذه النسخة.')}
         >
           <div className="flex justify-end">
             <Button
@@ -313,19 +327,18 @@ export function TelemetryPage() {
               onClick={() => void sendNow()}
             >
               {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Send now
+              {t('Send now', 'إرسال الآن')}
             </Button>
           </div>
-          <pre className="text-xs bg-muted/50 rounded-md p-3 overflow-x-auto max-h-96">
+          <pre dir="ltr" className="text-xs bg-muted/50 rounded-md p-3 overflow-x-auto max-h-96">
             {JSON.stringify(previewPayload, null, 2)}
           </pre>
           {errorsMode === 'instant' && (
             <>
               <p className="text-sm text-muted-foreground">
-                Sent right away: today&apos;s error counts as they would go out now. Each minute only
-                the errors that are new or reached a higher count range are sent.
+                {t('Immediate report: today’s error counts as they would be sent now. Each minute includes only new errors or those that reached a higher count range.', 'التقرير الفوري: أعداد أخطاء اليوم كما ستُرسل الآن. تُرسل كل دقيقة الأخطاء الجديدة فقط أو التي ارتفع عددها إلى نطاق أعلى.')}
               </p>
-              <pre className="text-xs bg-muted/50 rounded-md p-3 overflow-x-auto max-h-96">
+              <pre dir="ltr" className="text-xs bg-muted/50 rounded-md p-3 overflow-x-auto max-h-96">
                 {JSON.stringify({
                   schema: '1',
                   instance_id: status.payloadPreview.instance_id,
@@ -343,7 +356,7 @@ export function TelemetryPage() {
         saving={busy === 'save'}
         onSave={() => void save()}
         onDiscard={() => { setEndpointDraft(status.endpoint); setConsentDraft(null); setErrorsDraft(null); }}
-        saveLabel="Save"
+        saveLabel={t('Save', 'حفظ')}
       />
     </div>
   );

@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n, type CoreAdminTranslator } from '@/components/admin/core-i18n';
+
 import { useState } from 'react';
 import { Plus, Trash2 } from '@/components/icons';
 import { Select } from '@/components/settings/settings-section';
@@ -25,17 +27,17 @@ const PALETTE_KEYS = KEYWORD_PALETTE_ROWS.flat().filter((key) => key in KEYWORD_
 const BASE_COLORS = KEYWORD_PALETTE_ROWS[1];
 
 /** "Light red", "Red", "Dark red". */
-function colorLabel(key: string): string {
+function colorLabel(key: string, tr: CoreAdminTranslator): string {
   const [hue, shade] = key.split('-');
   const name = hue.charAt(0).toUpperCase() + hue.slice(1);
-  if (shade === 'light') return `Light ${hue}`;
-  if (shade === 'dark') return `Dark ${hue}`;
-  return name;
+  if (shade === 'light') return tr('Light {0}', { 0: tr(hue) });
+  if (shade === 'dark') return tr('Dark {0}', { 0: tr(hue) });
+  return tr(hue) === hue ? name : tr(hue);
 }
 
-function describeCount(value: unknown): string {
+function describeCount(value: unknown, tr: CoreAdminTranslator): string {
   const count = Array.isArray(value) ? value.length : 0;
-  return count === 0 ? 'no tags' : count === 1 ? '1 tag' : `${count} tags`;
+  return count === 0 ? tr('no tags') : count === 1 ? tr('1 tag') : tr('{0} tags', { 0: count });
 }
 
 /** A tag being edited. A row added with Add tag has no id yet: it follows the name. */
@@ -111,6 +113,7 @@ function ColorTagPicker({ offered, onAdd, onCancel }: {
   onAdd: (tags: PolicyKeyword[]) => void;
   onCancel: () => void;
 }) {
+  const tr = useCoreAdminI18n();
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string, on: boolean) => {
     const next = new Set(checked);
@@ -129,7 +132,7 @@ function ColorTagPicker({ offered, onAdd, onCancel }: {
         }
       }}
     >
-      <legend className="px-1 text-xs font-medium text-muted-foreground">Colour tags to add</legend>
+      <legend className="px-1 text-xs font-medium text-muted-foreground">{tr("Colour tags to add")}</legend>
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {offered.map((tag, index) => (
           <label key={tag.id} className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
@@ -152,12 +155,8 @@ function ColorTagPicker({ offered, onAdd, onCancel }: {
           className="h-8 text-xs"
           disabled={checked.size === 0}
           onClick={() => onAdd(offered.filter((tag) => checked.has(tag.id)))}
-        >
-          Add selected
-        </Button>
-        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onCancel}>
-          Cancel
-        </Button>
+        >{' '}{tr("Add selected")}{' '}</Button>
+        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onCancel}>{' '}{tr("Cancel")}{' '}</Button>
       </div>
     </fieldset>
   );
@@ -168,6 +167,7 @@ function ColorTagPicker({ offered, onAdd, onCancel }: {
  * Everyone or the scope picked above. A default only: tags can't be locked.
  */
 export function TagDefaults({ policy, scopeId, onChange }: { policy: SettingsPolicy; scopeId: string; onChange: PolicyChange }) {
+  const tr = useCoreAdminI18n();
   const preset = defaultAt(policy, scopeId, TAGS_DEFAULT_KEY);
   const scoped = scopeId !== EVERYONE;
   const signature = preset.own ? JSON.stringify(preset.value) : null;
@@ -209,37 +209,34 @@ export function TagDefaults({ policy, scopeId, onChange }: { policy: SettingsPol
 
   return (
     <div data-testid="defaults-tags">
-      <p className={subLabelClass}>Tags</p>
-      <p className={cn(noteClass, 'mt-1')}>
-        The tags new users start with, in place of the seven colour tags. Users who signed in before this update, or have edited their tags, keep theirs.
-      </p>
+      <p className={subLabelClass}>{tr("Tags")}</p>
+      <p className={cn(noteClass, 'mt-1')}>{' '}{tr("The tags new users start with, in place of the seven colour tags. Users who signed in before this update, or have edited their tags, keep theirs.")}{' '}</p>
       {!preset.own ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <p className={noteClass}>
-            {scoped && preset.everyone !== undefined ? `From Everyone: ${describeCount(preset.everyone)}` : 'Built-in: the seven colour tags'}
+            {scoped && preset.everyone !== undefined ? tr("From Everyone: {0}", { 0: describeCount(preset.everyone, tr) }) : tr("Built-in: the seven colour tags")}
           </p>
           <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => update([])}>
-            <Plus className="h-3.5 w-3.5" /> Set default tags
-          </Button>
+            <Plus className="h-3.5 w-3.5" />{' '}{tr("Set default tags")}{' '}</Button>
         </div>
       ) : (
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge tone="accent">set</Badge>
-            <span className={noteClass}>Built-in: the seven colour tags</span>
-            <RevertButton onClick={revert} title={scoped ? "Use Everyone's value" : 'Remove the default'} />
+            <Badge tone="accent">{tr("set")}</Badge>
+            <span className={noteClass}>{tr("Built-in: the seven colour tags")}</span>
+            <RevertButton onClick={revert} title={scoped ? tr("Use Everyone's value") : tr("Remove the default")} />
           </div>
-          {rows.length === 0 && <p className={noteClass}>No tags: new users start without any.</p>}
+          {rows.length === 0 && <p className={noteClass}>{tr("No tags: new users start without any.")}</p>}
           {checked.map(({ row, error }) => {
             const errorId = `tag-default-error-${row.key}`;
-            const colorOptions = PALETTE_KEYS.map((key) => ({ value: key, label: colorLabel(key) }));
-            if (!PALETTE_KEYS.includes(row.color)) colorOptions.unshift({ value: row.color, label: `${row.color} (not valid)` });
+            const colorOptions = PALETTE_KEYS.map((key) => ({ value: key, label: colorLabel(key, tr) }));
+            if (!PALETTE_KEYS.includes(row.color)) colorOptions.unshift({ value: row.color, label: tr("{0} (not valid)", { 0: row.color }) });
             return (
               <div key={row.key} data-testid="tag-default-row">
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
-                    aria-label="Tag name"
+                    aria-label={tr("Tag name")}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? errorId : undefined}
                     value={row.label}
@@ -252,29 +249,28 @@ export function TagDefaults({ policy, scopeId, onChange }: { policy: SettingsPol
                     <ColorDot color={row.color} />
                     <Select
                       value={row.color}
-                      ariaLabel="Colour"
+                      ariaLabel={tr("Colour")}
                       onChange={(color) => patchRow(row.key, { color })}
                       options={colorOptions}
                     />
                   </span>
                   <button
                     type="button"
-                    aria-label="Remove tag"
-                    title="Remove tag"
+                    aria-label={tr("Remove tag")}
+                    title={tr("Remove tag")}
                     onClick={() => update(rows.filter((r) => r.key !== row.key))}
                     className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                {error && <p id={errorId} className="mt-1 text-xs text-destructive">{error}</p>}
+                {error && <p id={errorId} className="mt-1 text-xs text-destructive">{tr(error)}</p>}
               </div>
             );
           })}
           <div className="flex flex-wrap gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={addRow}>
-              <Plus className="h-3.5 w-3.5" /> Add tag
-            </Button>
+              <Plus className="h-3.5 w-3.5" />{' '}{tr("Add tag")}{' '}</Button>
             <Button
               type="button"
               variant="outline"
@@ -282,11 +278,10 @@ export function TagDefaults({ policy, scopeId, onChange }: { policy: SettingsPol
               className="h-8 gap-1.5 text-xs"
               aria-expanded={picking && offered.length > 0}
               disabled={offered.length === 0}
-              title={offered.length === 0 ? 'All colour tags are already in the list' : undefined}
+              title={offered.length === 0 ? tr("All colour tags are already in the list") : undefined}
               onClick={() => setPicking((open) => !open)}
             >
-              <Plus className="h-3.5 w-3.5" /> Add colour tags
-            </Button>
+              <Plus className="h-3.5 w-3.5" />{' '}{tr("Add colour tags")}{' '}</Button>
           </div>
           {picking && offered.length > 0 && (
             <ColorTagPicker offered={offered} onAdd={addColorTags} onCancel={() => setPicking(false)} />

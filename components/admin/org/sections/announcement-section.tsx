@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useId, useState } from 'react';
 import { AlertCircle, AlertTriangle, Info, Plus, RotateCcw, Trash2 } from '@/components/icons';
 import { SettingItem, SettingsSection, ToggleSwitch } from '@/components/settings/settings-section';
@@ -57,10 +59,11 @@ export function fromLocalInput(value: string): string {
 }
 
 function Preview({ announcement, locale }: { announcement: Announcement; locale: string }) {
+  const tr = useCoreAdminI18n();
   const text = announcement.text[locale] ?? '';
   const s = SEVERITY[announcement.severity] ?? SEVERITY.info;
   const Icon = s.icon;
-  if (!text.trim()) return <p className="text-sm text-muted-foreground">No text in {languageName(locale)} yet.</p>;
+  if (!text.trim()) return <p className="text-sm text-muted-foreground">{tr("No text in")}{' '}{tr(languageName(locale))}{' '}{tr("yet.")}</p>;
   return (
     <div className={cn('flex items-start gap-2 rounded-md border px-3 text-sm', s.className)} data-testid="org-announcement-preview">
       <Icon className="mt-3 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -81,6 +84,7 @@ function Preview({ announcement, locale }: { announcement: Announcement; locale:
  * written in a scope (mergeOrganisation's whole-section rule).
  */
 export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const id = useId();
   const inScope = !!draft.scope;
   const scopeOwn = inScope && KEYS.some((key) => draft.orgValue('announcement', key).own);
@@ -136,25 +140,22 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
   return (
     <SettingsSection
       id="announcement"
-      title="Announcement"
-      description="A message across the top of mail, calendar, contacts, files and settings for everyone in scope: maintenance, outages, new rules. Plain text; web addresses become links."
+      title={tr("Announcement")}
+      description={tr("A message across the top of mail, calendar, contacts, files and settings for everyone in scope: maintenance, outages, new rules. Plain text; web addresses become links.")}
     >
       <div className="space-y-4">
         {inScope && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm" data-testid="org-announcement-scope">
             <span>
               {scopeOwn
-                ? 'This scope has its own announcement. Users here see it instead of Everyone’s.'
-                : everyoneHasText ? 'This scope shows Everyone’s announcement.' : 'Everyone has no announcement.'}
+                ? tr("This scope has its own announcement. Users here see it instead of Everyone’s.")
+                : everyoneHasText ? tr("This scope shows Everyone’s announcement.") : tr("Everyone has no announcement.")}
             </span>
             {scopeOwn ? (
               <Button type="button" variant="outline" size="sm" onClick={useEveryone}>
-                <RotateCcw className="me-1 h-3.5 w-3.5" /> Use Everyone&apos;s announcement
-              </Button>
+                <RotateCcw className="me-1 h-3.5 w-3.5" />{' '}{tr("Use Everyone's announcement")}{' '}</Button>
             ) : (
-              <Button type="button" variant="outline" size="sm" onClick={() => create(everyoneHasText ? announcement : undefined)} data-testid="org-announcement-own">
-                Set an announcement for this scope
-              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => create(everyoneHasText ? announcement : undefined)} data-testid="org-announcement-own">{' '}{tr("Set an announcement for this scope")}{' '}</Button>
             )}
           </div>
         )}
@@ -162,11 +163,10 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
         {editing && !has && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-muted-foreground" data-testid="org-announcement-empty">
-              {inScope ? 'This scope shows no announcement.' : 'No announcement.'}
+              {inScope ? tr("This scope shows no announcement.") : tr("No announcement.")}
             </p>
             <Button type="button" variant="outline" size="sm" onClick={() => create()} data-testid="org-announcement-add">
-              <Plus className="me-1 h-4 w-4" /> Write an announcement
-            </Button>
+              <Plus className="me-1 h-4 w-4" />{' '}{tr("Write an announcement")}{' '}</Button>
           </div>
         )}
 
@@ -175,7 +175,7 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
         {editing && has && current && (
           <>
             <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="Languages">
+              <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label={tr("Languages")}>
                 {languages.map((code) => (
                   <button
                     key={code}
@@ -184,23 +184,23 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
                     onClick={() => setShown(code)}
                     className={cn('h-8 rounded-md px-3 text-sm font-medium', code === current ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent')}
                   >
-                    {languageName(code)}
+                    {tr(languageName(code))}
                   </button>
                 ))}
                 {unused.length > 0 && (
                   <select
-                    aria-label="Add a language"
+                    aria-label={tr("Add a language")}
                     data-testid="org-announcement-add-language"
                     className="h-8 max-w-full rounded-md border border-input bg-background px-2 text-sm"
                     value=""
                     onChange={(e) => addLanguage(e.target.value)}
                   >
-                    <option value="">Add a language…</option>
-                    {unused.map((code) => <option key={code} value={code}>{languageName(code)}</option>)}
+                    <option value="">{tr("Add a language…")}</option>
+                    {unused.map((code) => <option key={code} value={code}>{tr(languageName(code))}</option>)}
                   </select>
                 )}
               </div>
-              <label htmlFor={`${id}-text`} className={labelClass}>Text in {languageName(current)}</label>
+              <label htmlFor={`${id}-text`} className={labelClass}>{tr("Text in")}{' '}{tr(languageName(current))}</label>
               <textarea
                 id={`${id}-text`}
                 data-testid="org-announcement-text"
@@ -212,34 +212,32 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
                 onChange={(e) => setText(current, e.target.value)}
               />
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  Users see the text in their language, else in the fallback language. Keep it to a sentence or two.
-                </p>
+                <p className="text-xs text-muted-foreground">{' '}{tr("Users see the text in their language, else in the fallback language. Keep it to a sentence or two.")}{' '}</p>
                 {languages.length > 1 && (
                   <button type="button" onClick={() => removeLanguage(current)} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
-                    <Trash2 className="h-3 w-3" /> Remove {languageName(current)}
+                    <Trash2 className="h-3 w-3" />{' '}{tr("Remove")}{' '}{tr(languageName(current))}
                   </button>
                 )}
               </div>
               {!(announcement.text[current] ?? '').trim() && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">An empty text is not saved.</p>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{tr("An empty text is not saved.")}</p>
               )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label htmlFor={`${id}-fallback`} className={labelClass}>Fallback language</label>
+                <label htmlFor={`${id}-fallback`} className={labelClass}>{tr("Fallback language")}</label>
                 <select
                   id={`${id}-fallback`}
                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={languages.includes(announcement.fallbackLocale) ? announcement.fallbackLocale : languages[0]}
                   onChange={(e) => set({ fallbackLocale: e.target.value })}
                 >
-                  {languages.map((code) => <option key={code} value={code}>{languageName(code)}</option>)}
+                  {languages.map((code) => <option key={code} value={code}>{tr(languageName(code))}</option>)}
                 </select>
               </div>
               <div>
-                <label htmlFor={`${id}-severity`} className={labelClass}>Severity</label>
+                <label htmlFor={`${id}-severity`} className={labelClass}>{tr("Severity")}</label>
                 <select
                   id={`${id}-severity`}
                   data-testid="org-announcement-severity"
@@ -247,12 +245,12 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
                   value={announcement.severity}
                   onChange={(e) => set({ severity: e.target.value as AnnouncementSeverity })}
                 >
-                  {ANNOUNCEMENT_SEVERITIES.map((sev) => <option key={sev} value={sev}>{SEVERITY[sev].label}</option>)}
+                  {ANNOUNCEMENT_SEVERITIES.map((sev) => <option key={sev} value={sev}>{tr(SEVERITY[sev].label)}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-muted-foreground">{SEVERITY[announcement.severity]?.hint}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tr(SEVERITY[announcement.severity]?.hint)}</p>
               </div>
               <div>
-                <label htmlFor={`${id}-start`} className={labelClass}>Show from</label>
+                <label htmlFor={`${id}-start`} className={labelClass}>{tr("Show from")}</label>
                 <input
                   id={`${id}-start`}
                   type="datetime-local"
@@ -261,10 +259,10 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
                   value={toLocalInput(startsAt)}
                   onChange={(e) => set({ startsAt: fromLocalInput(e.target.value) })}
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Empty: right away.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tr("Empty: right away.")}</p>
               </div>
               <div>
-                <label htmlFor={`${id}-end`} className={labelClass}>Show until</label>
+                <label htmlFor={`${id}-end`} className={labelClass}>{tr("Show until")}</label>
                 <input
                   id={`${id}-end`}
                   type="datetime-local"
@@ -273,37 +271,31 @@ export function AnnouncementSection({ draft }: { draft: OrgPolicyDraft }) {
                   value={toLocalInput(endsAt)}
                   onChange={(e) => set({ endsAt: fromLocalInput(e.target.value) })}
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Empty: until you remove it.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tr("Empty: until you remove it.")}</p>
               </div>
             </div>
-            {badRange && <p className="text-xs text-red-600 dark:text-red-400" role="alert">The end is before the start, so nobody sees it.</p>}
-            {!badRange && ended && <p className="text-xs text-amber-700 dark:text-amber-300">The end time has passed, so nobody sees it.</p>}
-            <p className="text-xs text-muted-foreground">Times are in your browser&apos;s time zone. Open tabs show and hide the announcement on time without a reload.</p>
+            {badRange && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{tr("The end is before the start, so nobody sees it.")}</p>}
+            {!badRange && ended && <p className="text-xs text-amber-700 dark:text-amber-300">{tr("The end time has passed, so nobody sees it.")}</p>}
+            <p className="text-xs text-muted-foreground">{tr("Times are in your browser's time zone. Open tabs show and hide the announcement on time without a reload.")}</p>
 
-            <SettingItem label="Users can close it" description="Closed stays closed for that account in that browser until you change its text or severity; moving the start or end doesn't show it again. Turn this off for messages everyone must see.">
+            <SettingItem label={tr("Users can close it")} description={tr("Closed stays closed for that account in that browser until you change its text or severity; moving the start or end doesn't show it again. Turn this off for messages everyone must see.")}>
               <ToggleSwitch checked={announcement.dismissible} onChange={(v) => set({ dismissible: v })} testId="org-announcement-dismissible" />
             </SettingItem>
 
             <div>
-              <p className={labelClass}>Preview</p>
+              <p className={labelClass}>{tr("Preview")}</p>
               <Preview announcement={announcement} locale={current} />
             </div>
 
             <div>
               <Button type="button" variant="outline" size="sm" onClick={remove} data-testid="org-announcement-remove">
-                <Trash2 className="me-1 h-4 w-4" /> Remove the announcement
-              </Button>
+                <Trash2 className="me-1 h-4 w-4" />{' '}{tr("Remove the announcement")}{' '}</Button>
             </div>
           </>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          Open tabs pick up a change within 15 minutes, or when the user comes back to the tab. In Bulwark Lite the
-          announcement is in policy.json, which anyone can read without signing in, and a Lite installed inside
-          Stalwart needs a new bundle upload to change it.{' '}
-          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
-            How announcements work
-          </a>
+        <p className="text-xs text-muted-foreground">{' '}{tr("Open tabs pick up a change within 15 minutes, or when the user comes back to the tab. In Bulwark Lite the announcement is in policy.json, which anyone can read without signing in, and a Lite installed inside Stalwart needs a new bundle upload to change it.")}{' '}
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">{' '}{tr("How announcements work")}{' '}</a>
         </p>
       </div>
     </SettingsSection>

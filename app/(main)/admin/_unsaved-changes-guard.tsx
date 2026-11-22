@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAdminUnsavedStore, selectHasUnsaved } from '@/stores/admin-unsaved-store';
 
@@ -39,6 +40,7 @@ function guardedMark(): unknown {
  * gesture, and closing or reloading the tab gets the browser's own prompt.
  */
 export function UnsavedChangesGuard() {
+  const { t } = useAdminI18n();
   const hasUnsaved = useAdminUnsavedStore(selectHasUnsaved);
   const pendingLeave = useAdminUnsavedStore((s) => s.pendingLeave);
   const requestLeave = useAdminUnsavedStore((s) => s.requestLeave);
@@ -124,10 +126,10 @@ export function UnsavedChangesGuard() {
       isOpen={isOpen}
       onClose={cancelLeave}
       onConfirm={confirmLeave}
-      title="Discard changes?"
-      message="Your changes haven't been saved."
-      cancelText="Keep editing"
-      confirmText="Discard"
+      title={t("Discard changes?", "تجاهل التغييرات؟")}
+      message={t("Your changes haven't been saved.", "لم تُحفظ تغييراتك بعد.")}
+      cancelText={t("Keep editing", "متابعة التعديل")}
+      confirmText={t("Discard", "تجاهل التغييرات")}
       variant="destructive"
     />
   );

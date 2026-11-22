@@ -266,7 +266,7 @@ export class AccountUnavailableError extends Error {
 }
 
 /**
- * A request produced no response headers within its deadline.
+ * A request produced no response headers or did not finish its JSON body within its deadline.
  *
  * `fetch()` has no timeout of its own, and a half-dead connection - the OS or a
  * NAT dropped the socket while the browser still believes it is usable - never
@@ -1600,7 +1600,7 @@ function identityEmailIsWildcardFor(identityEmail: string | undefined, from: str
 export class JMAPClient implements IJMAPClient {
   private static readonly RATE_LIMIT_TOAST_THROTTLE_MS = 10_000;
   /**
-   * How long a request may go without producing response headers. Generous
+   * How long a request may wait for response headers or a JSON body. Generous
    * enough that a slow mobile link or a busy server still completes, short
    * enough that a dead connection surfaces as an error the user can retry
    * rather than a permanently spinning UI.
@@ -2451,6 +2451,7 @@ export class JMAPClient implements IJMAPClient {
 
     const apiUrl = this.apiUrl;
     for (let attempt = 0; ; attempt++) {
+      const controller = new AbortController();
       const response = await this.firstTouchGate.run(methodCalls, () =>
         this.authenticatedFetch(apiUrl, {
           method: 'POST',
@@ -2458,10 +2459,31 @@ export class JMAPClient implements IJMAPClient {
             'Content-Type': 'application/json',
           },
           body,
+          signal: controller.signal,
         }, opts?.transfer ? { transfer: true } : undefined),
       );
 
-      const responseText = await response.text();
+      // timedFetch stops its deadline at headers so SSE and blob streams can
+      // stay open. A JMAP JSON body must finish too, or the inbox/reader can
+      // remain loading forever after a proxy sends headers and then stalls.
+      let bodyTimer: ReturnType<typeof setTimeout> | undefined;
+      let responseText: string;
+      try {
+        responseText = await Promise.race([
+          response.text(),
+          new Promise<never>((_resolve, reject) => {
+            bodyTimer = setTimeout(() => {
+              const error = new RequestTimeoutError(JMAPClient.REQUEST_TIMEOUT_MS);
+              // Reject first so an abort reported as AbortError still surfaces
+              // as a timeout. This sits outside the retry path, including writes.
+              reject(error);
+              controller.abort(error);
+            }, JMAPClient.REQUEST_TIMEOUT_MS);
+          }),
+        ]);
+      } finally {
+        if (bodyTimer !== undefined) clearTimeout(bodyTimer);
+      }
 
       if (!response.ok) {
         // Stalwart caps parallel API requests per user (maxConcurrentRequests,

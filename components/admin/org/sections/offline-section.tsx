@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { SettingItem, SettingsSection, ToggleSwitch } from '@/components/settings/settings-section';
 import { InheritNote } from '../org-page';
 import type { OrgPolicyDraft } from '../use-org-policy-draft';
@@ -38,7 +40,6 @@ const CAP_FIELDS: CapField[] = [
   },
 ];
 
-const describeCap = (value: number, unit: string) => (value > 0 ? `${value} ${unit}` : 'no limit');
 
 /**
  * Organisation > Devices > Offline mode (#523): whether people may keep mail
@@ -48,18 +49,19 @@ const describeCap = (value: number, unit: string) => (value > 0 ? `${value} ${un
  * itself to them, which the text says.
  */
 export function OfflineSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const forbid = draft.orgValue('devices', 'noOffline');
   const noAttachments = draft.orgValue('devices', 'noOfflineAttachments');
   const wipeOnRefused = draft.orgValue('devices', 'wipeOnForcedSignOut');
   return (
     <SettingsSection
       id="offline"
-      title="Offline mode"
-      description="People can keep mail on a device to read and write it without a connection. In browsers it is off until someone turns on “Keep mail on this device” in Settings > Offline. In the Bulwark desktop app it is on unless you forbid it here."
+      title={tr("Offline mode")}
+      description={tr("People can keep mail on a device to read and write it without a connection. In browsers it is off until someone turns on “Keep mail on this device” in Settings > Offline. In the Bulwark desktop app it is on unless you forbid it here.")}
     >
       <SettingItem
-        label="Don't let people keep mail on their devices"
-        description="Hides the switch. A device that already keeps mail deletes it, unsent messages in its outbox included, the next time it fetches the policy (when the tab is opened or focused, and every 15 minutes)."
+        label={tr("Don't let people keep mail on their devices")}
+        description={tr("Hides the switch. A device that already keeps mail deletes it, unsent messages in its outbox included, the next time it fetches the policy (when the tab is opened or focused, and every 15 minutes).")}
       >
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={forbid.value} onChange={(v) => draft.setOrgValue('devices', 'noOffline', v)} testId="org-devices-noOffline" />
@@ -69,7 +71,7 @@ export function OfflineSection({ draft }: { draft: OrgPolicyDraft }) {
       {CAP_FIELDS.map((field) => {
         const { value, own, everyone } = draft.orgValue('devices', field.key);
         return (
-          <SettingItem key={field.key} label={field.label} description={field.description}>
+          <SettingItem key={field.key} label={tr(field.label)} description={tr(field.description)}>
             <div className="flex flex-col items-start gap-1 sm:items-end">
               <div className="flex items-center gap-2">
                 <input
@@ -79,8 +81,8 @@ export function OfflineSection({ draft }: { draft: OrgPolicyDraft }) {
                   max={field.max}
                   step={1}
                   data-testid={`org-devices-${field.key}`}
-                  aria-label={`${field.label} (${field.unit})`}
-                  placeholder="No limit"
+                  aria-label={`${tr(field.label)} (${tr(field.unit)})`}
+                  placeholder={tr("No limit")}
                   value={value > 0 ? value : ''}
                   onChange={(e) => {
                     const raw = e.target.value.trim();
@@ -90,16 +92,16 @@ export function OfflineSection({ draft }: { draft: OrgPolicyDraft }) {
                   }}
                   className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden"
                 />
-                <span className="text-sm text-muted-foreground">{field.unit}</span>
+                <span className="text-sm text-muted-foreground">{tr(field.unit)}</span>
               </div>
-              <InheritNote draft={draft} own={own} everyone={describeCap(everyone, field.unit)} onReset={() => draft.clearOrgValue('devices', field.key)} />
+              <InheritNote draft={draft} own={own} everyone={everyone > 0 ? `${everyone} ${tr(field.unit)}` : tr('no limit')} onReset={() => draft.clearOrgValue('devices', field.key)} />
             </div>
           </SettingItem>
         );
       })}
       <SettingItem
-        label="Don't keep attachments or files"
-        description="Mail stays on the device without its attachments, and files kept for offline use are removed. They open from the server when there is a connection."
+        label={tr("Don't keep attachments or files")}
+        description={tr("Mail stays on the device without its attachments, and files kept for offline use are removed. They open from the server when there is a connection.")}
       >
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={noAttachments.value} onChange={(v) => draft.setOrgValue('devices', 'noOfflineAttachments', v)} testId="org-devices-noOfflineAttachments" />
@@ -107,27 +109,16 @@ export function OfflineSection({ draft }: { draft: OrgPolicyDraft }) {
         </div>
       </SettingItem>
       <SettingItem
-        label="Delete a device's mail as soon as it's signed out with nobody asking"
-        description="That's when the server refuses its login, or the idle or session limit runs out. Off: the device signs out and hides what it keeps, unsent messages included, until the next sign-in, or for 30 days. That's what a password changed on another device needs. On: it's deleted right away, unsent messages included, and only that account's. A wipe you ask for below is immediate either way."
+        label={tr("Delete a device's mail as soon as it's signed out with nobody asking")}
+        description={tr("That's when the server refuses its login, or the idle or session limit runs out. Off: the device signs out and hides what it keeps, unsent messages included, until the next sign-in, or for 30 days. That's what a password changed on another device needs. On: it's deleted right away, unsent messages included, and only that account's. A wipe you ask for below is immediate either way.")}
       >
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={wipeOnRefused.value} onChange={(v) => draft.setOrgValue('devices', 'wipeOnForcedSignOut', v)} testId="org-devices-wipeOnForcedSignOut" />
           <InheritNote draft={draft} own={wipeOnRefused.own} everyone={wipeOnRefused.everyone ? 'on' : 'off'} onReset={() => draft.clearOrgValue('devices', 'wipeOnForcedSignOut')} />
         </div>
       </SettingItem>
-      <p className="pt-2 text-xs text-muted-foreground">
-        What a device keeps: mail in every folder from the window the person picks (30 days, 90 days, a year or everything),
-        with calendar, contacts and files, encrypted on the device. In a browser the key sits in the same profile, so this doesn&apos;t stop someone
-        who copies its files: use full-disk encryption. In the desktop app the key also takes that person&apos;s login on
-        that computer. Neither stops someone using the unlocked browser or app. An app lock adds a PIN, which someone with
-        a copy can guess at their own speed, so ask for a long one. The limits above can only lower what people pick: where several
-        scopes apply, the lowest value counts, so a scope can&apos;t raise what another one lowered. The app holds itself to
-        them when it fetches the policy; the server can&apos;t check what is on a device. A sign-out someone asks for deletes everything.
-        One that nobody asked for hides it, as the switch above says. With several accounts signed in, each account follows its own settings.
-        Bulwark Lite reads the same policy but has no offline mode.{' '}
-        <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
-          How offline mode works
-        </a>
+      <p className="pt-2 text-xs text-muted-foreground">{' '}{tr("What a device keeps: mail in every folder from the window the person picks (30 days, 90 days, a year or everything), with calendar, contacts and files, encrypted on the device. In a browser the key sits in the same profile, so this doesn't stop someone who copies its files: use full-disk encryption. In the desktop app the key also takes that person's login on that computer. Neither stops someone using the unlocked browser or app. An app lock adds a PIN, which someone with a copy can guess at their own speed, so ask for a long one. The limits above can only lower what people pick: where several scopes apply, the lowest value counts, so a scope can't raise what another one lowered. The app holds itself to them when it fetches the policy; the server can't check what is on a device. A sign-out someone asks for deletes everything. One that nobody asked for hides it, as the switch above says. With several accounts signed in, each account follows its own settings. Bulwark Lite reads the same policy but has no offline mode.")}{' '}
+        <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">{' '}{tr("How offline mode works")}{' '}</a>
       </p>
     </SettingsSection>
   );

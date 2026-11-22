@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n, useCoreAdminAsyncI18n } from '@/components/admin/core-i18n';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import type { FeatureGates, SettingRestriction, SettingsPolicy } from '@/lib/admin/types';
@@ -47,6 +49,8 @@ function clone<T>(value: T): T {
  * policy page and every Organisation page work on the same policy.json.
  */
 export function useOrgPolicyDraft(dirtyId: string) {
+  const tr = useCoreAdminI18n();
+  const trAsync = useCoreAdminAsyncI18n();
   const [policy, setPolicy] = useState<SettingsPolicy | null>(null);
   const [saved, setSaved] = useState<SettingsPolicy | null>(null);
   const [saving, setSaving] = useState(false);
@@ -72,10 +76,10 @@ export function useOrgPolicyDraft(dirtyId: string) {
       if (!res.ok) throw new Error();
       adopt((await res.json()) as SettingsPolicy, res.headers.get('ETag'));
     } catch {
-      setMessage({ type: 'error', text: 'Could not load the policy' });
+      setMessage({ type: 'error', text: trAsync("Could not load the policy") });
       setPolicy((p) => p ?? { ...DEFAULT_POLICY, organisation: clone(DEFAULT_ORGANISATION_POLICY), scopes: [] });
     }
-  }, [adopt, setMessage]);
+  }, [adopt, setMessage, trAsync]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -203,13 +207,13 @@ export function useOrgPolicyDraft(dirtyId: string) {
         const stored = ((await res.json().catch(() => null)) as { policy?: SettingsPolicy } | null)?.policy;
         if (stored) adopt(stored, res.headers.get('ETag'));
         else await load();
-        setMessage({ type: 'success', text: 'Saved. Users get the change the next time Bulwark loads.' });
+        setMessage({ type: 'success', text: tr("Saved. Users get the change the next time Bulwark loads.") });
       } else {
         const data = await res.json().catch(() => ({}));
-        setMessage({ type: 'error', text: data.error || 'Could not save the policy' });
+        setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Could not save the policy") }) });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Could not save the policy' });
+      setMessage({ type: 'error', text: tr("Could not save the policy") });
     } finally {
       setSaving(false);
     }

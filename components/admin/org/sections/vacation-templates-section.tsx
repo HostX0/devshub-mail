@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useId, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Plus, RotateCcw, Trash2 } from '@/components/icons';
 import { SettingsSection } from '@/components/settings/settings-section';
@@ -53,6 +55,7 @@ function VacationTemplateEditor({ template, onChange, onRemove }: {
   onChange: (template: VacationTemplate) => void;
   onRemove: () => void;
 }) {
+  const tr = useCoreAdminI18n();
   const id = useId();
   const [open, setOpen] = useState(!template.name);
   const [html, setHtml] = useState(!!template.html);
@@ -69,35 +72,35 @@ function VacationTemplateEditor({ template, onChange, onRemove }: {
           className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1 text-start text-sm hover:bg-muted"
         >
           {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-          <span className={cn('truncate font-medium', !template.name && 'text-muted-foreground')}>{template.name || 'New reply'}</span>
+          <span className={cn('truncate font-medium', !template.name && 'text-muted-foreground')}>{template.name || tr("New reply")}</span>
           {template.category && <span className="max-w-[40%] shrink-0 truncate rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{template.category}</span>}
         </button>
-        <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-8 shrink-0 px-2 hover:text-red-600" aria-label={`Remove ${template.name || 'reply'}`}>
+        <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-8 shrink-0 px-2 hover:text-red-600" aria-label={tr("Remove {0}", { 0: template.name || 'reply' })}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
       {!template.name.trim() && (
-        <p className="px-3 pb-2 text-xs text-red-600 dark:text-red-400">A reply without a name is not saved. Give it one.</p>
+        <p className="px-3 pb-2 text-xs text-red-600 dark:text-red-400">{tr("A reply without a name is not saved. Give it one.")}</p>
       )}
       {open && (
         <div className="space-y-3 border-t border-border p-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor={`${id}-name`} className={labelClass}>Name</label>
+              <label htmlFor={`${id}-name`} className={labelClass}>{tr("Name")}</label>
               <input id={`${id}-name`} data-testid="org-vacation-template-name" className={inputClass} value={template.name} maxLength={200} onChange={(e) => set({ name: e.target.value })} />
             </div>
             <div>
-              <label htmlFor={`${id}-category`} className={labelClass}>Category or language</label>
-              <input id={`${id}-category`} className={inputClass} value={template.category} maxLength={100} placeholder="Holiday, Parental leave, Deutsch…" onChange={(e) => set({ category: e.target.value })} />
+              <label htmlFor={`${id}-category`} className={labelClass}>{tr("Category or language")}</label>
+              <input id={`${id}-category`} className={inputClass} value={template.category} maxLength={100} placeholder={tr("Holiday, Parental leave, Deutsch…")} onChange={(e) => set({ category: e.target.value })} />
             </div>
           </div>
           <div>
-            <label htmlFor={`${id}-subject`} className={labelClass}>Subject</label>
-            <input id={`${id}-subject`} data-testid="org-vacation-template-subject" className={inputClass} value={template.subject} maxLength={511} placeholder="Out of office until {end}" onChange={(e) => set({ subject: e.target.value })} />
-            {tooLong.subject && <p className="mt-1 text-xs text-red-600 dark:text-red-400">Longer than Stalwart takes (511 bytes). Users couldn&apos;t save it.</p>}
+            <label htmlFor={`${id}-subject`} className={labelClass}>{tr("Subject")}</label>
+            <input id={`${id}-subject`} data-testid="org-vacation-template-subject" className={inputClass} value={template.subject} maxLength={511} placeholder={tr("Out of office until {end}")} onChange={(e) => set({ subject: e.target.value })} />
+            {tooLong.subject && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{tr("Longer than Stalwart takes (511 bytes). Users couldn't save it.")}</p>}
           </div>
           <div>
-            <label htmlFor={`${id}-text`} className={labelClass}>Text</label>
+            <label htmlFor={`${id}-text`} className={labelClass}>{tr("Text")}</label>
             <textarea
               id={`${id}-text`}
               data-testid="org-vacation-template-text"
@@ -109,29 +112,25 @@ function VacationTemplateEditor({ template, onChange, onRemove }: {
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" className="rounded border-input" checked={html} onChange={(e) => { setHtml(e.target.checked); if (!e.target.checked) set({ html: '' }); }} />
-            Also an HTML version
-          </label>
+            <input type="checkbox" className="rounded border-input" checked={html} onChange={(e) => { setHtml(e.target.checked); if (!e.target.checked) set({ html: '' }); }} />{' '}{tr("Also an HTML version")}{' '}</label>
           {html && (
             <div>
               <label htmlFor={`${id}-html`} className={labelClass}>HTML</label>
               <textarea id={`${id}-html`} rows={6} className={cn(inputClass, 'font-mono text-xs')} value={template.html} onChange={(e) => set({ html: e.target.value })} />
-              <p className="mt-1 text-xs text-muted-foreground">Placeholders work here too, also in links such as href=&quot;mailto:{'{deputy}'}&quot;.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{tr("Placeholders work here too, also in links such as href=\"mailto:")}{'{deputy}'}&quot;.</p>
             </div>
           )}
           {tooLong.body && (
             <p className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
-              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Longer than Stalwart takes for a reply (2047 bytes, text and HTML each). Users couldn&apos;t save it.
-            </p>
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />{' '}{tr("Longer than Stalwart takes for a reply (2047 bytes, text and HTML each). Users couldn't save it.")}{' '}</p>
           )}
           <div>
-            <p className={labelClass}>Preview with example values</p>
+            <p className={labelClass}>{tr("Preview with example values")}</p>
             <div className="rounded-md border border-border bg-background p-3" data-testid="org-vacation-template-preview">
               {preview.subject && <p className="mb-2 text-sm font-medium">{preview.subject}</p>}
               {preview.html
                 ? <div className="text-sm [&_a]:text-primary [&_a]:underline" dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(preview.html) }} />
-                : preview.text ? <p className="whitespace-pre-wrap text-sm">{preview.text}</p> : <p className="text-sm text-muted-foreground">No text</p>}
+                : preview.text ? <p className="whitespace-pre-wrap text-sm">{preview.text}</p> : <p className="text-sm text-muted-foreground">{tr("No text")}</p>}
             </div>
           </div>
         </div>
@@ -148,6 +147,7 @@ function VacationTemplateEditor({ template, onChange, onRemove }: {
  * for that scope.
  */
 export function VacationTemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const library = draft.orgValue('vacationTemplates', 'library');
   const inScope = !!draft.scope;
   const own: VacationTemplate[] = inScope ? (library.own ? library.value : []) : library.value;
@@ -167,54 +167,48 @@ export function VacationTemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
   return (
     <SettingsSection
       id="vacation-templates"
-      title="Out-of-office replies"
-      description="Users pick one of these under Settings > Out of office, Bulwark fills in the placeholders, and they can change the text before it is switched on."
+      title={tr("Out-of-office replies")}
+      description={tr("Users pick one of these under Settings > Out of office, Bulwark fills in the placeholders, and they can change the text before it is switched on.")}
     >
       <div className="space-y-4">
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground" data-testid="org-vacation-placeholders">
-          <p className="mb-1">
-            Placeholders use single braces, like the organisation signature (not the {'{{double}}'} braces of mail templates).
-            A line whose placeholders are all empty is left out, so &quot;I am back on {'{end}'}&quot; disappears when the user sets no end.
-          </p>
+          <p className="mb-1">{' '}{tr("Placeholders use single braces, like the organisation signature (not the")}{' '}{'{{double}}'}{' '}{tr("braces of mail templates). A line whose placeholders are all empty is left out, so \"I am back on")}{' '}{'{end}'}{tr("\" disappears when the user sets no end.")}{' '}</p>
           <ul className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
             {VACATION_PLACEHOLDERS.map((key) => (
               <li key={key}><code className="text-foreground">{`{${key}}`}</code>: {PLACEHOLDER_HELP[key]}</li>
             ))}
           </ul>
-          <p className="mt-1">Dates are written in the user&apos;s language and time zone. Stalwart takes at most 511 bytes of subject and 2047 bytes of text.</p>
+          <p className="mt-1">{tr("Dates are written in the user's language and time zone. Stalwart takes at most 511 bytes of subject and 2047 bytes of text.")}</p>
         </div>
 
         {inScope && (
           <div>
-            <p className="mb-2 text-sm font-medium text-foreground">From Everyone</p>
+            <p className="mb-2 text-sm font-medium text-foreground">{tr("From Everyone")}</p>
             {everyone.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Everyone has no replies.</p>
+              <p className="text-sm text-muted-foreground">{tr("Everyone has no replies.")}</p>
             ) : (
               <ul className="space-y-1.5" data-testid="org-vacation-template-inherited">
                 {everyone.map((template) => (
                   <li key={template.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm">
                     <span className="min-w-0 truncate">{template.name}</span>
                     {ownIds.has(template.id) ? (
-                      <span className="text-xs text-muted-foreground">Changed for this scope</span>
+                      <span className="text-xs text-muted-foreground">{tr("Changed for this scope")}</span>
                     ) : (
                       <button type="button" onClick={() => replaceInScope(template)} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
-                        <RotateCcw className="h-3 w-3" /> Change for this scope
-                      </button>
+                        <RotateCcw className="h-3 w-3" />{' '}{tr("Change for this scope")}{' '}</button>
                     )}
                   </li>
                 ))}
               </ul>
             )}
-            <p className="mt-4 mb-1 text-sm font-medium text-foreground">For this scope</p>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Users in this scope get Everyone&apos;s replies and these. A reply changed here replaces Everyone&apos;s for this scope only.
-            </p>
+            <p className="mt-4 mb-1 text-sm font-medium text-foreground">{tr("For this scope")}</p>
+            <p className="mb-2 text-xs text-muted-foreground">{' '}{tr("Users in this scope get Everyone's replies and these. A reply changed here replaces Everyone's for this scope only.")}{' '}</p>
           </div>
         )}
 
         {own.length === 0 ? (
           <p className="text-sm text-muted-foreground" data-testid="org-vacation-template-empty">
-            {inScope ? 'Nothing added for this scope.' : 'No replies yet. Users write their own.'}
+            {inScope ? tr("Nothing added for this scope.") : tr("No replies yet. Users write their own.")}
           </p>
         ) : (
           <ul className="space-y-2" data-testid="org-vacation-template-list">
@@ -226,12 +220,9 @@ export function VacationTemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="outline" size="sm" onClick={add} disabled={total >= MAX_LIBRARY} data-testid="org-vacation-template-add">
-            <Plus className="me-1 h-4 w-4" /> Add reply
-          </Button>
-          {total >= MAX_LIBRARY && <span className="text-xs text-muted-foreground">A library holds at most {MAX_LIBRARY} replies.</span>}
-          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary underline-offset-2 hover:underline">
-            How out-of-office templates work
-          </a>
+            <Plus className="me-1 h-4 w-4" />{' '}{tr("Add reply")}{' '}</Button>
+          {total >= MAX_LIBRARY && <span className="text-xs text-muted-foreground">{tr("A library holds at most")}{' '}{MAX_LIBRARY}{' '}{tr("replies.")}</span>}
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary underline-offset-2 hover:underline">{' '}{tr("How out-of-office templates work")}{' '}</a>
         </div>
       </div>
     </SettingsSection>

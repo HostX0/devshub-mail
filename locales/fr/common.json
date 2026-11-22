@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Principale",
+    "promotions": "Promotions",
+    "social": "Réseaux sociaux",
+    "updates": "Notifications"
+  },
+  "quick_mail_settings": {
+    "title": "Configuration rapide",
+    "all": "Voir tous les paramètres",
+    "close": "Fermer"
+  },
   "meta_description": "Webmail auto-hébergé pour le courrier, l'agenda, les contacts et les fichiers, basé sur JMAP",
   "login": {
     "retry_countdown": "Next attempt in {time}. If your administrator has already unblocked access, refresh this page and try again.",
@@ -448,6 +459,7 @@
       "folder_loaded": "{folder} : {count, plural, =0 {aucun message} one {# message} other {# messages}}",
       "search_results": "{count, plural, =0 {Aucun résultat} one {# résultat} other {# résultats}}"
     },
+    "move_to_category": "Déplacer vers une catégorie",
     "category_tabs": "Catégories de la boîte de réception",
     "listbox_label": "Messages",
     "row_actions": "Actions",

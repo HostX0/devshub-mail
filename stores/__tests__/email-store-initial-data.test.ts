@@ -42,4 +42,36 @@ describe('pendingInitialData', () => {
     // Only the bootstrap right after the login may skip its fetch.
     expect(pendingInitialData(client)).toBeUndefined();
   });
+
+  it('finishes loading the inbox while the optional quota request is still pending', async () => {
+    const { client, release } = makeClient();
+    let releaseQuota!: () => void;
+    vi.mocked(client.getQuota).mockImplementationOnce(() => new Promise<null>((resolve) => {
+      releaseQuota = () => resolve(null);
+    }));
+    const completed = vi.fn();
+    const loading = useEmailStore.getState().prefetchInitialData(client).then(completed);
+    release();
+
+    try {
+      await vi.waitFor(() => expect(completed).toHaveBeenCalledOnce());
+      expect(client.getEmails).toHaveBeenCalledOnce();
+      expect(pendingInitialData(client)).toBe('done');
+      expect(useEmailStore.getState().isLoading).toBe(false);
+    } finally {
+      releaseQuota();
+      await loading;
+    }
+  });
+
+  it('keeps quota failures out of the inbox loading result', async () => {
+    const { client, release } = makeClient();
+    vi.mocked(client.getQuota).mockRejectedValueOnce(new Error('quota unavailable'));
+    const loading = useEmailStore.getState().prefetchInitialData(client);
+    release();
+
+    await expect(loading).resolves.toBeUndefined();
+    expect(client.getEmails).toHaveBeenCalledOnce();
+    expect(useEmailStore.getState().error).toBeNull();
+  });
 });

@@ -1,3 +1,5 @@
+import { PROJECT_RELEASES_API, PROJECT_URL } from '@/lib/company-project';
+import { compareVersions } from '@/lib/version-compare';
 import { logger } from '@/lib/logger';
 import type { UpdateStatus, UpdateSeverity } from './types';
 
@@ -58,19 +60,35 @@ export async function fetchStatus(
   } catch {
     return { ok: false, error: 'endpoint not a URL' };
   }
-  url.searchParams.set('v', currentVersion);
+  const projectReleases = url.href === PROJECT_RELEASES_API;
+  if (!projectReleases) url.searchParams.set('v', currentVersion);
 
   try {
     const res = await fetch(url, {
       method: 'GET',
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(projectReleases ? 15_000 : 5_000),
     });
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status}` };
     }
     const body: unknown = await res.json();
+    if (projectReleases) {
+      if (!Array.isArray(body)) return { ok: false, error: 'malformed releases list' };
+      const releases = body.filter(release => release && !release.draft && !release.prerelease
+        && typeof release.tag_name === 'string' && /^v?\d+\.\d+\.\d+$/.test(release.tag_name));
+      releases.sort((a, b) => compareVersions(b.tag_name, a.tag_name));
+      const tag = releases[0]?.tag_name as string | undefined;
+      const latest = tag?.replace(/^v/, '') ?? null;
+      const updateAvailable = latest !== null && compareVersions(latest, currentVersion) > 0;
+      return { ok: true, status: {
+        schema: 1, current: currentVersion, latest, updateAvailable,
+        severity: updateAvailable ? 'normal' : 'none',
+        url: tag ? `${PROJECT_URL}/releases/tag/${encodeURIComponent(tag)}` : null,
+        advisory: null, checkedAt: new Date().toISOString(),
+      } };
+    }
     const parsed = parseStatus(body);
     if (!parsed) return { ok: false, error: 'malformed response' };
     return { ok: true, status: parsed };
