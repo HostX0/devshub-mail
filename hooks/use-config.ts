@@ -245,9 +245,9 @@ function configState(data: ConfigData): AppConfig {
  *
  * The config is cached after first fetch to avoid unnecessary requests.
  */
-export function useConfig(): AppConfig {
+export function useConfig(initialConfig?: ConfigData | null): AppConfig {
   // Already fetched: its state from the first render, and nothing to set after mounting.
-  const fromCache = useRef(configCache);
+  const fromCache = useRef(initialConfig ?? configCache);
   const [config, setConfig] = useState<AppConfig>(() => fromCache.current ? configState(fromCache.current) : {
     appName: configCache?.appName || 'Webmail',
     jmapServerUrl: configCache?.jmapServerUrl || '',

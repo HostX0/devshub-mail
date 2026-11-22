@@ -23,6 +23,7 @@ import { useAccountStore } from "@/stores/account-store";
 import { useThemeStore } from "@/stores/theme-store";
 import { usePolicyStore } from "@/stores/policy-store";
 import { useShallow } from "zustand/react/shallow";
+import { useLoginConfig } from "@/components/auth/login-config";
 import { useConfig } from "@/hooks/use-config";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { apiFetch, getPathPrefix, toRouterPath, withBasePath } from "@/lib/browser-navigation";
@@ -200,6 +201,7 @@ function VersionBadge() {
 }
 
 function LoginPageContent() {
+  const initialConfig = useLoginConfig();
   const router = useRouter();
   const t = useTranslations("login");
   const tDesktop = useTranslations("desktop_sign_in");
@@ -251,7 +253,7 @@ function LoginPageContent() {
   const mobileChallenge = mobileCodeChallenge(rawMobileCodeChallenge);
   // The desktop app's loopback listener is the other target, only ever with a code and a
   // state, and the desktop build itself has no hand-off routes (lib/desktop/blocked-routes.ts).
-  const { desktopBrowserSignIn: desktopSignInEnabled } = useConfig();
+  const { desktopBrowserSignIn: desktopSignInEnabled } = useConfig(initialConfig);
   const desktopTarget = !IS_DESKTOP_BUILD && desktopSignInEnabled && mobileChallenge && rawMobileState
     ? desktopHandoffTarget(searchParams.get("mobile_redirect_uri"))
     : "";
@@ -271,7 +273,7 @@ function LoginPageContent() {
   usePrefetchMailView(!isMobileHandoff);
   const { login, loginWithToken, loginDemo, isLoading, error, clearError, isAuthenticated, rateLimitUntil } = useAuthStore();
   const { theme, setTheme, initializeTheme } = useThemeStore(useShallow((s) => ({ theme: s.theme, setTheme: s.setTheme, initializeTheme: s.initializeTheme })));
-  const { appName, jmapServerUrl: configuredServerUrl, oauthEnabled, oauthOnly, oauthPasswordFallbackEnabled, oauthClientId: globalOauthClientId, oauthIssuerUrl: globalOauthIssuerUrl, oauthScopes, oauthResource, rememberMeEnabled, devMode, demoMode, loginLogoLightUrl, loginLogoDarkUrl, loginCompanyName, loginImprintUrl, loginPrivacyPolicyUrl, loginWebsiteUrl, loginUsernamePlaceholder, loginLogoMaxHeight, loginLogoMaxWidth, loginShowHeading, loginShowSubtitle, loginShowTotp, loginShowTokenLogin, loginShowRememberMe, loginShowVersion, isLoading: configLoading, error: configError, autoSsoEnabled, embeddedMode: _embeddedMode, allowCustomJmapEndpoint: configAllowsCustomEndpoint, jmapServers: configuredServers, jmapServerAutoPickByDomain } = useConfig();
+  const { appName, jmapServerUrl: configuredServerUrl, oauthEnabled, oauthOnly, oauthPasswordFallbackEnabled, oauthClientId: globalOauthClientId, oauthIssuerUrl: globalOauthIssuerUrl, oauthScopes, oauthResource, rememberMeEnabled, devMode, demoMode, loginLogoLightUrl, loginLogoDarkUrl, loginCompanyName, loginImprintUrl, loginPrivacyPolicyUrl, loginWebsiteUrl, loginUsernamePlaceholder, loginLogoMaxHeight, loginLogoMaxWidth, loginShowHeading, loginShowSubtitle, loginShowTotp, loginShowTokenLogin, loginShowRememberMe, loginShowVersion, isLoading: configLoading, error: configError, autoSsoEnabled, embeddedMode: _embeddedMode, allowCustomJmapEndpoint: configAllowsCustomEndpoint, jmapServers: configuredServers, jmapServerAutoPickByDomain } = useConfig(initialConfig);
   // The device's OS policy narrows what the server offers. A forced Bulwark server hides
   // the field for a server of one's own, unless that field is the only way to sign in there.
   const allowCustomJmapEndpoint = configAllowsCustomEndpoint && (customServerAllowedByDesktopPolicy(desktopPolicy) || !configuredServerUrl);
@@ -940,14 +942,10 @@ function LoginPageContent() {
     themeMenu.closeContextMenu();
   }, [setTheme, themeMenu]);
 
-  // The server HTML, and every visit until /api/config answers: the card's
-  // shape, the same one signed-out visitors of the app pages get first. Also
-  // the pass that hydrates that HTML, however far the config has got: this
-  // page's Suspense boundary hydrates after the app around it, which may have
-  // fetched the config by then, and drawing the form would throw the HTML away.
+  // Static clients without a server snapshot hydrate their original loading card.
   const hydrating = useSyncExternalStore(neverChanges, notHydrating, isHydrating);
   useWarmMailViewWhenIdle(!isMobileHandoff && !configLoading && !hydrating);
-  if (configLoading || hydrating) {
+  if (configLoading || (hydrating && !initialConfig)) {
     return <LoginSkeleton label={t("loading")} />;
   }
 
@@ -2005,7 +2003,7 @@ function LoginPageContent() {
             </div>
           ) : (
             /* Login Form */
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form method="post" onSubmit={handleSubmit} className="space-y-5">
               <fieldset disabled={isLoading} className="space-y-4">
                 {serverPicker}
 
@@ -2284,7 +2282,7 @@ function LoginPageContent() {
                 data-testid="login-submit"
                 variant={browserSignInPrimary ? "outline" : undefined}
                 className="w-full"
-                disabled={isLoading || isLoginBlocked || (liteSsoRequired && oauthLoading)}
+                disabled={hydrating || isLoading || isLoginBlocked || (liteSsoRequired && oauthLoading)}
               >
                 {isLoading || (liteSsoRequired && oauthLoading) ? (
                   <div className="flex items-center gap-2">
