@@ -35,6 +35,13 @@ export const FIRST_SCREEN_MESSAGES: readonly string[] = [
   'tour.take_a_tour',
 ];
 
+/** Shared administration chrome; page-specific copy lives in the admin modules. */
+export const ADMIN_FIRST_SCREEN_MESSAGES: readonly string[] = [
+  ...FIRST_SCREEN_MESSAGES,
+  'admin_access', 'desktopUi', 'glossary', 'help_links', 'plugins', 'tour',
+  'settings.advanced', 'settings.back_to_mail', 'settings.search_clear',
+];
+
 /**
  * What a message or conversation opened from a link draws as well: the reader
  * is on its first screen (/mail/message/..., /mail/thread/...). Pop-out and

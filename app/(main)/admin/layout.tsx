@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { TourProvider } from '@/components/tour/tour-provider';
 import { defaultLocale } from '@/i18n/routing';
 import { loadCatalog } from '@/i18n/catalog';
+import { ADMIN_FIRST_SCREEN_MESSAGES, pickMessages } from '@/i18n/first-screen';
 import { AdminLayoutClient } from './_layout-client';
 import { WindowMenuBar } from '@/components/layout/window-menu-bar';
 
@@ -27,7 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     messages = await loadCatalog(defaultLocale);
   }
   return (
-    <IntlProvider locale={locale} messages={messages} allowedLocales={ADMIN_LOCALES}>
+    <IntlProvider locale={locale} messages={pickMessages(messages, ADMIN_FIRST_SCREEN_MESSAGES)} partial allowedLocales={ADMIN_LOCALES}>
       <ThemeProvider>
         <TourProvider>
           <WindowMenuBar />

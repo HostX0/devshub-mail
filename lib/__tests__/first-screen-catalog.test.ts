@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadCatalog, loadFirstScreenCatalog } from '@/i18n/catalog';
-import { FIRST_SCREEN_MESSAGES, READER_FIRST_SCREEN_MESSAGES, fillIn, opensReader, pickMessages } from '@/i18n/first-screen';
+import { ADMIN_FIRST_SCREEN_MESSAGES, FIRST_SCREEN_MESSAGES, READER_FIRST_SCREEN_MESSAGES, fillIn, opensReader, pickMessages } from '@/i18n/first-screen';
 
 // The sign-in page and the mail view get only the first screen's part of the
 // catalog (i18n/first-screen.ts). The whole catalog in the page was over 400 KB
@@ -14,6 +14,21 @@ const leaves = (o: Record<string, unknown>, at = ''): string[] => Object.entries
 ));
 
 describe('the first screen catalog', () => {
+  it('keeps Arabic and English administration chrome complete without shipping the whole mail catalog', async () => {
+    for (const locale of ['ar', 'en']) {
+      const full = await loadCatalog(locale);
+      const first = pickMessages(full, ADMIN_FIRST_SCREEN_MESSAGES);
+      expect(size(first), locale).toBeLessThan(size(full) / 3);
+      for (const key of ['sidebar', 'shell', 'common', 'desktopUi', 'plugins', 'admin_access']) {
+        expect(first[key], `${locale} ${key}`).toEqual(full[key]);
+      }
+      const settings = first.settings as Record<string, unknown>;
+      const allSettings = full.settings as Record<string, unknown>;
+      for (const key of ['advanced', 'back_to_mail', 'search_clear']) expect(settings[key]).toEqual(allSettings[key]);
+      fillIn(first, full);
+      expect(first).toEqual(full);
+    }
+  });
   it('stays small, in every locale with plain wording and in one without', async () => {
     for (const locale of ['en', 'de', 'ja']) {
       const first = size(await loadFirstScreenCatalog(locale));
@@ -57,7 +72,7 @@ describe('the first screen catalog', () => {
   it('names only paths the catalog has', async () => {
     const en = await loadCatalog('en');
     const all = new Set(leaves(en));
-    for (const path of [...FIRST_SCREEN_MESSAGES, ...READER_FIRST_SCREEN_MESSAGES]) {
+    for (const path of [...FIRST_SCREEN_MESSAGES, ...READER_FIRST_SCREEN_MESSAGES, ...ADMIN_FIRST_SCREEN_MESSAGES]) {
       expect([...all].some((leaf) => leaf === path || leaf.startsWith(`${path}.`)), path).toBe(true);
     }
   });
