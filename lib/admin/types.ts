@@ -250,7 +250,7 @@ export const POLICY_DOMAINS_HEADER = 'X-Bulwark-Policy-Domains';
 export const DEFAULT_POLICY: SettingsPolicy = {
   restrictions: {},
   features: { ...DEFAULT_FEATURE_GATES },
-  defaults: {},
+  defaults: { interfaceLayout: 'mountain-view', mvInboxType: 'default' },
   themePolicy: { ...DEFAULT_THEME_POLICY },
   forceEnabledPlugins: [],
   approvedPlugins: [],

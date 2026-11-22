@@ -1187,7 +1187,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   // Desktop layout
   const settingsMain = (
       <AppMain key={effectiveActiveTab} ref={attachContentScroll as (el: HTMLElement | null) => void} embedded={isEmbedded} label={activeTabLabel} className="relative flex-1 overflow-y-auto">
-        <div className={effectiveActiveTab.startsWith(PLUGIN_PAGE_PREFIX) ? "px-6 py-6" : "max-w-3xl mx-auto px-6 py-6"}>
+        <div className={mvShell || effectiveActiveTab.startsWith(PLUGIN_PAGE_PREFIX) ? "px-6 py-6" : "max-w-3xl mx-auto px-6 py-6"}>
           {/* The page's heading for screen readers; the sidebar shows which
               page is open (the phone header has a visible one). */}
           <h1 className="sr-only">{activeTabLabel}</h1>
@@ -1354,6 +1354,21 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           row. The same element with or without the panel, so a page keeps
           what was typed when the panel starts or stops docking. */}
       <div className="flex-1 min-w-0 flex flex-col" data-settings-side-panel-column="">
+        {mvShell && (
+          <header className="shrink-0 border-b border-border bg-background">
+            <h2 className="px-5 pt-4 pb-2 text-2xl font-normal">{t('title')}</h2>
+            <nav className="mail-settings-sections" aria-label={t('title')}>
+              {Array.from(new Set(['general', 'organize', 'message_list', 'account', 'filters', 'composing', 'offline', 'appearance', effectiveActiveTab])).map(id => {
+                const tab = listedTabs.find(item => item.id === id);
+                return tab && (
+                  <button key={id} type="button" aria-current={id === effectiveActiveTab ? 'page' : undefined} onClick={() => handleTabSelect(tab.id)}>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </header>
+        )}
         {(sidePanel.docks || !isEmbedded) && (
           <div data-window-only={sidePanel.docks ? undefined : ""} className={cn("items-center gap-2 h-14 box-content border-b border-border px-2 sm:px-4 lg:px-6 shrink-0", sidePanel.docks ? "flex" : "hidden")} data-settings-panel-row="">
             {/* The page's h1 below names it for screen readers. */}

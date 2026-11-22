@@ -12,7 +12,7 @@ import { noThirdPartyTraffic } from './third-party-mode';
 /** Exact host names of the built-in outside hosts (the registry repeats them; a test keeps both equal). */
 export const BUILT_IN_HOSTNAMES: readonly string[] = [
   'telemetry.bulwarkmail.org',
-  'version.telemetry.bulwarkmail.org',
+  'api.github.com',
   'notifications.relay.bulwarkmail.org',
   'extensions.bulwarkmail.org',
   'connector.bulwarkmail.org',

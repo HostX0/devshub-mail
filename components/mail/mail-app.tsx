@@ -160,6 +160,8 @@ import { PluginActions } from "@/components/plugins/plugin-actions";
 import { useAppCommands } from "@/lib/app-commands";
 import { useMailSearchRequests } from "@/lib/mail-search-request";
 import { MvSearchForm } from "@/components/search/mv-search-form";
+import { MailInboxCategories } from "@/components/email/mail-inbox-categories";
+import { MailQuickSettings } from "@/components/layout/mail-quick-settings";
 import { MvSidePanel } from "@/components/layout/mv-side-panel";
 import { PluginSidePanel } from "@/components/plugins/plugin-side-panels";
 import { MvListToolbar } from "@/components/email/mv-list-toolbar";
@@ -579,6 +581,7 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
   const [cursorOnly, setCursorOnly] = useQuietState(false);
   // Desktop lifts search into a global header. Mobile keeps its native
   // one-pane flow, with Mountain View's own app chrome.
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
   const mvShell = interfaceLayout === 'mountain-view' && !isMobile && !isEmbedded;
   const mvMobile = interfaceLayout === 'mountain-view' && isMobile && !isEmbedded;
   // Mountain View reads a thread as one conversation in the viewer, on the
@@ -6316,7 +6319,8 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
 
   return (
     <DragDropProvider>
-      <div ref={appRootRef} className={cn("flex flex-col overflow-hidden pt-[var(--app-top-inset)]", mvShell ? "bg-[var(--mv-canvas)]" : "bg-background", isEmbedded ? "h-full" : "h-dvh")}>
+      <div ref={appRootRef} data-mail-workspace="" className={cn("flex flex-col overflow-hidden pt-[var(--app-top-inset)]", mvShell ? "bg-[var(--mv-canvas)]" : "bg-background", isEmbedded ? "h-full" : "h-dvh")}>
+        {mvConversationView && <MailInboxCategories />}
         {/* Rail and folders are many Tab stops: jump past them (WCAG 2.4.1). */}
         <a
           href="#message-list"
@@ -6345,6 +6349,8 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
         )}
         {mvShell && !fullscreenReading && (
           <MvTopBar
+            quickSettingsOpen={quickSettingsOpen}
+            onQuickSettings={() => setQuickSettingsOpen(open => !open)}
             search={{
               query: searchQuery,
               onQueryChange: setSearchQuery,
@@ -7252,6 +7258,12 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
         </AppMain>
         {/* Mountain View: Gmail's side panel - calendar, tasks and contacts
             next to the mail, with their icons down the right edge. */}
+        {mvShell && !inlineApp && !fullscreenReading && quickSettingsOpen && (
+          <MailQuickSettings close={() => {
+            setQuickSettingsOpen(false);
+            document.getElementById("mail-quick-trigger")?.focus();
+          }} />
+        )}
         {mvShell && !inlineApp && !fullscreenReading && <MvSidePanel />}
         {/* The default layout: plugins' panels beside the mail (the
             side-panel slot), with their buttons in a rail at the right edge.

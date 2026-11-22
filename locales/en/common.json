@@ -1,4 +1,15 @@
 {
+  "mail_categories": {
+    "primary": "Primary",
+    "promotions": "Promotions",
+    "social": "Social",
+    "updates": "Updates"
+  },
+  "quick_mail_settings": {
+    "title": "Quick settings",
+    "all": "See all settings",
+    "close": "Close"
+  },
   "meta_description": "Self-hosted webmail for mail, calendar, contacts and files, built on JMAP",
   "login": {
     "title": "Webmail",

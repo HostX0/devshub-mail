@@ -6,14 +6,14 @@ import dynamic from 'next/dynamic';
 import { useConfig } from '@/hooks/use-config';
 import { useUpdateStore } from '@/stores/update-store';
 import { ExternalLink } from '@/components/icons';
+import { PROJECT_URL } from '@/lib/company-project';
 import { cn } from '@/lib/utils';
 import { getPathPrefix, withBasePath } from '@/lib/browser-navigation';
 
 const SpamSiegeGame = dynamic(() => import('./spam-siege-game').then(m => m.SpamSiegeGame));
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "0.0.0";
-const GIT_COMMIT = process.env.NEXT_PUBLIC_GIT_COMMIT || "unknown";
-const UPSTREAM_SOURCE_URL = "https://github.com/bulwarkmail/webmail";
+
 
 function VersionUpdateTag() {
   const isArabic = useLocale().startsWith('ar');
@@ -49,8 +49,7 @@ function VersionUpdateTag() {
 
 /**
  * The About card, on Settings > About and at the foot of the admin's list: logo, version with the
- * update tag, and the source link. A modified build must offer its own
- * source (AGPL-3.0 §13), so a configured URL replaces the upstream link.
+ * update tag, the project repository and the configured source archive.
  * Three clicks on the logo open Spam Siege, as before.
  */
 export function AboutFooter() {
@@ -100,19 +99,20 @@ export function AboutFooter() {
           <div className="min-w-0">
             <p className="text-xs font-medium text-foreground truncate">{branded ? appName : t('about.title')}</p>
             <p className="text-[0.6875rem] text-muted-foreground truncate">
-              v{APP_VERSION} <span className="text-muted-foreground">({GIT_COMMIT})</span>
+              v{APP_VERSION}
               <VersionUpdateTag />
             </p>
           </div>
         </button>
-        <a
-          href={sourceCodeUrl || UPSTREAM_SOURCE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 inline-flex items-center gap-1 text-[0.6875rem] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {sourceCodeUrl ? t('about.source_code') : 'GitHub'} <ExternalLink className="w-3 h-3" />
-        </a>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <a href={PROJECT_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">DevsHub Mail · GitHub <ExternalLink className="size-3" /></a>
+          {sourceCodeUrl && sourceCodeUrl !== PROJECT_URL && (
+            <a href={sourceCodeUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              {t('about.source_code')} <ExternalLink className="size-3" />
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

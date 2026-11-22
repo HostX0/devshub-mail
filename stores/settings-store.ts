@@ -1087,7 +1087,7 @@ const DEFAULT_SETTINGS = {
   fontSize: 'medium' as FontSize,
   density: 'regular' as Density,
   interfaceLayout: 'default' as InterfaceLayout,
-  mvInboxType: 'unread-first' as MvInboxType,
+  mvInboxType: 'default' as MvInboxType,
   mvUnreadSectionCollapsed: false,
   mvEverythingElseCollapsed: false,
   // Settings > Accessibility (lib/accessibility-settings.ts)

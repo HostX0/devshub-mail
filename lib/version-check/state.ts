@@ -37,7 +37,10 @@ const DEFAULTS: VersionCheckStateFile = {
 };
 
 function parse(data: Buffer): VersionCheckStateFile {
-  return { ...DEFAULTS, ...(JSON.parse(data.toString('utf8')) as Partial<VersionCheckStateFile>) };
+  const state = { ...DEFAULTS, ...(JSON.parse(data.toString('utf8')) as Partial<VersionCheckStateFile>) };
+  // Older installations persisted both the upstream channel and its last notification.
+  if (state.endpoint === 'https://version.telemetry.bulwarkmail.org/') return { ...DEFAULTS };
+  return state;
 }
 
 function serialize(state: VersionCheckStateFile): string {

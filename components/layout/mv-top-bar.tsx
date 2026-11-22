@@ -74,6 +74,8 @@ interface MvTopBarProps {
    * account avatar only.
    */
   search?: MvTopBarSearch;
+  onQuickSettings?: () => void;
+  quickSettingsOpen?: boolean;
   /** The hamburger folds the mail navigation, so only mail shows it. */
   showMenuButton?: boolean;
   onShowShortcuts?: () => void;
@@ -108,6 +110,8 @@ function useAllInboxesReachable(): boolean {
  */
 export function MvTopBar({
   search,
+  onQuickSettings,
+  quickSettingsOpen,
   showMenuButton = true,
   onShowShortcuts,
   onManageApps,
@@ -312,7 +316,14 @@ export function MvTopBar({
             )}
           </a>
         )}
-        <Link
+        {onQuickSettings ? (
+          <button type="button" id="mail-quick-trigger" aria-controls="mail-quick-settings" aria-expanded={quickSettingsOpen}
+            onClick={onQuickSettings} title={t("settings")} aria-label={t("settings")}
+            className="grid size-12 place-items-center rounded-full text-muted-foreground hover:bg-muted aria-expanded:bg-muted">
+            <Settings className="size-5" />
+          </button>
+        ) : (
+          <Link
           href="/settings"
           onClick={(e) => { interceptLeave(e); }}
           className="grid place-items-center w-12 h-12 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -320,7 +331,8 @@ export function MvTopBar({
           aria-label={t("settings")}
         >
           <Settings className="w-5 h-5" />
-        </Link>
+          </Link>
+        )}
 
         <div className="relative">
           <button
