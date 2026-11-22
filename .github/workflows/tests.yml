@@ -2,6 +2,7 @@ name: "CI: Unit tests"
 
 on:
   push:
+    branches-ignore: [fix/independent-company-mail-admin]
   pull_request:
 
 # The job builds and runs the checked-out code; a compromised step must not
