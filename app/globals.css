@@ -1669,13 +1669,6 @@ html[data-window-controls-left] [data-window-rail] {
   --mv-compose-end: calc(3.5rem + 308px + 1rem);
 }
 
-/* The advanced filters drop from the search field with a small gap and take
-   its corner, so the two read as one control. Position and width come from
-   the field's own box, measured by FilterPanelHost. */
-[data-interface-layout="mountain-view"] [data-mv-filter-panel] {
-  border-radius: var(--mv-search-radius);
-}
-
 /* The collapsed rail's hover peek. Only on desktop: below that breakpoint the
    sidebar is already a drawer, opened by a tap rather than by a pointer that
    does not exist. The width beats Tailwind's own `desk:w-full` on specificity,

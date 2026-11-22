@@ -31,20 +31,26 @@ describe('FilterPanelHost', () => {
     expect(container).not.toContainElement(panel);
     expect(panel.style.left).toBe('165px');
     expect(panel.style.width).toBe('505px');
-    expect(Number.parseInt(panel.style.top, 10)).toBeGreaterThanOrEqual(56);
+    expect(panel.style.top).toBe('56px');
 
     anchor.remove();
   });
 
   it('stays wide enough for its fields when the search field is narrow', () => {
     // The field is 286px wide at 1024: a panel that size cut the date fields to "dd".
-    expect(filterPanelBox({ left: 165, right: 451, bottom: 56, width: 286 }, 1024, false)).toEqual({ top: 60, left: 165, width: 480 });
+    expect(filterPanelBox({ left: 165, right: 451, bottom: 56, width: 286 }, 1024, false)).toMatchObject({ left: 165, width: 480 });
   });
 
   it('grows towards the trailing side in RTL and stays on screen', () => {
-    expect(filterPanelBox({ left: 573, right: 859, bottom: 56, width: 286 }, 1024, true)).toEqual({ top: 60, left: 379, width: 480 });
+    expect(filterPanelBox({ left: 573, right: 859, bottom: 56, width: 286 }, 1024, true)).toMatchObject({ left: 379, width: 480 });
     expect(filterPanelBox({ left: 700, right: 986, bottom: 56, width: 286 }, 1024, false).left).toBe(536);
-    expect(filterPanelBox({ left: 20, right: 300, bottom: 56, width: 280 }, 400, false)).toEqual({ top: 60, left: 8, width: 384 });
+    expect(filterPanelBox({ left: 20, right: 300, bottom: 56, width: 280 }, 400, false)).toMatchObject({ left: 8, width: 384 });
+  });
+
+  it('keeps an oversized field within the viewport and scrolls the form below its actual anchor', () => {
+    expect(filterPanelBox({ left: 0, right: 400, bottom: 96, width: 400 }, 400, true)).toEqual({
+      top: 96, left: 8, width: 384, maxHeight: 'calc(100dvh - 104px)',
+    });
   });
 
   it('draws it at the end of <body>, above the sidebar column and not inside the top bar', () => {

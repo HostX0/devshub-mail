@@ -44,7 +44,7 @@ export function FilterPanelHost({
     <div
       data-mv-filter-panel=""
       style={box}
-      className="fixed z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-lg border border-border bg-popover pt-3 shadow-xl"
+      className="fixed z-50 overflow-y-auto overscroll-contain rounded-none border border-border bg-popover pt-3 text-popover-foreground shadow-md"
     >
       {panel}
     </div>,
@@ -66,10 +66,11 @@ export function filterPanelBox(
   viewportWidth: number,
   rtl: boolean,
 ): CSSProperties {
-  const width = Math.max(rect.width, Math.min(MIN_PANEL_WIDTH, viewportWidth - VIEWPORT_MARGIN * 2));
+  const availableWidth = Math.max(0, viewportWidth - VIEWPORT_MARGIN * 2);
+  const width = Math.min(availableWidth, Math.max(rect.width, MIN_PANEL_WIDTH));
   const preferred = rtl ? rect.right - width : rect.left;
   const left = Math.max(VIEWPORT_MARGIN, Math.min(preferred, viewportWidth - width - VIEWPORT_MARGIN));
-  return { top: rect.bottom + 4, left, width };
+  return { top: rect.bottom, left, width, maxHeight: `calc(100dvh - ${rect.bottom + VIEWPORT_MARGIN}px)` };
 }
 
 /** The anchor's leading edge, width and bottom, kept current as the bar resizes. */
