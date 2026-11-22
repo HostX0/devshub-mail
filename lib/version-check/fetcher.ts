@@ -68,7 +68,7 @@ export async function fetchStatus(
       method: 'GET',
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(projectReleases ? 15_000 : 5_000),
     });
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status}` };

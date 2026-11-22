@@ -456,6 +456,8 @@ export const DENIED_SETTINGS: readonly string[] = [
  *   organisation policy may pin it.
  */
 export const NOT_YET_SETTINGS: readonly string[] = [
+  // The inbox checkboxes show visible categories while this list stores exclusions.
+  'hiddenInboxCategories',
   'messageListOrder', 'filesSettings', 'activeThemeId', 'birthdayCalendarColor', 'vacationBlockCalendar',
   'writingLanguage', 'calendarNarrowWeekAllDays',
   // A plugin's print style: offered only while that plugin runs.

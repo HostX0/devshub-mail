@@ -237,7 +237,7 @@ export const PRESETTABLE_SETTINGS: readonly PresettableSetting[] = [
   ...ACCESSIBILITY_POLICY_SETTINGS,
   {
     key: 'mvInboxType', label: 'Inbox type', labelKey: 'settings.email_behavior.inbox_type.label',
-    type: 'enum', category: 'Appearance', defaultValue: 'default',
+    type: 'enum', category: 'Appearance', defaultValue: 'unread-first',
     options: [{ value: 'default', label: 'Default' }, { value: 'unread-first', label: 'Unread first' }],
   },
   ...RESTRICTION_KEYS
