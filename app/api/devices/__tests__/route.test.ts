@@ -324,12 +324,3 @@ describe('/api/admin/devices', () => {
     expect((await adminAct(request('/api/admin/devices', { action: 'wipe', id: `${'a'.repeat(64)}/${'b'.repeat(32)}` }))).status).toBe(404);
   });
 });
-
-describe('the audit log page', () => {
-  it('can filter by every device action', () => {
-    const page = readFileSync(path.join(process.cwd(), 'app/(main)/admin/_pages/logs.tsx'), 'utf8');
-    for (const action of ['device.wipe.request', 'device.wipe.confirm', 'device.wipe.cancel', 'device.forget']) {
-      expect(page).toContain(`value="${action}"`);
-    }
-  });
-});

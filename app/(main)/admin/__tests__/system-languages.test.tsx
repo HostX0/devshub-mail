@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const state = vi.hoisted(() => ({ locale: 'ar', api: vi.fn() }));
 vi.mock('@/components/admin/use-admin-i18n', () => {
@@ -17,6 +17,18 @@ beforeEach(() => {
 });
 
 describe('administrator system languages', () => {
+  it.each(['ar', 'en'])('filters every device action in %s', async (locale) => {
+    state.locale = locale;
+    state.api.mockImplementation(async () => Response.json({ total: 0, entries: [] }));
+    render(<LogsPage />);
+    const filter = screen.getByRole('combobox');
+    for (const action of ['device.wipe.request', 'device.wipe.confirm', 'device.wipe.cancel', 'device.forget']) {
+      expect(filter.querySelector(`option[value="${action}"]`)).not.toBeNull();
+      fireEvent.change(filter, { target: { value: action } });
+      await waitFor(() => expect(state.api).toHaveBeenLastCalledWith(`/api/admin/audit?page=1&limit=50&action=${action}`));
+    }
+  });
+
   it('translates audit actions and dates while preserving actual event data', async () => {
     state.api.mockResolvedValue(Response.json({ total: 1, entries: [{ ts: '2026-11-20T15:24:00Z', action: 'mailbox.create', detail: { email: 'employee@example.com' }, ip: '192.0.2.1' }] }));
     const view = render(<LogsPage />);
