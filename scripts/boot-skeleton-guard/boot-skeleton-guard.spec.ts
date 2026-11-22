@@ -113,7 +113,17 @@ test.describe("server HTML without JavaScript", () => {
       await page.route(/\.js(\?|$)/, (route) => route.abort());
       await page.goto(c.path, { waitUntil: "load" });
       const screen = await firstScreen(page);
-      expect(screen.regions, `visible skeletons on ${c.path}`).toEqual([c.surface]);
+      if (c.surface === "admin") {
+        // Local mail-session hints never prove administrator access. Until
+        // the server verifies it, expose only the neutral sign-in status.
+        expect(screen.regions, "no management skeleton before authentication").toEqual([]);
+        await expect(page.getByRole("status")).toHaveText(/Checking your sign-in|جارٍ التحقق من تسجيل الدخول/);
+        await expect(page.getByRole("navigation")).toHaveCount(0);
+        await expect(page.locator("aside")).toHaveCount(0);
+        await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+      } else {
+        expect(screen.regions, `visible skeletons on ${c.path}`).toEqual([c.surface]);
+      }
       expect(screen.spinners, "spinners").toBe(0);
       expect(screen.text, "visible text").not.toMatch(/loading|opening/i);
       for (const [name, value] of Object.entries(c.attrs ?? {})) expect(screen.attrs[name], name).toBe(value);
