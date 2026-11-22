@@ -139,6 +139,14 @@ export function getCachedConfig(): ConfigData | null {
   return configCache;
 }
 
+function cacheClientConfig(data: ConfigData): ConfigData {
+  configCache = data;
+  setNoThirdPartyTraffic(data.noThirdPartyTraffic === true);
+  if (!IS_LITE) configureErrorReporting(data.errorReporting ?? null);
+  void usePolicyStore.getState().fetchPolicy();
+  return data;
+}
+
 export async function fetchConfig(): Promise<ConfigData> {
   // Return cached config if available
   if (configCache) {
@@ -152,14 +160,11 @@ export async function fetchConfig(): Promise<ConfigData> {
 
   // Start a new fetch
   configPromise = (IS_LITE ? fetchLiteConfig() : fetchServerConfig())
-    .then((data) => {
-      configCache = data;
-      setNoThirdPartyTraffic(data.noThirdPartyTraffic === true);
-      // Lite configures error reporting from policy.json instead.
-      if (!IS_LITE) configureErrorReporting(data.errorReporting ?? null);
-      // Fetch admin policy alongside config (non-blocking)
-      usePolicyStore.getState().fetchPolicy();
-      return data;
+    .then(data => configCache ?? cacheClientConfig(data))
+    .catch(error => {
+      // A server-rendered sign-in can seed settings while another consumer is fetching.
+      if (configCache) return configCache;
+      throw error;
     })
     .finally(() => {
       configPromise = null;
@@ -304,6 +309,11 @@ export function useConfig(initialConfig?: ConfigData | null): AppConfig {
   });
 
   useEffect(() => {
+    if (initialConfig) {
+      if (configCache !== initialConfig) cacheClientConfig(initialConfig);
+      setConfig(configState(initialConfig));
+      return;
+    }
     // If already cached, no need to fetch
     if (configCache) {
       if (fromCache.current !== configCache) setConfig(configState(configCache));
@@ -321,7 +331,7 @@ export function useConfig(initialConfig?: ConfigData | null): AppConfig {
           error: err.message,
         }));
       });
-  }, []);
+  }, [initialConfig]);
 
   return config;
 }
