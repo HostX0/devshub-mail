@@ -122,7 +122,7 @@ migrateLegacyAdminLayout()
     // Instant error counts: a one-minute tick that sends only while the
     // error-count consent is "instant".
     const instantErrors = await import("./lib/telemetry/instant-errors");
-    // Hourly check against version.telemetry.bulwarkmail.org. Disable with
+    // Hourly check against the configured release channel. Disable with
     // BULWARK_UPDATE_CHECK=off or override the endpoint with
     // BULWARK_UPDATE_CHECK_URL.
     const versionCheck = await import("./lib/version-check");

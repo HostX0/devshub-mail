@@ -19,6 +19,7 @@ import { useAdminFeedback } from '@/components/admin/feedback';
 import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { adminPageDef } from '@/lib/admin/admin-nav';
 import { apiFetch } from '@/lib/browser-navigation';
+import { PROJECT_REPOSITORY, PROJECT_RELEASES_API, PROJECT_URL } from '@/lib/company-project';
 import type { UpdateStatus, UpdateSeverity } from '@/lib/version-check/types';
 
 interface VersionAdminStatus {
@@ -148,7 +149,8 @@ export function VersionPage() {
   const chip = severityChip(status?.severity ?? 'none', t);
   const ChipIcon = chip.Icon;
   const releaseUrl = status?.url ?? null;
-  const newer = status?.latest && status.latest !== data.current ? status.latest : null;
+  const newer = status?.updateAvailable ? status.latest : null;
+  const companyChannel = data.endpoint === PROJECT_RELEASES_API;
 
   return (
     <div>
@@ -163,6 +165,11 @@ export function VersionPage() {
           <SettingItem label={t('Running', 'الإصدار الحالي')} description={data.build !== 'unknown' ? t(`Build ${data.build}`, `رقم البناء ${data.build}`) : undefined}>
             <span className="text-sm font-mono text-foreground">{data.current}</span>
           </SettingItem>
+          {companyChannel && status && !status.latest && (
+            <SettingItem label={t('Latest release', 'أحدث إصدار')}>
+              <span className="text-sm">{t('No release has been published in the project repository yet.', 'لم يُنشر أي إصدار في مستودع المشروع حتى الآن.')}</span>
+            </SettingItem>
+          )}
           {newer && (
             <SettingItem label={t('Latest release', 'أحدث إصدار')}>
               {releaseUrl ? (
@@ -206,19 +213,19 @@ export function VersionPage() {
         <SettingsSection
           id="source"
           title={t('Source', 'المصدر')}
-          description={t('Hourly check against the Bulwark version server. Severity is decided server-side and disable with BULWARK_UPDATE_CHECK=off.', 'يتحقق النظام كل ساعة من خادم الإصدارات، ويحدد الخادم أهمية التحديث. يمكن تعطيل التحقق بإعداد BULWARK_UPDATE_CHECK=off.')}
+          description={t('Checks for a published update every hour.', 'يتحقق كل ساعة من وجود إصدار منشور أحدث.')}
         >
           <SettingItem
-            label={t('Endpoint', 'عنوان الخدمة')}
-            description={data.endpoint === data.defaultEndpoint ? t('Default endpoint.', 'عنوان الخدمة الافتراضي.') : t(`Default: ${data.defaultEndpoint}`, `الافتراضي: ${data.defaultEndpoint}`)}
+            label={companyChannel ? t('Project repository', 'مستودع المشروع') : t('Endpoint', 'عنوان الخدمة')}
+            description={companyChannel ? t('Updates come from published DevsHub Mail releases.', 'مصدر التحديثات هو الإصدارات المنشورة في مستودع DevsHub Mail.') : data.endpoint}
           >
             <a
-              href={data.endpoint}
+              href={companyChannel ? PROJECT_URL : data.endpoint}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-sm text-foreground hover:underline break-all"
             >
-              {data.endpoint} <ExternalLink className="w-3 h-3 shrink-0" />
+              {companyChannel ? PROJECT_REPOSITORY : data.endpoint} <ExternalLink className="w-3 h-3 shrink-0" />
             </a>
           </SettingItem>
           <SettingItem label={t('Disabled by env', 'معطّل من إعدادات البيئة')} description={t('Set BULWARK_UPDATE_CHECK=off to disable.', 'استخدم الإعداد BULWARK_UPDATE_CHECK=off لتعطيل التحقق.')}>
