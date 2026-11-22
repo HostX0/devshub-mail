@@ -47,7 +47,7 @@ class DeploymentBoundaries(unittest.TestCase):
             root = Path(directory).resolve()
             source = root / 'ci-build/source'
             source.mkdir(parents=True)
-            for name in ('node_modules', '.next', '.installed-lock'):
+            for name in ('node_modules', '.next', '.installed-lock', 'tsconfig.tsbuildinfo'):
                 link = source / name
                 link.symlink_to(root / 'outside')
                 with self.subTest(name=name), patch.object(deploy, 'BASE', root), patch.object(deploy, 'SOURCE', source):
@@ -65,10 +65,28 @@ class DeploymentBoundaries(unittest.TestCase):
                 deploy.copy_artifact(root / '.next/standalone', root / 'target')
             self.assertFalse((root / 'target').exists())
 
+    def test_preserves_compiler_incremental_cache_during_source_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / 'ci-build/source'
+            source.mkdir(parents=True)
+            (source / 'tsconfig.tsbuildinfo').write_text('compiler-managed-cache')
+            (source / 'deleted-source.ts').write_text('stale source')
+            ci = root / 'ci'
+            (ci / 'branding').mkdir(parents=True)
+            (ci / 'company-branding.css').write_text('/* company styling */')
+            with patch.object(deploy, 'SOURCE', source), patch.object(deploy, 'CI', ci), \
+                 patch.object(deploy, 'validate_source_directory'), patch.object(deploy, 'chown_tree'), \
+                 patch.object(deploy.sys, 'stdin', archive_for('app/globals.css')):
+                deploy.receive_source()
+            self.assertEqual((source / 'tsconfig.tsbuildinfo').read_text(), 'compiler-managed-cache')
+            self.assertFalse((source / 'deleted-source.ts').exists())
+
     def test_rejects_unsafe_uploads_before_changing_source(self):
         for name, kind in [('../escape', tarfile.REGTYPE), ('/tmp/escape', tarfile.REGTYPE),
                            ('public/link', tarfile.SYMTYPE), ('node_modules/file', tarfile.REGTYPE),
-                           ('.env.production', tarfile.REGTYPE), ('data/config.json', tarfile.REGTYPE)]:
+                           ('.env.production', tarfile.REGTYPE), ('data/config.json', tarfile.REGTYPE),
+                           ('tsconfig.tsbuildinfo', tarfile.REGTYPE)]:
             with self.subTest(name=name), patch.object(deploy, 'validate_source_directory'), \
                  patch.object(deploy.sys, 'stdin', archive_for(name, kind)):
                 with self.assertRaises(RuntimeError):

@@ -101,7 +101,7 @@ def validate_source_directory():
         raise RuntimeError('Build parent must not contain symlinks')
     if SOURCE.exists() and not SOURCE.is_dir():
         raise RuntimeError('Source path must be a directory')
-    for name in ('node_modules', '.next', '.installed-lock'):
+    for name in ('node_modules', '.next', '.installed-lock', 'tsconfig.tsbuildinfo'):
         if (SOURCE / name).is_symlink():
             raise RuntimeError('Preserved build path must not be a symlink: ' + name)
     metadata = expected.stat()
@@ -142,13 +142,13 @@ def receive_source():
                     raise RuntimeError('Unsafe archive path')
                 if not (entry.isfile() or entry.isdir()):
                     raise RuntimeError('Source archive must contain regular files and directories')
-                if parts[0] in {'.git', '.next', 'node_modules', 'data', '.installed-lock'}:
+                if parts[0] in {'.git', '.next', 'node_modules', 'data', '.installed-lock', 'tsconfig.tsbuildinfo'}:
                     raise RuntimeError('Generated or private directory in source upload')
                 if any(part.startswith('.env') and part not in {'.env.example', '.env.dev.example'} for part in parts):
                     raise RuntimeError('Private environment file in source upload')
             SOURCE.mkdir(parents=True, exist_ok=True)
             for item in SOURCE.iterdir():
-                if item.name not in {'node_modules', '.next', '.installed-lock'}:
+                if item.name not in {'node_modules', '.next', '.installed-lock', 'tsconfig.tsbuildinfo'}:
                     remove(item)
             # No links are permitted, and previous source files are removed.
             for entry in entries:
@@ -167,7 +167,7 @@ def receive_source():
     marker = '/* Company branding on the existing DevsHub Mail interface. */'
     content = stylesheet.read_text().split(marker, 1)[0].rstrip()
     stylesheet.write_text(content + '\n' + (CI / 'company-branding.css').read_text())
-    chown_tree(SOURCE, 'company-mail-build', preserve={'node_modules', '.next', '.installed-lock'})
+    chown_tree(SOURCE, 'company-mail-build', preserve={'node_modules', '.next', '.installed-lock', 'tsconfig.tsbuildinfo'})
 
 
 def build(sha):
@@ -206,7 +206,7 @@ def deploy(sha):
     chown_tree(release / '.next/cache', 'alahmad-webmail')
     # Preserve the existing AGPL source-download endpoint, without build output,
     # credentials, runtime state, or repository metadata.
-    excluded = {'node_modules', '.next', '.installed-lock', 'data', '.git', 'coverage', 'test-results', 'playwright-report'}
+    excluded = {'node_modules', '.next', '.installed-lock', 'tsconfig.tsbuildinfo', 'data', '.git', 'coverage', 'test-results', 'playwright-report'}
     def source_filter(info):
         parts = Path(info.name).parts
         if any(part in excluded or part.startswith('._') for part in parts):
