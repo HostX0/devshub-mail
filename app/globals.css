@@ -1739,6 +1739,13 @@ html[dir="rtl"] [data-menu-row][data-hover-actions-shown] > [data-row-text] {
   --color-selection-foreground: #001d35;
 }
 [data-interface-layout="mountain-view"] { --mv-search-radius: 999px; }
+[data-mv-search-form] button[type="submit"] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+[data-mv-search-form] :is(input:not([type="checkbox"]), select):focus-visible {
+  border-color: var(--color-primary);
+}
 [data-mail-category-tabs] [role="tab"] {
   flex: 1 1 0;
   max-inline-size: 16rem;
