@@ -121,6 +121,9 @@ test.describe("server HTML without JavaScript", () => {
         await expect(page.getByRole("navigation")).toHaveCount(0);
         await expect(page.locator("aside")).toHaveCount(0);
         await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+      } else if (c.surface === "login") {
+        expect(screen.regions).toEqual([]);
+        await expect(page.getByRole("button", { name: /^sign in$/i }).first()).toBeVisible();
       } else {
         expect(screen.regions, `visible skeletons on ${c.path}`).toEqual([c.surface]);
       }
@@ -135,7 +138,7 @@ test.describe("server HTML without JavaScript", () => {
   // <div> a script reveals later: a frame or up to 300 ms with no skeleton at all.
   // The cases above only see that when the reveal loses the race with the load
   // event, so this reads the bytes.
-  for (const path of ["/en", "/en/mail/folder/inbox", "/en/calendar/week/2026-11-04", "/en/contacts", "/en/files/Documents", "/en/settings", "/en/pro", "/en/login"]) {
+  for (const path of ["/en", "/en/mail/folder/inbox", "/en/calendar/week/2026-11-04", "/en/contacts", "/en/files/Documents", "/en/settings", "/en/pro"]) {
     test(`${path}: the skeleton is in the page, not in a segment a script reveals`, async ({ request }) => {
       const html = await (await request.get(path)).text();
       const skeleton = html.indexOf("data-boot-skeleton=");
