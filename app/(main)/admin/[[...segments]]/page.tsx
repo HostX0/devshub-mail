@@ -1,36 +1,44 @@
 'use client';
 
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { useAdminLocation, navigateAdmin } from '@/hooks/use-admin-navigation';
 import { adminPath, isAdminPageId } from '@/lib/admin/admin-nav';
 import { MailboxesPage } from '../_pages/mailboxes';
 import { DashboardPage } from '../_pages/dashboard';
-import { SettingsPage } from '../_pages/settings';
-import { BrandingPage } from '../_pages/branding';
-import { AuthPage } from '../_pages/auth';
-import { PolicyPage } from '../_pages/policy';
-import { OrganisationPage } from '../_pages/organisation';
-import { OrgSignaturesPage } from '../_pages/org-signatures';
-import { OrgTemplatesPage } from '../_pages/org-templates';
-import { OrgSecurityPage } from '../_pages/org-security';
-import { OrgSharingPage } from '../_pages/org-sharing';
-import { OrgLabelsPage } from '../_pages/org-labels';
-import { OrgProofreadingPage } from '../_pages/org-proofreading';
-import { OrgCalendarsPage } from '../_pages/org-calendars';
-import { OrgNoticesPage } from '../_pages/org-notices';
-import { OrgDevicesPage } from '../_pages/org-devices';
-import { PluginsPage } from '../_pages/plugins';
-import { ThemesPage } from '../_pages/themes';
-import { MarketplacePage } from '../_pages/marketplace';
-import { MarketplaceDetailPage } from '../_pages/marketplace-detail';
-import { ExtensionDetailPage } from '../_pages/extension-detail';
-import { VersionPage } from '../_pages/version';
-import { TelemetryPage } from '../_pages/telemetry';
-import { MonitoringPage } from '../_pages/monitoring';
-import { LogsPage } from '../_pages/logs';
+const SettingsPage = dynamic(() => import('../_pages/settings').then(m => m.SettingsPage), { loading: AdminPageLoading });
+const BrandingPage = dynamic(() => import('../_pages/branding').then(m => m.BrandingPage), { loading: AdminPageLoading });
+const AuthPage = dynamic(() => import('../_pages/auth').then(m => m.AuthPage), { loading: AdminPageLoading });
+const PolicyPage = dynamic(() => import('../_pages/policy').then(m => m.PolicyPage), { loading: AdminPageLoading });
+const OrganisationPage = dynamic(() => import('../_pages/organisation').then(m => m.OrganisationPage), { loading: AdminPageLoading });
+const OrgSignaturesPage = dynamic(() => import('../_pages/org-signatures').then(m => m.OrgSignaturesPage), { loading: AdminPageLoading });
+const OrgTemplatesPage = dynamic(() => import('../_pages/org-templates').then(m => m.OrgTemplatesPage), { loading: AdminPageLoading });
+const OrgSecurityPage = dynamic(() => import('../_pages/org-security').then(m => m.OrgSecurityPage), { loading: AdminPageLoading });
+const OrgSharingPage = dynamic(() => import('../_pages/org-sharing').then(m => m.OrgSharingPage), { loading: AdminPageLoading });
+const OrgLabelsPage = dynamic(() => import('../_pages/org-labels').then(m => m.OrgLabelsPage), { loading: AdminPageLoading });
+const OrgProofreadingPage = dynamic(() => import('../_pages/org-proofreading').then(m => m.OrgProofreadingPage), { loading: AdminPageLoading });
+const OrgCalendarsPage = dynamic(() => import('../_pages/org-calendars').then(m => m.OrgCalendarsPage), { loading: AdminPageLoading });
+const OrgNoticesPage = dynamic(() => import('../_pages/org-notices').then(m => m.OrgNoticesPage), { loading: AdminPageLoading });
+const OrgDevicesPage = dynamic(() => import('../_pages/org-devices').then(m => m.OrgDevicesPage), { loading: AdminPageLoading });
+const PluginsPage = dynamic(() => import('../_pages/plugins').then(m => m.PluginsPage), { loading: AdminPageLoading });
+const ThemesPage = dynamic(() => import('../_pages/themes').then(m => m.ThemesPage), { loading: AdminPageLoading });
+const MarketplacePage = dynamic(() => import('../_pages/marketplace').then(m => m.MarketplacePage), { loading: AdminPageLoading });
+const MarketplaceDetailPage = dynamic(() => import('../_pages/marketplace-detail').then(m => m.MarketplaceDetailPage), { loading: AdminPageLoading });
+const ExtensionDetailPage = dynamic(() => import('../_pages/extension-detail').then(m => m.ExtensionDetailPage), { loading: AdminPageLoading });
+const VersionPage = dynamic(() => import('../_pages/version').then(m => m.VersionPage), { loading: AdminPageLoading });
+const TelemetryPage = dynamic(() => import('../_pages/telemetry').then(m => m.TelemetryPage), { loading: AdminPageLoading });
+const MonitoringPage = dynamic(() => import('../_pages/monitoring').then(m => m.MonitoringPage), { loading: AdminPageLoading });
+const LogsPage = dynamic(() => import('../_pages/logs').then(m => m.LogsPage), { loading: AdminPageLoading });
+
+function AdminPageLoading() {
+  const { t } = useAdminI18n();
+  return <p role="status" className="p-6 text-sm text-muted-foreground">{t('Loading page…', 'جارٍ تحميل الصفحة…')}</p>;
+}
 
 /**
- * Every admin page, picked from the address bar. One route for the whole
+ * Admin pages, loaded on demand from the address bar. Employee mailboxes
+ * and the overview stay ready; editors and extension tools load only when opened. One route for the whole
  * panel: the sidebar switches pages with history.pushState and this
  * component re-renders from `usePathname()`, so there is never a route
  * transition between pages (lib/admin/admin-nav.ts).

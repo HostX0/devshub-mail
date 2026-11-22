@@ -76,28 +76,32 @@ export function MailboxesPage() {
   const [showPassword, setShowPassword] = useState(false);
   const refresh = useCallback(async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await apiFetch('/api/admin/mailboxes');
+      const res = await apiFetch('/api/admin/mailboxes', { signal: controller.signal });
       const data = await res.json();
       if (!res.ok) { setError({ code: data.code, error: data.error, status: res.status }); return; }
       setRows(data.mailboxes); setDomains(data.domains);
       setDomain(old => data.domains.includes(old) ? old : data.domains[0] || '');
       setError(null);
     } catch { setError({ code: 'server_unavailable' }); }
-    finally { setLoading(false); }
+    finally { clearTimeout(timeout); setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   const clear = () => { setEditing(null); setName(''); setDisplayName(''); setQuota('1'); setPassword(''); setShowPassword(false); };
   async function change(input: MailboxInput): Promise<boolean> {
     setBusy(true); setError(null); setSaved(false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await apiFetch('/api/admin/mailboxes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await apiFetch('/api/admin/mailboxes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: controller.signal });
       const data = await res.json();
       if (!res.ok) { setError({ code: data.code, error: data.error, status: res.status }); return false; }
       setSaved(true);
       await refresh(); return true;
     } catch { setError({ code: 'server_unavailable' }); return false; }
-    finally { setBusy(false); }
+    finally { clearTimeout(timeout); setBusy(false); }
   }
   async function remove(row: MailboxRow) {
     if (!await confirm({ title: t('Delete employee mailbox', 'حذف بريد الموظف'), message: t(`Permanently delete ${row.email}, its mailbox and all its messages?`, `حذف ${row.email} وصندوقه ورسائله نهائياً؟`), confirmText: t('Delete permanently', 'حذف نهائياً'), cancelText: t('Cancel', 'إلغاء'), variant: 'destructive' })) return;

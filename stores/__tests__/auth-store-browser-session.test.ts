@@ -64,7 +64,8 @@ const account = (overrides: Record<string, unknown> = {}) => ({
 type Call = { method: string; url: string; body?: Record<string, unknown> };
 const calls: Call[] = [];
 /** What the cookies hold: a session cookie for slot 0, a refresh token, or neither. */
-const cookies = { session: true as boolean | 'refused', refreshToken: true };
+const cookies = { session: true as boolean | 'refused', refreshToken: true, accessTokenSession: false };
+let contextResponse: (() => Promise<Response>) | undefined;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -76,11 +77,13 @@ beforeAll(() => {
     if (url.startsWith('/api/auth/verify')) return json({ result: 'ok' });
     if (url.startsWith('/api/auth/session') && method === 'PUT') {
       if (cookies.session === 'refused') return json({ error: 'Invalid session' }, 401);
-      return cookies.session ? json({ serverUrl: SERVER, username: USER, password: 'pw' }) : json({ error: 'No session' }, 401);
+      const credential = cookies.accessTokenSession ? { token: 'at' } : { password: 'pw' };
+      return cookies.session ? json({ serverUrl: SERVER, username: USER, ...credential }) : json({ error: 'No session' }, 401);
     }
     if (url.startsWith('/api/auth/token') && method === 'PUT') {
       return cookies.refreshToken ? json({ access_token: 'at', expires_in: 3600 }) : json({ error: 'No refresh token' }, 401);
     }
+    if (url === '/api/auth/stalwart-context' && contextResponse) return contextResponse();
     return json({ ok: true });
   }));
   vi.spyOn(nav, 'replaceWindowLocation').mockImplementation(() => {});
@@ -95,6 +98,8 @@ beforeEach(() => {
   setting.cached = true;
   cookies.session = true;
   cookies.refreshToken = true;
+  cookies.accessTokenSession = false;
+  contextResponse = undefined;
   sessionStorage.clear();
   localStorage.clear();
   useAccountStore.setState({ accounts: [], activeAccountId: null, defaultAccountId: null });
@@ -103,6 +108,7 @@ beforeEach(() => {
 
 const sessionWrites = () => calls.filter((c) => c.method === 'POST' && c.url.startsWith('/api/auth/session'));
 const restores = (path: string) => calls.filter((c) => c.method === 'PUT' && c.url.startsWith(path));
+const contextWrites = () => calls.filter((c) => c.method === 'POST' && c.url === '/api/auth/stalwart-context');
 
 async function reload(entry: ReturnType<typeof account>) {
   useAccountStore.setState({ accounts: [entry] as never, activeAccountId: entry.id, defaultAccountId: entry.id });
@@ -157,6 +163,26 @@ describe('a reload or a new tab', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(useAuthStore.getState().client?.getUsername()).toBe(USER);
     expect(useAccountStore.getState().accounts[0].rememberMe).toBe(true);
+    expect(contextWrites()).toEqual([]);
+  });
+
+  it.each(['token', 'oauth'])('still waits for the %s context before activating the restored account', async (kind) => {
+    cookies.accessTokenSession = kind === 'token';
+    let releaseContext = () => {};
+    contextResponse = () => new Promise<Response>((resolve) => {
+      releaseContext = () => resolve(json({ ok: true }));
+    });
+    const restoring = reload(account({ rememberMe: true, authMode: kind === 'oauth' ? 'oauth' : 'basic' }));
+
+    try {
+      await vi.waitFor(() => expect(contextWrites()).toHaveLength(1));
+      expect(contextWrites()[0].body).toMatchObject({ username: USER, authHeader: 'Bearer at' });
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    } finally {
+      releaseContext();
+      await restoring;
+    }
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });
   it('restores an unticked password sign-in from its cookie when the admin allows it', async () => {
     setting.on = true;

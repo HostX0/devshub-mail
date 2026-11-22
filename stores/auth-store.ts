@@ -3426,7 +3426,13 @@ export const useAuthStore = create<AuthState>()(
                   const session: RememberedSession = await res.json();
                   const client = clientForSession(session);
                   bindClientStatusHandlers(client, set, get, account.id);
-                  const contextSync = syncStalwartAuthContext(session.serverUrl, session.username, client.getAuthHeader(), account.cookieSlot);
+                  // The session restore route already restores a remembered
+                  // password's context cookie. Re-verifying it here delays mail
+                  // behind a second upstream login. Token sessions still need
+                  // the sync: an older bare-name token may have no context yet.
+                  const contextSync = !IS_LITE && account.rememberMe && session.token === undefined
+                    ? Promise.resolve()
+                    : syncStalwartAuthContext(session.serverUrl, session.username, client.getAuthHeader(), account.cookieSlot);
                   await client.connect();
                   holdClient(account.id, client);
                   await contextSync;

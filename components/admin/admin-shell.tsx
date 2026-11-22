@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { ArrowLeft, ChevronRight, KeyRound, LogOut, Search, Shield, X } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { NavigationRail } from '@/components/layout/navigation-rail';
-import { AboutFooter } from '@/components/settings/about-data-settings';
+import { AboutFooter } from '@/components/settings/about-footer';
 import { scrollToSettingsSection } from '@/components/settings/settings-section';
 import { useIsDesktop } from '@/hooks/use-media-query';
 import { useDocumentTitle } from '@/hooks/use-document-title';
