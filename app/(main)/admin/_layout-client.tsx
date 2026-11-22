@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { getAccountSlotsActiveFirst } from '@/lib/auth/active-account-slot';
 import { apiFetch } from '@/lib/browser-navigation';
 import { useAdminUnsavedStore } from '@/stores/admin-unsaved-store';
 import { AdminShell } from '@/components/admin/admin-shell';
-import { AdminContentSkeleton } from '@/components/boot-skeleton/admin-skeleton';
-import { useAdminLocation } from '@/hooks/use-admin-navigation';
 import { UnsavedChangesGuard } from './_unsaved-changes-guard';
 import { ToastContainer } from '@/components/ui/toast';
 import { useToastStore } from '@/stores/toast-store';
@@ -27,7 +26,7 @@ function AdminToasts() {
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const location = useAdminLocation();
+  const arabic = useLocale().startsWith('ar');
   const requestLeave = useAdminUnsavedStore((s) => s.requestLeave);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -38,8 +37,10 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
     if (pathname === '/admin/login') return;
     // One check per visit, not one per page: the pages switch without a
     // route change, and the session does not change with them.
-    if (authenticated === true) return;
+    if (authenticated !== null) return;
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
 
     async function checkAuth() {
       try {
@@ -51,7 +52,8 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
         let data: { enabled?: boolean; authenticated?: boolean; stalwartAutoLogin?: boolean } = {};
         for (const slot of slots.length > 0 ? slots : [null]) {
           jmapHeaders = slot === null ? {} : { 'X-JMAP-Cookie-Slot': String(slot) };
-          const res = await apiFetch('/api/admin/auth', { headers: jmapHeaders });
+          const res = await apiFetch('/api/admin/auth', { headers: jmapHeaders, signal: controller.signal });
+          if (!res.ok) throw new Error(`Admin session check failed (HTTP ${res.status})`);
           data = await res.json();
           if (cancelled) return;
           if (data.authenticated || data.stalwartAutoLogin === true) break;
@@ -79,6 +81,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...jmapHeaders },
             body: JSON.stringify({ stalwartAuth: true }),
+            signal: controller.signal,
           });
           if (cancelled) return;
           if (loginRes.ok) {
@@ -98,13 +101,15 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
         router.replace(`/admin/login?next=${next}`);
       } catch (err) {
         if (cancelled) return;
-        setAuthError(err instanceof Error ? err.message : 'Network error during admin check');
+        setAuthError(controller.signal.aborted ? 'timeout' : err instanceof Error ? err.message : 'Network error during admin check');
         setAuthenticated(false);
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
     checkAuth();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timeout); controller.abort(); };
   }, [pathname, router, authenticated]);
 
   // With ADMIN_CONFIG_READONLY the panel still shows every setting, but
@@ -131,6 +136,18 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
     return <>{children}<AdminToasts /></>;
   }
 
+  // Keep the management navigation hidden until access has been verified.
+  if (authenticated !== true) {
+    return <div dir={arabic ? 'rtl' : 'ltr'} className="min-h-screen flex items-center justify-center bg-background px-6">
+      <div className="max-w-sm text-center space-y-4">
+        {authError ? <>
+          <p role="alert" className="text-sm text-destructive">{arabic ? 'تعذّر التحقق من جلسة الإدارة. أعد المحاولة.' : 'Could not verify your administrator session. Please retry.'}</p>
+          <button type="button" className="rounded-md bg-primary px-5 py-2 text-primary-foreground" onClick={() => { setAuthError(null); setAuthenticated(null); }}>{arabic ? 'إعادة المحاولة' : 'Retry'}</button>
+        </> : <p role="status" className="text-sm text-muted-foreground">{arabic ? 'جارٍ التحقق من تسجيل الدخول…' : 'Checking your sign-in…'}</p>}
+      </div>
+    </div>;
+  }
+
   return (
     <>
       <UnsavedChangesGuard />
@@ -141,16 +158,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
         configReadOnly={configReadOnly}
         onLogout={handleLogout}
       >
-        {authError ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-            <p className="font-medium">Admin authentication failed</p>
-            <p className="mt-1 text-destructive/80">{authError}</p>
-          </div>
-        ) : authenticated === null ? (
-          // The page's header and section placeholders, where the boot
-          // skeleton drew them.
-          <AdminContentSkeleton page={location.page} status="Loading admin panel…" />
-        ) : authenticated ? children : null}
+        {children}
       </AdminShell>
     </>
   );
