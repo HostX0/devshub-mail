@@ -5,11 +5,15 @@ import { Link } from "@/i18n/navigation";
 import { X } from "@/components/icons";
 import { useSettingsStore, type Density } from "@/stores/settings-store";
 import { useThemeStore } from "@/stores/theme-store";
+import { useEmailStore } from "@/stores/email-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { usePolicyStore } from "@/stores/policy-store";
 
 export function MailQuickSettings({ close }: { close: () => void }) {
   const t = useTranslations("quick_mail_settings");
   const appearance = useTranslations("settings.appearance");
+  const inbox = useTranslations("settings.email_behavior.inbox_type");
+  const inboxType = useSettingsStore(s => s.mvInboxType);
   const density = useSettingsStore(s => s.density);
   const update = useSettingsStore(s => s.updateSetting);
   const { theme, setTheme } = useThemeStore();
@@ -17,7 +21,8 @@ export function MailQuickSettings({ close }: { close: () => void }) {
   const densities: Density[] = ["regular", "comfortable", "compact", "extra-compact"];
 
   return (
-    <aside id="mail-quick-settings" aria-label={t("title")} className="mail-quick-settings shrink-0 overflow-y-auto">
+    <aside id="mail-quick-settings" aria-label={t("title")} className="mail-quick-settings shrink-0 overflow-y-auto"
+      onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-medium">{t("title")}</h2>
         <button type="button" aria-label={t("close")} onClick={close} className="grid size-10 place-items-center rounded-full hover:bg-muted"><X className="size-5" /></button>
@@ -35,6 +40,20 @@ export function MailQuickSettings({ close }: { close: () => void }) {
           ))}
         </fieldset>
       )}
+      <fieldset className="mail-quick-options">
+        <legend>{inbox("label")}</legend>
+        {(["default", "unread-first"] as const).map(value => (
+          <label key={value}>
+            <input type="radio" name="quick-inbox" checked={inboxType === value} onChange={() => {
+              update("mvInboxType", value);
+              const client = useAuthStore.getState().client;
+              const mail = useEmailStore.getState();
+              if (client && mail.selectedMailbox) void mail.fetchEmails(client, mail.selectedMailbox, { background: true });
+            }} />
+            {inbox(value === "default" ? "default" : "unread_first")}
+          </label>
+        ))}
+      </fieldset>
       <fieldset disabled={getColorModePolicy().locked} className="mail-quick-options">
         <legend>{appearance("theme.label")}</legend>
         {(["system", "light", "dark"] as const).map(value => (

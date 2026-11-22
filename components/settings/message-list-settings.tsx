@@ -27,6 +27,8 @@ import type { SearchDefaultScope } from '@/lib/search-default-scope';
  */
 export function MessageListSettings() {
   const t = useTranslations('settings.email_behavior');
+  const tCategories = useTranslations('mail_categories');
+  const tList = useTranslations('email_list');
   const tPage = useTranslations('settings.message_list');
   const tAppearance = useTranslations('settings.appearance');
   const [isReorganizing, setIsReorganizing] = useState(false);
@@ -69,6 +71,7 @@ export function MessageListSettings() {
     mailLayout,
     interfaceLayout,
     mvInboxType,
+    hiddenInboxCategories,
     tintListRowsByTag,
     updateSetting,
   } = useSettingsStore();
@@ -191,6 +194,7 @@ export function MessageListSettings() {
 
         {/* Gmail's inbox types; "Unread first" puts the newest unread mail in a section above the rest. */}
         {mountainView && (
+        <>
         <SettingItem label={t('inbox_type.label')} description={t('inbox_type.description')}>
           <Select
             value={mvInboxType}
@@ -206,6 +210,21 @@ export function MessageListSettings() {
             ]}
           />
         </SettingItem>
+        {mvInboxType === 'default' && isFeatureEnabled('customKeywordsEnabled') && (
+          <SettingItem label={tList('category_tabs')}>
+            <div className="grid gap-2">
+              {(['primary', 'promotions', 'social', 'updates'] as const).map(id => (
+                <label key={id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" disabled={id === 'primary'} checked={id === 'primary' || !hiddenInboxCategories.includes(id)}
+                    onChange={event => updateSetting('hiddenInboxCategories', event.target.checked
+                      ? hiddenInboxCategories.filter(item => item !== id) : [...hiddenInboxCategories, id])} />
+                  {tCategories(id)}
+                </label>
+              ))}
+            </div>
+          </SettingItem>
+        )}
+        </>
         )}
 
         <MessageListOrderSettings />

@@ -3,10 +3,11 @@
 import { AppMain, SkipLink } from "@/components/layout/app-landmarks";
 import { LEGACY_TAB_MAP, MOVED_SECTIONS } from "@/lib/settings-tabs";
 import { useState, useEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
+import { parkAppCommand } from '@/lib/app-commands';
 import { useTranslations, useMessages } from 'next-intl';
 import {
-  ArrowLeft,
+  ArrowLeft, Inbox, Star, Send, FileText, Pencil,
   ChevronRight,
   LogOut,
   Settings as SettingsIcon,
@@ -1239,7 +1240,25 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
         )}
         style={{ width: `${settingsSidebarWidth}px` }}
       >
-        {!proInterface && (
+        {mvShell && (
+          <div className="shrink-0 border-b border-border px-2 py-2">
+            <button type="button" className="mb-2 inline-flex h-14 items-center gap-3 rounded-2xl bg-[var(--mv-compose-bg)] px-5 font-medium text-[var(--mv-compose-fg)]"
+              onClick={() => { parkAppCommand('compose'); router.push('/mail'); }}>
+              <Pencil className="size-5" />{tSidebar('compose')}
+            </button>
+            {[
+              { folder: 'inbox', label: tSidebar('mailboxes.inbox'), Icon: Inbox },
+              { folder: 'cross-starred', label: tRoot('email_list.starred'), Icon: Star },
+              { folder: 'sent', label: tSidebar('mailboxes.sent'), Icon: Send },
+              { folder: 'drafts', label: tSidebar('mailboxes.drafts'), Icon: FileText },
+            ].map(({ folder, label, Icon }) => (
+              <Link key={folder} href={`/mail/folder/${folder}`} className="flex items-center gap-4 rounded-full px-4 py-1.5 text-sm hover:bg-muted">
+                <Icon className="size-4" />{label}
+              </Link>
+            ))}
+          </div>
+        )}
+        {!proInterface && !mvShell && (
           // Same h-14 box as the mail sidebar's account switcher, so the apps line up.
           <div className="border-b border-border">
             <div className="flex items-center h-14 px-2">

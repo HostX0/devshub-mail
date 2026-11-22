@@ -235,6 +235,11 @@ const accessibilityKeys = new Set(ACCESSIBILITY_POLICY_SETTINGS.map((s) => s.key
  */
 export const PRESETTABLE_SETTINGS: readonly PresettableSetting[] = [
   ...ACCESSIBILITY_POLICY_SETTINGS,
+  {
+    key: 'mvInboxType', label: 'Inbox type', labelKey: 'settings.email_behavior.inbox_type.label',
+    type: 'enum', category: 'Appearance', defaultValue: 'default',
+    options: [{ value: 'default', label: 'Default' }, { value: 'unread-first', label: 'Unread first' }],
+  },
   ...RESTRICTION_KEYS
     .filter((def) => def.page === 'policy' && !accessibilityKeys.has(def.key) && def.defaultValue !== undefined)
     .map((def): PresettableSetting => {

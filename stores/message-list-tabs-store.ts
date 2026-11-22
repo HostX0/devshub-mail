@@ -9,6 +9,7 @@
 // The tab strip itself renders natively (components/email/message-list-tabs.tsx)
 // — no plugin iframe involved, per the core contract in lib/plugin-types.ts.
 
+import { inboxCategories, inboxRegistration } from '@/lib/company-inbox-categories';
 import { create } from 'zustand';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 import type { MessageListTab, MessageListTabsConfig } from '@/lib/plugin-types';
@@ -266,7 +267,9 @@ export const useMessageListTabsStore = create<MessageListTabsStore>()((set, get)
     // its query (per-sender override) and re-registering.
     if (target.query) return false;
 
-    const allKeywords = tabs.map((t) => t.keyword).filter((k): k is string => !!k);
+    const allKeywords = get().registrations[inboxRegistration]
+      ? inboxCategories.flatMap(category => 'keyword' in category ? [category.keyword] : [])
+      : tabs.map((t) => t.keyword).filter((k): k is string => !!k);
     const keywordAdded = target.keyword ?? null;
     const keywordsRemoved = allKeywords.filter((k) => k !== keywordAdded);
     if (!keywordAdded && keywordsRemoved.length === 0) return false;

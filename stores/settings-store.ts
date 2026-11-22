@@ -713,6 +713,7 @@ interface SettingsState extends AccessibilitySettings {
   density: Density;
   interfaceLayout: InterfaceLayout;
   mvInboxType: MvInboxType;
+  hiddenInboxCategories: string[];
   // The folded sections of the "Unread first" inbox; per device.
   mvUnreadSectionCollapsed: boolean;
   mvEverythingElseCollapsed: boolean;
@@ -1088,6 +1089,7 @@ const DEFAULT_SETTINGS = {
   density: 'regular' as Density,
   interfaceLayout: 'default' as InterfaceLayout,
   mvInboxType: 'default' as MvInboxType,
+  hiddenInboxCategories: [] as string[],
   mvUnreadSectionCollapsed: false,
   mvEverythingElseCollapsed: false,
   // Settings > Accessibility (lib/accessibility-settings.ts)
@@ -1665,6 +1667,7 @@ export const useSettingsStore = create<SettingsState>()(
           density: state.density,
           interfaceLayout: state.interfaceLayout,
           mvInboxType: state.mvInboxType,
+          hiddenInboxCategories: state.hiddenInboxCategories,
           messageListOrder: state.messageListOrder,
           messageListOrderScope: state.messageListOrderScope,
           dateFormat: state.dateFormat,
