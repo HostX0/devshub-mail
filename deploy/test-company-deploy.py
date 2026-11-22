@@ -117,6 +117,39 @@ class DeploymentBoundaries(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 deploy.copy_artifact(root / 'source', root / 'target')
 
+    def test_preserves_internal_relative_artifact_links_without_dereferencing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / 'source'
+            package = source / 'node_modules/sharp'
+            package.mkdir(parents=True)
+            (package / 'index.js').write_text('package')
+            aliases = source / '.next/node_modules'
+            aliases.mkdir(parents=True)
+            (aliases / 'sharp-hash').symlink_to('../../node_modules/sharp', target_is_directory=True)
+            deploy.copy_artifact(source, root / 'target')
+            copied = root / 'target/.next/node_modules/sharp-hash'
+            self.assertTrue(copied.is_symlink())
+            self.assertEqual(os.readlink(copied), '../../node_modules/sharp')
+            self.assertEqual((copied / 'index.js').read_text(), 'package')
+            self.assertTrue(copied.resolve().is_relative_to(root / 'target'))
+
+    def test_rejects_absolute_escaping_broken_and_circular_artifact_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / 'source'
+            source.mkdir()
+            (source / 'valid').write_text('inside')
+            (root / 'outside').write_text('outside')
+            for destination in [str(source / 'valid'), '../outside', 'missing', 'link', '.']:
+                link = source / 'link'
+                link.symlink_to(destination)
+                with self.subTest(destination=destination):
+                    with self.assertRaises(RuntimeError):
+                        deploy.copy_artifact(source, root / 'target')
+                    self.assertFalse((root / 'target').exists())
+                link.unlink()
+
     def test_copies_regular_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

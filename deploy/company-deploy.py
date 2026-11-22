@@ -114,12 +114,27 @@ def copy_artifact(source, target):
     # build-produced links while copying files with root privileges.
     if any(parent.is_symlink() for parent in source.parents):
         raise RuntimeError('Symlink in build output parent path')
+    if source.is_symlink() or not source.is_dir():
+        raise RuntimeError('Build output root must be a regular directory')
+    artifact_root = source.resolve(strict=True)
     for item in [source, *source.rglob('*')]:
-        if item.is_symlink() or not (item.is_file() or item.is_dir()):
-            raise RuntimeError('Unsupported link or device in build output')
+        if item.is_symlink():
+            # Next emits relative package aliases inside standalone output.
+            # Preserve these links exactly, but never allow a target outside
+            # this artifact (including an absolute, broken, or circular link).
+            link = Path(os.readlink(item))
+            try:
+                resolved = item.resolve(strict=True)
+            except (OSError, RuntimeError):
+                raise RuntimeError('Broken or circular link in build output') from None
+            if link.is_absolute() or artifact_root not in resolved.parents:
+                raise RuntimeError('Build output link escapes its artifact directory')
+            continue
+        if not (item.is_file() or item.is_dir()):
+            raise RuntimeError('Unsupported device in build output')
         if item.is_file() and item.stat().st_nlink != 1:
             raise RuntimeError('Hard link in build output')
-    shutil.copytree(source, target, dirs_exist_ok=True)
+    shutil.copytree(source, target, dirs_exist_ok=True, symlinks=True)
 
 
 def receive_source():
