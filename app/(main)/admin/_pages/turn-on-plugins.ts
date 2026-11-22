@@ -1,3 +1,4 @@
+import { englishExtensionText, type ExtensionTranslator } from './extension-translations';
 import { apiFetch } from '@/lib/browser-navigation';
 import type { SettingsPolicy } from '@/lib/admin/types';
 
@@ -25,6 +26,7 @@ export const TURN_ON_PLUGINS_QUESTION: TurnOnQuestion = {
  */
 export async function offerToTurnOnPlugins(
   ask: (question: TurnOnQuestion) => boolean | Promise<boolean>,
+  tr: ExtensionTranslator = englishExtensionText,
 ): Promise<TurnOnOutcome> {
   try {
     const res = await apiFetch('/api/admin/policy');
@@ -32,7 +34,7 @@ export async function offerToTurnOnPlugins(
     const etag = res.headers.get('ETag');
     const policy = (await res.json()) as SettingsPolicy;
     if (policy.features?.pluginsEnabled) return 'already-on';
-    if (!(await ask(TURN_ON_PLUGINS_QUESTION))) return 'left-off';
+    if (!(await ask({ title: tr(TURN_ON_PLUGINS_QUESTION.title), message: tr(TURN_ON_PLUGINS_QUESTION.message), confirmText: tr(TURN_ON_PLUGINS_QUESTION.confirmText), cancelText: tr(TURN_ON_PLUGINS_QUESTION.cancelText) }))) return 'left-off';
     const saved = await apiFetch('/api/admin/policy', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) },
@@ -57,11 +59,11 @@ export async function pluginsOffForUsers(): Promise<boolean | null> {
 }
 
 /** The line added to the "installed" message for each outcome. */
-export function turnOnNote(outcome: TurnOnOutcome): string {
+export function turnOnNote(outcome: TurnOnOutcome, tr: ExtensionTranslator = englishExtensionText): string {
   switch (outcome) {
-    case 'turned-on': return ' Plugins are now on for users.';
-    case 'left-off': return ' Plugins are still off for users, so it doesn\'t run yet.';
-    case 'failed': return ' Plugins could not be turned on for users; check the Plugins page.';
+    case 'turned-on': return tr(' Plugins are now on for users.');
+    case 'left-off': return tr(' Plugins are still off for users, so it doesn\'t run yet.');
+    case 'failed': return tr(' Plugins could not be turned on for users; check the Plugins page.');
     default: return '';
   }
 }

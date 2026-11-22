@@ -2,26 +2,27 @@
  * The admin panel as it loads (components/admin/admin-shell.tsx): the rail
  * with Admin current, the page list with its group headings, and the
  * content column; on phones the top bar, the page list or a page, and the
- * bottom bar. Page names, group headings and page descriptions are fixed
- * English text in lib/admin/admin-nav.ts, so they are drawn for real; the
+ * bottom bar. Page names, group headings and page descriptions follow the selected
+ * language, so they are drawn for real; the
  * rest is placeholders.
  */
 import { ArrowLeft, ChevronRight, KeyRound, LogOut, Search, Shield } from "@/components/icons";
 import { ADMIN_GROUPS, ADMIN_GROUP_LABELS, ADMIN_PAGE_ICONS } from "@/components/admin/admin-page-icons";
-import { ADMIN_PAGES, type AdminPageDef, type AdminPageId } from "@/lib/admin/admin-nav";
+import { type AdminPageDef, type AdminPageId } from "@/lib/admin/admin-nav";
+import { localizedAdminPages } from "@/lib/admin/admin-nav-i18n";
 import { cn } from "@/lib/cn";
 import { Block, SkeletonRegion, repeat, textWidth } from "./kit";
 import { TextLine } from "./login-skeleton";
 import { BottomBarSkeleton, RailSkeleton, type RailLabels } from "./shell";
 
-const GROUPS = ADMIN_GROUPS.map((group) => ({
+const groupsFor = (isArabic: boolean) => ADMIN_GROUPS.map((group) => ({
   group,
-  label: ADMIN_GROUP_LABELS[group],
-  pages: ADMIN_PAGES.filter((page) => page.group === group),
+  label: isArabic ? { top: null, organisation: "المستخدمون", extensions: "الإضافات", system: "النظام" }[group] : ADMIN_GROUP_LABELS[group],
+  pages: localizedAdminPages(isArabic).filter((page) => page.group === group),
 }));
 
-function pageDef(id: AdminPageId | null | undefined): AdminPageDef | null {
-  return id ? ADMIN_PAGES.find((page) => page.id === id) ?? null : null;
+function pageDef(id: AdminPageId | null | undefined, isArabic = false): AdminPageDef | null {
+  return id ? localizedAdminPages(isArabic).find((page) => page.id === id) ?? null : null;
 }
 
 /** The search field above the page list (an Input at h-9 with the icon inside). */
@@ -42,17 +43,17 @@ function SearchField({ placeholder }: { placeholder?: string }) {
  * shell), so the foot of the list doesn't grow under the pointer then; a
  * Stalwart admin signed in automatically loses them.
  */
-export function AdminSessionLinksSkeleton({ mobile }: { mobile: boolean }) {
+export function AdminSessionLinksSkeleton({ mobile, isArabic = false }: { mobile: boolean; isArabic?: boolean }) {
   const item = cn("flex w-full items-center gap-2.5 rounded-md text-sm text-foreground", mobile ? "px-3 py-2.5" : "px-3 py-2");
   return (
     <>
       <span aria-hidden="true" className={item}>
         <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-        Change password
+        {isArabic ? "تغيير كلمة المرور" : "Change password"}
       </span>
       <span aria-hidden="true" className={item}>
         <LogOut className="h-4 w-4 shrink-0 text-muted-foreground" />
-        Sign out of admin
+        {isArabic ? "تسجيل الخروج من الإدارة" : "Sign out of admin"}
       </span>
     </>
   );
@@ -83,8 +84,8 @@ function AboutFooterSkeleton() {
  * AdminPageHeader); left out, bars. `status` is announced; the boot
  * skeleton leaves it out, its region carries the one status message.
  */
-export function AdminContentSkeleton({ page, status }: { page?: AdminPageId | null; status?: string }) {
-  const def = pageDef(page ?? "dashboard");
+export function AdminContentSkeleton({ page, status, isArabic = false }: { page?: AdminPageId | null; status?: string; isArabic?: boolean }) {
+  const def = pageDef(page ?? "dashboard", isArabic);
   return (
     <div>
       <div aria-hidden="true" className="mb-6 space-y-3">
@@ -143,6 +144,7 @@ export function AdminBodySkeleton({ status }: { status?: string }) {
 }
 
 export interface AdminSkeletonProps {
+  isArabic?: boolean;
   /** common.loading */
   label?: string;
   /**
@@ -160,9 +162,9 @@ export interface AdminSkeletonProps {
   className?: string;
 }
 
-export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, className }: AdminSkeletonProps) {
+export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, className, isArabic = false }: AdminSkeletonProps) {
   const active: AdminPageId | null = page === undefined ? null : page ?? "dashboard";
-  const def = pageDef(page);
+  const def = pageDef(page, isArabic);
   // Phone: the list at /admin, the page below it.
   const showIndex = page === undefined ? "boot-open:hidden" : page === null ? "" : "hidden";
   const showPage = page === undefined ? "hidden boot-open:block" : page === null ? "hidden" : "";
@@ -181,7 +183,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
           <div className="border-b border-border">
             <div className="flex h-14 items-center px-2">
               <span className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-foreground">
-                <ArrowLeft className="me-2 h-4 w-4" />
+                <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
                 {backLabel ?? <TextLine className="flex-1" w="6rem" />}
               </span>
             </div>
@@ -190,7 +192,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
           <div className="flex-1 overflow-hidden py-2">
             <div className="px-3 pb-1 pt-1"><SearchField placeholder={searchLabel} /></div>
             <div className="space-y-0.5 px-2">
-              {GROUPS.map(({ group, label: heading, pages }, groupIndex) => (
+              {groupsFor(isArabic).map(({ group, label: heading, pages }, groupIndex) => (
                 <div key={group}>
                   {groupIndex > 0 && <div className="mx-1 my-2 border-t border-border" />}
                   {heading && (
@@ -221,7 +223,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
           </div>
 
           <div className="border-t border-border px-1 py-1">
-            <div className="space-y-0.5 px-1 py-1"><AdminSessionLinksSkeleton mobile={false} /></div>
+            <div className="space-y-0.5 px-1 py-1"><AdminSessionLinksSkeleton isArabic={isArabic} mobile={false} /></div>
             <AboutFooterSkeleton />
           </div>
         </div>
@@ -232,7 +234,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="mx-auto max-w-3xl px-6 py-6">
-              <AdminContentSkeleton page={page} />
+              <AdminContentSkeleton isArabic={isArabic} page={page} />
             </div>
           </div>
         </div>
@@ -242,11 +244,11 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
       <div className="flex desk:hidden h-full flex-col">
         <div aria-hidden="true" className="flex h-14 shrink-0 items-center gap-1 border-b border-border bg-background px-2">
           <span className="flex h-10 w-10 items-center justify-center rounded-md text-foreground">
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
           </span>
           <div className={cn("flex min-w-0 items-center gap-2", showIndex)}>
             <Shield className="h-5 w-5 text-muted-foreground" />
-            <span className="truncate text-lg font-semibold">Admin</span>
+            <span className="truncate text-lg font-semibold">{isArabic ? "الإدارة" : "Admin"}</span>
           </div>
           <div className={cn("min-w-0 items-center gap-2", page === undefined ? "hidden boot-open:flex" : page === null ? "hidden" : "flex")}>
             {def ? (
@@ -261,7 +263,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
           <div aria-hidden="true" className={showIndex}>
             <div className="px-4 pb-1 pt-3"><SearchField placeholder={searchLabel} /></div>
             <div className="py-2">
-              {GROUPS.map(({ group, label: heading, pages }, groupIndex) => (
+              {groupsFor(isArabic).map(({ group, label: heading, pages }, groupIndex) => (
                 <div key={group}>
                   {groupIndex > 0 && <div className="mx-5 my-2 border-t border-border" />}
                   {heading && (
@@ -278,7 +280,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
                             <Icon className="h-4 w-4 text-muted-foreground" />
                             {p.label}
                           </span>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
                         </span>
                       </div>
                     );
@@ -288,7 +290,7 @@ export function AdminSkeleton({ label, page, backLabel, searchLabel, labels, cla
             </div>
           </div>
           <div className={cn("p-4 pb-6", showPage)}>
-            <AdminContentSkeleton page={page} />
+            <AdminContentSkeleton isArabic={isArabic} page={page} />
           </div>
         </div>
 

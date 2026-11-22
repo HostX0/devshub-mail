@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 const api = vi.hoisted(() => vi.fn());
+vi.mock('@/components/admin/use-admin-i18n', () => ({ useAdminI18n: () => ({ t: (_english: string, arabic: string) => arabic, isArabic: true, locale: 'ar', dir: 'rtl' }) }));
 vi.mock('@/lib/browser-navigation', () => ({ apiFetch: api, withBasePath: (url: string) => url, getPathPrefix: () => '' }));
 import { MailboxesPage } from '../_pages/mailboxes';
 const employee = { id: 'employee', email: 'employee@example.com', displayName: 'Employee', quotaBytes: 1024 ** 3, disabled: false };
@@ -29,8 +30,8 @@ describe('employee mailbox controls', () => {
     expect(JSON.parse(call[1].body)).toEqual({ action: 'update', id: 'employee', displayName: 'Employee', quotaBytes: 1024 ** 3 });
   });
   it('sends disable directly and shows an actionable server error', async () => {
-    api.mockImplementation(async (_path: string, init?: RequestInit) => init?.method === 'POST' ? Response.json({ error: 'Storage unavailable. Refresh and retry.' }, { status: 409 }) : Response.json({ domains: ['example.com'], mailboxes: [employee] }));
+    api.mockImplementation(async (_path: string, init?: RequestInit) => init?.method === 'POST' ? Response.json({ code: 'mailbox_change_failed', error: 'Storage unavailable. Refresh and retry.' }, { status: 409 }) : Response.json({ domains: ['example.com'], mailboxes: [employee] }));
     render(<MailboxesPage />); await screen.findByText('employee@example.com'); fireEvent.click(screen.getByRole('button', { name: 'تعطيل' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Storage unavailable. Refresh and retry.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('تعذّر حفظ التغيير. تحقّق من عنوان البريد والمساحة المتاحة، ثم حدّث الصفحة وحاول مجدداً.');
   });
 });

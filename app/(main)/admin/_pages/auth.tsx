@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Loader2, Sparkles } from '@/components/icons';
 import { apiFetch } from '@/lib/browser-navigation';
 import { adminPageDef } from '@/lib/admin/admin-nav';
@@ -34,6 +37,8 @@ interface ConfigEntry {
 const PAGE = adminPageDef('auth');
 
 export function AuthPage() {
+  const tr = useCoreAdminI18n();
+  const { isArabic } = useAdminI18n();
   const [config, setConfig] = useState<Record<string, ConfigEntry>>({});
   const [edits, setEdits] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
@@ -45,8 +50,10 @@ export function AuthPage() {
   // on focus, since the admin signs in from another tab and comes back.
   const [setupSignIn, setSetupSignIn] = useState<{ signedIn: boolean; username?: string } | null>(null);
 
+  const loadInitial = useEffectEvent(() => { void fetchConfig(); });
+
   useEffect(() => {
-    fetchConfig();
+    loadInitial();
     apiFetch('/api/setup/status')
       .then(res => (res.ok ? res.json() : null))
       .then(data => setConfigReadOnly(data?.readOnly === true))
@@ -70,7 +77,7 @@ export function AuthPage() {
       if (!res.ok) throw new Error();
       setConfig(await res.json());
     } catch {
-      setMessage({ type: 'error', text: 'Could not load the settings' });
+      setMessage({ type: 'error', text: tr("Could not load the settings") });
     }
     setLoading(false);
   }
@@ -97,12 +104,12 @@ export function AuthPage() {
     });
 
     if (res.ok) {
-      setMessage({ type: 'success', text: 'Authentication settings saved.' });
+      setMessage({ type: 'success', text: tr("Authentication settings saved.") });
       setEdits({});
       await fetchConfig();
     } else {
       const data = await res.json();
-      setMessage({ type: 'error', text: data.error || 'Failed to save' });
+      setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Failed to save") }) });
     }
     setSaving(false);
   }
@@ -184,16 +191,16 @@ export function AuthPage() {
       const data = await res.json();
       if (data.needsAdminCredential) setSetupNeedsCredential(true);
       if (res.ok) {
-        setMessage({ type: 'success', text: oauthSetupSuccessMessage(data) });
+        setMessage({ type: 'success', text: isArabic ? `اكتمل إعداد تسجيل الدخول. سُجلت عناوين العودة (${data.redirectUriCount ?? 0}). يلزم تسجيل الدخول مجددًا لكل المستخدمين.${data.mobileClient === 'failed' ? ' تعذّر إعداد عميل الهاتف؛ سيسجّل التطبيق عميله تلقائيًا دون صلاحية إعدادات الحساب.' : ''}${Array.isArray(data.stalwartScopes) && !data.stalwartScopes.includes('urn:stalwart:oauth:scope:full') ? ' صلاحيات الدخول الموحد محدودة بإعدادات الحساب والأمان؛ لا تتيح لوحة الإدارة.' : ''}` : oauthSetupSuccessMessage(data) });
         setEdits({});
         closeSetupDialog();
         await fetchConfig();
       } else {
         const detail = data.detail ? ` (${typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail).slice(0, 200)})` : '';
-        setMessage({ type: 'error', text: (data.error || 'Setup failed') + detail });
+        setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Setup failed") }) + (isArabic ? '' : detail) });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Setup failed' });
+      setMessage({ type: 'error', text: err instanceof Error ? tr(err.message, { fallback: tr("Setup failed") }) : tr("Setup failed") });
     } finally {
       setSetupRunning(false);
     }
@@ -221,15 +228,15 @@ export function AuthPage() {
   if (loading) {
     return (
       <div>
-        <AdminPageHeader title={PAGE.label} description={PAGE.description} />
-        <AdminBodySkeleton status="Loading" />
+        <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
+        <AdminBodySkeleton status={tr("Loading")} />
       </div>
     );
   }
 
   return (
     <div>
-      <AdminPageHeader title={PAGE.label} description={PAGE.description} />
+      <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
 
       {/* The shared dialog: focus moved in and given back, Tab kept inside,
           Escape and an outside click close it unless setup is running. */}
@@ -238,13 +245,11 @@ export function AuthPage() {
         onClose={() => { if (!setupRunning) closeSetupDialog(); }}
         preventOutsideClose={setupRunning}
         showClose={!setupRunning}
-        title="Auto-configure OAuth"
-        description="Verify the URLs below before continuing. The webmail and Stalwart can live on different domains."
+        title={tr("Auto-configure OAuth")}
+        description={tr("Verify the URLs below before continuing. The webmail and Stalwart can live on different domains.")}
         footer={
           <>
-            <Button type="button" variant="outline" size="sm" onClick={closeSetupDialog} disabled={setupRunning}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={closeSetupDialog} disabled={setupRunning}>{' '}{tr("Cancel")}{' '}</Button>
             <Button
               type="button"
               size="sm"
@@ -253,16 +258,14 @@ export function AuthPage() {
               disabled={setupRunning || !setupOriginValid || !setupIssuerValid || !setupCredentialReady}
             >
               {setupRunning ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Sparkles className="w-4 h-4" aria-hidden="true" />}
-              {setupRunning ? 'Configuring…' : 'Configure'}
+              {setupRunning ? tr("Configuring…") : tr("Configure")}
             </Button>
           </>
         }
       >
         <div className="mt-4 space-y-4 [overflow-wrap:anywhere]">
           <div>
-            <label htmlFor="setup-origin" className="block text-xs font-medium text-foreground mb-1">
-              Webmail origin
-            </label>
+            <label htmlFor="setup-origin" className="block text-xs font-medium text-foreground mb-1">{' '}{tr("Webmail origin")}{' '}</label>
             <input
               id="setup-origin"
               type="url"
@@ -272,17 +275,13 @@ export function AuthPage() {
               placeholder="https://webmail.example.com"
               className={cn(inputClass, 'w-full')}
             />
-            <p className="text-[0.6875rem] text-muted-foreground mt-1">
-              Used to register redirect URIs (one per locale: <code>{setupOrigin.trim().replace(/\/+$/, '') || 'https://…'}{(process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/+$/, '')}/&lt;locale&gt;/auth/callback</code>) on Stalwart, and <code>/login</code> as the page signing out returns to.
-            </p>
+            <p className="text-[0.6875rem] text-muted-foreground mt-1">{' '}{tr("Used to register redirect URIs (one per locale:")}{' '}<code>{setupOrigin.trim().replace(/\/+$/, '') || 'https://…'}{(process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/+$/, '')}/&lt;locale&gt;/auth/callback</code>{tr(") on Stalwart, and")}{' '}<code>/login</code>{' '}{tr("as the page signing out returns to.")}{' '}</p>
             {!setupOriginValid && setupOrigin.length > 0 && (
-              <p className="text-[0.6875rem] text-destructive mt-1">Must be like https://host with no path.</p>
+              <p className="text-[0.6875rem] text-destructive mt-1">{tr("Must be like https://host with no path.")}</p>
             )}
           </div>
           <div>
-            <label htmlFor="setup-issuer" className="block text-xs font-medium text-foreground mb-1">
-              Stalwart issuer URL
-            </label>
+            <label htmlFor="setup-issuer" className="block text-xs font-medium text-foreground mb-1">{' '}{tr("Stalwart issuer URL")}{' '}</label>
             <input
               id="setup-issuer"
               type="url"
@@ -296,14 +295,13 @@ export function AuthPage() {
               placeholder="https://mail.example.com"
               className={cn(inputClass, 'w-full')}
             />
-            <p className="text-[0.6875rem] text-muted-foreground mt-1">
-              Where Stalwart serves <code>/.well-known/oauth-authorization-server</code>. Saved as <code>OAUTH_ISSUER_URL</code>.{' '}
+            <p className="text-[0.6875rem] text-muted-foreground mt-1">{' '}{tr("Where Stalwart serves")}{' '}<code>/.well-known/oauth-authorization-server</code>{tr(". Saved as")}{' '}<code>OAUTH_ISSUER_URL</code>.{' '}
               {setupIssuerDiscovered
-                ? 'Pre-filled with the issuer your Stalwart server names in its discovery document.'
-                : 'Pre-filled from your JMAP server URL.'}
+                ? tr("Pre-filled with the issuer your Stalwart server names in its discovery document.")
+                : tr("Pre-filled from your JMAP server URL.")}
             </p>
             {!setupIssuerValid && setupIssuer.length > 0 && (
-              <p className="text-[0.6875rem] text-destructive mt-1">Must be like https://host with no path.</p>
+              <p className="text-[0.6875rem] text-destructive mt-1">{tr("Must be like https://host with no path.")}</p>
             )}
           </div>
           <label className="inline-flex items-center gap-2 text-xs text-foreground select-none cursor-pointer">
@@ -313,24 +311,19 @@ export function AuthPage() {
               onChange={(e) => setSetupOauthOnly(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-input"
               disabled={setupRunning}
-            />
-            Also enable “OAuth only” (hide password login)
-          </label>
+            />{' '}{tr("Also enable “OAuth only” (hide password login)")}{' '}</label>
           {setupNeedsCredential && (
             <div className="space-y-3 rounded-md border border-border p-3">
               <div>
-                <p className="text-xs font-medium text-foreground">Stalwart admin sign-in</p>
+                <p className="text-xs font-medium text-foreground">{tr("Stalwart admin sign-in")}</p>
                 <p className="text-[0.6875rem] text-muted-foreground mt-1">
                   {setupSignIn?.signedIn === false
-                    ? 'No mail account is signed in to this webmail in this browser, so the setup signs in to Stalwart as an admin instead.'
-                    : 'Since Stalwart 1.0.3 the webmail session can’t manage OAuth clients, so the setup signs in to Stalwart once as an admin.'}
-                  {' '}Sent only to your configured Stalwart server for this setup, and not stored.
-                </p>
+                    ? tr("No mail account is signed in to this webmail in this browser, so the setup signs in to Stalwart as an admin instead.")
+                    : tr("Since Stalwart 1.0.3 the webmail session can’t manage OAuth clients, so the setup signs in to Stalwart once as an admin.")}
+                  {' '}{tr("Sent only to your configured Stalwart server for this setup, and not stored.")}{' '}</p>
               </div>
               <div>
-                <label htmlFor="setup-stalwart-username" className="block text-xs font-medium text-foreground mb-1">
-                  Stalwart username
-                </label>
+                <label htmlFor="setup-stalwart-username" className="block text-xs font-medium text-foreground mb-1">{' '}{tr("Stalwart username")}{' '}</label>
                 <input
                   id="setup-stalwart-username"
                   type="text"
@@ -343,9 +336,7 @@ export function AuthPage() {
                 />
               </div>
               <div>
-                <label htmlFor="setup-stalwart-secret" className="block text-xs font-medium text-foreground mb-1">
-                  Password, app password or API key
-                </label>
+                <label htmlFor="setup-stalwart-secret" className="block text-xs font-medium text-foreground mb-1">{' '}{tr("Password, app password or API key")}{' '}</label>
                 <input
                   id="setup-stalwart-secret"
                   type="password"
@@ -355,14 +346,11 @@ export function AuthPage() {
                   disabled={setupRunning}
                   className={cn(inputClass, 'w-full')}
                 />
-                <p className="text-[0.6875rem] text-muted-foreground mt-1">
-                  With two-factor authentication on, the password alone won’t work: create an app password in Stalwart under <code>/account</code> &gt; Credentials, use it here, and delete it after the setup. An API key works too and needs no username.
-                </p>
+                <p className="text-[0.6875rem] text-muted-foreground mt-1">{' '}{tr("With two-factor authentication on, the password alone won’t work: create an app password in Stalwart under")}{' '}<code>/account</code>{' '}{tr("> Credentials, use it here, and delete it after the setup. An API key works too and needs no username.")}{' '}</p>
               </div>
             </div>
           )}
-          <p className="text-[0.6875rem] text-muted-foreground">
-            On Stalwart 1.0 this also registers a client for Bulwark Mobile: <code>bulwark-mobile</code>, no secret, redirect URI <code>org.bulwarkmail.mobile:/auth/callback</code>.
+          <p className="text-[0.6875rem] text-muted-foreground">{' '}{tr("On Stalwart 1.0 this also registers a client for Bulwark Mobile:")}{' '}<code>bulwark-mobile</code>{tr(", no secret, redirect URI")}{' '}<code>org.bulwarkmail.mobile:/auth/callback</code>.
           </p>
         </div>
       </Dialog>
@@ -370,64 +358,60 @@ export function AuthPage() {
       <div className="space-y-10">
         <SectionNav />
 
-        <SettingsSection id="oauth" title="OAuth / OpenID Connect" term="oauth">
+        <SettingsSection id="oauth" title={tr("OAuth / OpenID Connect")} term="oauth">
           <SettingItem
-            label="Set up with Stalwart"
-            description="Registers an OAuth client on the connected Stalwart server, generates a client secret, and saves the settings here. Requires your Stalwart account to have admin permissions."
+            label={tr("Set up with Stalwart")}
+            description={tr("Registers an OAuth client on the connected Stalwart server, generates a client secret, and saves the settings here. Requires your Stalwart account to have admin permissions.")}
           >
             <div className="flex flex-col items-start gap-1 sm:items-end">
               <Button type="button" size="sm" className="gap-2" onClick={openSetupDialog} disabled={setupRunning || configReadOnly}>
                 {setupRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {setupRunning ? 'Configuring…' : 'Set up with Stalwart'}
+                {setupRunning ? tr("Configuring…") : tr("Set up with Stalwart")}
               </Button>
               {configReadOnly && (
-                <p className="text-xs text-destructive">
-                  Not available while the configuration is read-only (ADMIN_CONFIG_READONLY).
-                </p>
+                <p className="text-xs text-destructive">{' '}{tr("Not available while the configuration is read-only (ADMIN_CONFIG_READONLY).")}{' '}</p>
               )}
               {!configReadOnly && setupSignIn?.signedIn === false && (
-                <p className="max-w-xs text-xs text-muted-foreground sm:text-end">
-                  No mail account is signed in to{' '}
-                  <a href="/" target="_blank" rel="noopener" className="text-primary hover:underline">this webmail</a>
-                  {' '}in this browser, so the setup asks for a Stalwart admin sign-in.
-                </p>
+                <p className="max-w-xs text-xs text-muted-foreground sm:text-end">{' '}{tr("No mail account is signed in to")}{' '}
+                  <a href="/" target="_blank" rel="noopener" className="text-primary hover:underline">{tr("this webmail")}</a>
+                  {' '}{tr("in this browser, so the setup asks for a Stalwart admin sign-in.")}{' '}</p>
               )}
               {!configReadOnly && setupSignIn?.signedIn && setupSignIn.username && (
-                <p className="text-xs text-muted-foreground">Runs as {setupSignIn.username}</p>
+                <p className="text-xs text-muted-foreground">{tr("Runs as")}{' '}{setupSignIn.username}</p>
               )}
             </div>
           </SettingItem>
-          <ConfigToggleItem label="Enabled" configKey="oauthEnabled" value={currentValue('oauthEnabled') as boolean} source={config.oauthEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigToggleItem label="OAuth only" description="Hide password login form when enabled" configKey="oauthOnly" value={currentValue('oauthOnly') as boolean} source={config.oauthOnly?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigToggleItem label="Password fallback" description={'With OAuth only: show a "Sign in with a password" link under the SSO button and allow password sign-in. For SSO deployments whose accounts also have local passwords.'} configKey="oauthPasswordFallbackEnabled" value={currentValue('oauthPasswordFallbackEnabled') as boolean} source={config.oauthPasswordFallbackEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigTextItem label="Client ID" configKey="oauthClientId" value={currentValue('oauthClientId') as string} source={config.oauthClientId?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigTextItem label="Client secret" configKey="oauthClientSecret" value={currentValue('oauthClientSecret') as string} source={config.oauthClientSecret?.source} onChange={handleChange} onRevert={handleRevert} type="password" placeholder={config.oauthClientSecret?.hasValue ? '••••••••  (saved - type to replace)' : undefined} />
-          <ConfigTextItem label="Issuer URL" configKey="oauthIssuerUrl" value={currentValue('oauthIssuerUrl') as string} source={config.oauthIssuerUrl?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://auth.example.com" wide />
-          <ConfigToggleItem label="Allow private endpoints" description="Permit discovered endpoints on other hosts to resolve to RFC-1918 / loopback addresses. Endpoints on the issuer's own host are always allowed, so split-DNS setups rarely need this." configKey="oauthAllowPrivateEndpoints" value={currentValue('oauthAllowPrivateEndpoints') as boolean} source={config.oauthAllowPrivateEndpoints?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigTextItem label="Scopes" description={`Space-separated scopes that replace the defaults (${DEFAULT_OAUTH_SCOPES}). Leave blank to use them. offline_access is not requested by default; add it here or under Extra Scopes if your provider only issues refresh tokens for it, or sessions end when the access token expires.`} configKey="oauthScopes" value={currentValue('oauthScopes') as string} source={config.oauthScopes?.source} onChange={handleChange} onRevert={handleRevert} placeholder={DEFAULT_OAUTH_SCOPES} wide />
-          <ConfigTextItem label="Extra scopes" description={`Additional space-separated scopes appended to the defaults (${DEFAULT_OAUTH_SCOPES}). Ignored when OAuth Scopes is set.`} configKey="oauthExtraScopes" value={currentValue('oauthExtraScopes') as string} source={config.oauthExtraScopes?.source} onChange={handleChange} onRevert={handleRevert} placeholder="urn:ietf:params:oauth:..." wide />
-          <ConfigTextItem label="Resource" description="RFC 8707 resource indicator sent with the authorization request, for providers that issue access tokens per API (Pocket ID, for example). The token's audience is then this resource, usually the mail server's URL. Must be an absolute URI without a fragment. Not sent when signing in to a server entry with its own provider." configKey="oauthResource" value={currentValue('oauthResource') as string} source={config.oauthResource?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://mail.example.com" wide />
+          <ConfigToggleItem label={tr("Enabled")} configKey="oauthEnabled" value={currentValue('oauthEnabled') as boolean} source={config.oauthEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigToggleItem label={tr("OAuth only")} description={tr("Hide password login form when enabled")} configKey="oauthOnly" value={currentValue('oauthOnly') as boolean} source={config.oauthOnly?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigToggleItem label={tr("Password fallback")} description={tr("With OAuth only: show a \"Sign in with a password\" link under the SSO button and allow password sign-in. For SSO deployments whose accounts also have local passwords.")} configKey="oauthPasswordFallbackEnabled" value={currentValue('oauthPasswordFallbackEnabled') as boolean} source={config.oauthPasswordFallbackEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigTextItem label={tr("Client ID")} configKey="oauthClientId" value={currentValue('oauthClientId') as string} source={config.oauthClientId?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigTextItem label={tr("Client secret")} configKey="oauthClientSecret" value={currentValue('oauthClientSecret') as string} source={config.oauthClientSecret?.source} onChange={handleChange} onRevert={handleRevert} type="password" placeholder={config.oauthClientSecret?.hasValue ? tr("•••••••• (saved - type to replace)") : undefined} />
+          <ConfigTextItem label={tr("Issuer URL")} configKey="oauthIssuerUrl" value={currentValue('oauthIssuerUrl') as string} source={config.oauthIssuerUrl?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://auth.example.com" wide />
+          <ConfigToggleItem label={tr("Allow private endpoints")} description={tr("Permit discovered endpoints on other hosts to resolve to RFC-1918 / loopback addresses. Endpoints on the issuer's own host are always allowed, so split-DNS setups rarely need this.")} configKey="oauthAllowPrivateEndpoints" value={currentValue('oauthAllowPrivateEndpoints') as boolean} source={config.oauthAllowPrivateEndpoints?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigTextItem label={tr("Scopes")} description={tr("Space-separated scopes that replace the defaults ({0}). Leave blank to use them. offline_access is not requested by default; add it here or under Extra Scopes if your provider only issues refresh tokens for it, or sessions end when the access token expires.", { 0: DEFAULT_OAUTH_SCOPES })} configKey="oauthScopes" value={currentValue('oauthScopes') as string} source={config.oauthScopes?.source} onChange={handleChange} onRevert={handleRevert} placeholder={DEFAULT_OAUTH_SCOPES} wide />
+          <ConfigTextItem label={tr("Extra scopes")} description={tr("Additional space-separated scopes appended to the defaults ({0}). Ignored when OAuth Scopes is set.", { 0: DEFAULT_OAUTH_SCOPES })} configKey="oauthExtraScopes" value={currentValue('oauthExtraScopes') as string} source={config.oauthExtraScopes?.source} onChange={handleChange} onRevert={handleRevert} placeholder="urn:ietf:params:oauth:..." wide />
+          <ConfigTextItem label={tr("Resource")} description={tr("RFC 8707 resource indicator sent with the authorization request, for providers that issue access tokens per API (Pocket ID, for example). The token's audience is then this resource, usually the mail server's URL. Must be an absolute URI without a fragment. Not sent when signing in to a server entry with its own provider.")} configKey="oauthResource" value={currentValue('oauthResource') as string} source={config.oauthResource?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://mail.example.com" wide />
         </SettingsSection>
 
-        <SettingsSection id="sso" title="Single sign-on">
-          <ConfigToggleItem label="Auto SSO" description="Automatically redirect to SSO provider on load" configKey="autoSsoEnabled" value={currentValue('autoSsoEnabled') as boolean} source={config.autoSsoEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigToggleItem label="End provider session on sign-out" description="Signing out of an SSO account also signs out of the identity provider, when it advertises an end_session_endpoint or a logout URL is set below. Turn off if the provider is shared with apps that should stay signed in." configKey="oauthEndSession" value={currentValue('oauthEndSession') as boolean} source={config.oauthEndSession?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigToggleItem label="Revoke tokens on sign-out" description="Signing out asks the identity provider to revoke Bulwark's refresh token. On Stalwart 1.0 this also removes Bulwark from the user's connected applications, so the next sign-in asks for consent again. Turn off to keep the consent; the token then stays valid at the provider until it expires." configKey="oauthRevokeOnSignOut" value={currentValue('oauthRevokeOnSignOut') as boolean} source={config.oauthRevokeOnSignOut?.source} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigTextItem label="Provider logout URL" description="For providers whose discovery has no end_session_endpoint, such as Stalwart. Used instead of the discovered endpoint when set, with the same parameters. Must be https. Applies to the global OAuth settings; servers in the server list set their own." configKey="oauthEndSessionUrl" value={currentValue('oauthEndSessionUrl') as string} source={config.oauthEndSessionUrl?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://auth.example.com/logout" wide />
-          <ConfigTextItem label="Post-logout redirect URI" description="Where the provider sends users after signing them out. Register it with the provider as a post-logout redirect URI first, or it will refuse the logout. Leave blank to stay on the provider's signed-out page. Set up with Stalwart registers and fills in this webmail's login page when it is empty." configKey="oauthPostLogoutRedirectUri" value={currentValue('oauthPostLogoutRedirectUri') as string} source={config.oauthPostLogoutRedirectUri?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://mail.example.com/en/login" wide />
+        <SettingsSection id="sso" title={tr("Single sign-on")}>
+          <ConfigToggleItem label={tr("Auto SSO")} description={tr("Automatically redirect to SSO provider on load")} configKey="autoSsoEnabled" value={currentValue('autoSsoEnabled') as boolean} source={config.autoSsoEnabled?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigToggleItem label={tr("End provider session on sign-out")} description={tr("Signing out of an SSO account also signs out of the identity provider, when it advertises an end_session_endpoint or a logout URL is set below. Turn off if the provider is shared with apps that should stay signed in.")} configKey="oauthEndSession" value={currentValue('oauthEndSession') as boolean} source={config.oauthEndSession?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigToggleItem label={tr("Revoke tokens on sign-out")} description={tr("Signing out asks the identity provider to revoke Bulwark's refresh token. On Stalwart 1.0 this also removes Bulwark from the user's connected applications, so the next sign-in asks for consent again. Turn off to keep the consent; the token then stays valid at the provider until it expires.")} configKey="oauthRevokeOnSignOut" value={currentValue('oauthRevokeOnSignOut') as boolean} source={config.oauthRevokeOnSignOut?.source} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigTextItem label={tr("Provider logout URL")} description={tr("For providers whose discovery has no end_session_endpoint, such as Stalwart. Used instead of the discovered endpoint when set, with the same parameters. Must be https. Applies to the global OAuth settings; servers in the server list set their own.")} configKey="oauthEndSessionUrl" value={currentValue('oauthEndSessionUrl') as string} source={config.oauthEndSessionUrl?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://auth.example.com/logout" wide />
+          <ConfigTextItem label={tr("Post-logout redirect URI")} description={tr("Where the provider sends users after signing them out. Register it with the provider as a post-logout redirect URI first, or it will refuse the logout. Leave blank to stay on the provider's signed-out page. Set up with Stalwart registers and fills in this webmail's login page when it is empty.")} configKey="oauthPostLogoutRedirectUri" value={currentValue('oauthPostLogoutRedirectUri') as string} source={config.oauthPostLogoutRedirectUri?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://mail.example.com/en/login" wide />
         </SettingsSection>
 
-        <SettingsSection id="admin-access" title="Admin access">
+        <SettingsSection id="admin-access" title={tr("Admin access")}>
           <ConfigSelectItem
-            label="Stalwart admin accounts"
-            description="What a Stalwart admin account grants in this dashboard. “Automatic” signs Stalwart admins in without the admin password; “Password required” keeps the shield but asks for the admin password; “Off” ignores Stalwart admin status entirely. The last two need an admin password to be configured."
+            label={tr("Stalwart admin accounts")}
+            description={tr("What a Stalwart admin account grants in this dashboard. “Automatic” signs Stalwart admins in without the admin password; “Password required” keeps the shield but asks for the admin password; “Off” ignores Stalwart admin status entirely. The last two need an admin password to be configured.")}
             configKey="stalwartAdminAccess"
             value={currentValue('stalwartAdminAccess') as string}
             source={config.stalwartAdminAccess?.source}
             options={[
-              { value: 'auto', label: 'Automatic (no password)' },
-              { value: 'password', label: 'Password required' },
-              { value: 'off', label: 'Off (separate admins)' },
+              { value: 'auto', label: tr("Automatic (no password)") },
+              { value: 'password', label: tr("Password required") },
+              { value: 'off', label: tr("Off (separate admins)") },
             ]}
             onChange={handleChange}
             onRevert={handleRevert}
@@ -442,10 +426,10 @@ export function AuthPage() {
           />
         </SettingsSection>
 
-        <SettingsSection id="session" title="Session and security">
-          <ConfigSelectItem label="Cookie SameSite" description="When the browser sends the sign-in cookies with requests from other sites. Lax suits most setups; None is needed when Bulwark is embedded in another site, and Strict blocks links into Bulwark from elsewhere." configKey="cookieSameSite" value={currentValue('cookieSameSite') as string} source={config.cookieSameSite?.source} options={['lax', 'strict', 'none']} onChange={handleChange} onRevert={handleRevert} />
-          <ConfigTextItem label="Allowed frame ancestors" configKey="allowedFrameAncestors" value={currentValue('allowedFrameAncestors') as string} source={config.allowedFrameAncestors?.source} onChange={handleChange} onRevert={handleRevert} placeholder="'none' or https://..." wide />
-          <ConfigTextItem label="Parent origin" description="For embedded mode communication" configKey="parentOrigin" value={currentValue('parentOrigin') as string} source={config.parentOrigin?.source} onChange={handleChange} onRevert={handleRevert} />
+        <SettingsSection id="session" title={tr("Session and security")}>
+          <ConfigSelectItem label={tr("Cookie SameSite")} description={tr("When the browser sends the sign-in cookies with requests from other sites. Lax suits most setups; None is needed when Bulwark is embedded in another site, and Strict blocks links into Bulwark from elsewhere.")} configKey="cookieSameSite" value={currentValue('cookieSameSite') as string} source={config.cookieSameSite?.source} options={['lax', 'strict', 'none']} onChange={handleChange} onRevert={handleRevert} />
+          <ConfigTextItem label={tr("Allowed frame ancestors")} configKey="allowedFrameAncestors" value={currentValue('allowedFrameAncestors') as string} source={config.allowedFrameAncestors?.source} onChange={handleChange} onRevert={handleRevert} placeholder={tr("'none' or https://...")} wide />
+          <ConfigTextItem label={tr("Parent origin")} description={tr("For embedded mode communication")} configKey="parentOrigin" value={currentValue('parentOrigin') as string} source={config.parentOrigin?.source} onChange={handleChange} onRevert={handleRevert} />
         </SettingsSection>
       </div>
 
@@ -454,7 +438,7 @@ export function AuthPage() {
         saving={saving}
         onSave={handleSave}
         onDiscard={() => setEdits({})}
-        note="Takes effect on the next page load"
+        note={tr("Takes effect on the next page load")}
       />
     </div>
   );

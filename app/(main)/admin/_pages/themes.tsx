@@ -1,5 +1,6 @@
 'use client';
 
+import { useExtensionI18n, extensionError } from './extension-translations';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, Loader2, SwatchBook, Lock, Store, Power, PowerOff } from '@/components/icons';
 import type { ColorMode, SettingsPolicy, ThemePolicy } from '@/lib/admin/types';
@@ -38,6 +39,7 @@ function withThemeDefaults(data: SettingsPolicy): SettingsPolicy {
 }
 
 export function ThemesPage() {
+  const tr = useExtensionI18n();
   const [themes, setThemes] = useState<ExtensionEntry[]>([]);
   const iconFor = useExtensionIcons();
   const [loading, setLoading] = useState(true);
@@ -60,11 +62,11 @@ export function ThemesPage() {
       setThemes(await res.json());
     } catch {
       setLoadFailed(true);
-      setMessage({ type: 'error', text: 'Could not load the themes' });
+      setMessage({ type: 'error', text: tr("Could not load the themes") });
     } finally {
       setLoading(false);
     }
-  }, [setMessage]);
+  }, [setMessage, tr]);
 
   const fetchPolicy = useCallback(async () => {
     try {
@@ -78,7 +80,8 @@ export function ThemesPage() {
     } catch { /* the defaults stay */ }
   }, []);
 
-  useEffect(() => { fetchThemes(); fetchPolicy(); }, [fetchThemes, fetchPolicy]);
+  useEffect(() => { fetchThemes(); }, [fetchThemes]);
+  useEffect(() => { fetchPolicy(); }, [fetchPolicy]);
 
   const policyDirty =
     JSON.stringify(policy.themePolicy) !== JSON.stringify(savedPolicy.themePolicy) ||
@@ -176,9 +179,9 @@ export function ThemesPage() {
         return null;
       }
       const data = await res.json().catch(() => ({}));
-      return data.error || 'Could not save the theme policy';
+      return extensionError(data.error, tr("Could not save the theme policy"), tr);
     } catch {
-      return 'Could not save the theme policy';
+      return tr("Could not save the theme policy");
     }
   }
 
@@ -197,8 +200,8 @@ export function ThemesPage() {
     }
     setSavingPolicy(false);
     setMessage(errors.length > 0
-      ? { type: 'error', text: `Couldn't save everything. ${errors.join('; ')}` }
-      : { type: 'success', text: 'Themes saved. Users get the change when they next open or reload Bulwark.' });
+      ? { type: 'error', text: tr("Couldn't save everything. {0}", errors.join('; ')) }
+      : { type: 'success', text: tr("Themes saved. Users get the change when they next open or reload Bulwark.") });
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -212,14 +215,14 @@ export function ThemesPage() {
       const res = await apiFetch('/api/admin/themes', { method: 'POST', body: formData });
       const data = await res.json();
       if (res.ok) {
-        const warnings = data.warnings?.length ? ` (${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'})` : '';
-        setMessage({ type: 'success', text: `"${data.theme.name}" installed${warnings}` });
+        const warnings = data.warnings?.length ? tr(" ({0} warning{1})", data.warnings.length, data.warnings.length === 1 ? '' : 's') : '';
+        setMessage({ type: 'success', text: tr("\"{0}\" installed{1}", data.theme.name, warnings) });
         await fetchThemes();
       } else {
-        setMessage({ type: 'error', text: data.error || 'Upload failed' });
+        setMessage({ type: 'error', text: extensionError(data.error, tr("Upload failed"), tr) });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Upload failed' });
+      setMessage({ type: 'error', text: tr("Upload failed") });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -238,7 +241,7 @@ export function ThemesPage() {
       return null;
     }
     const data = await res.json().catch(() => ({}));
-    return data.error || 'Could not change the theme';
+    return extensionError(data.error, tr("Could not change the theme"), tr);
   }
 
   function setAll(enabled: boolean) {
@@ -261,12 +264,10 @@ export function ThemesPage() {
           <>
             <AdminButtonLink href={adminPath('marketplace')}>
               <Store className="h-4 w-4" />
-              Marketplace
-            </AdminButtonLink>
+              {tr(" Marketplace ")}</AdminButtonLink>
             <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload theme
-              <input
+              {tr(" Upload theme ")}<input
                 ref={fileInputRef}
                 type="file"
                 accept=".zip"
@@ -283,30 +284,27 @@ export function ThemesPage() {
       <div className="space-y-10">
         <SettingsSection
           id="installed"
-          title="Installed themes"
-          description={loading || themes.length === 0 ? undefined : `${enabledCount} of ${themes.length} enabled. The switch turns a theme on or off for everyone.`}
+          title={tr("Installed themes")}
+          description={loading || themes.length === 0 ? undefined : tr("{0} of {1} enabled. The switch turns a theme on or off for everyone.", enabledCount, themes.length)}
         >
           {loading ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-              <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-            </div>
+              <Loader2 className="me-2 h-4 w-4 animate-spin" /> {tr(" Loading ")}</div>
           ) : themes.length === 0 ? (
             <EmptyState
               icon={SwatchBook}
-              title={loadFailed ? 'Could not load the themes' : 'No themes installed'}
-              hint={loadFailed ? undefined : 'Install one from the marketplace or upload a theme ZIP.'}
-              action={<AdminButtonLink href={adminPath('marketplace')}><Store className="h-4 w-4" /> Browse the marketplace</AdminButtonLink>}
+              title={loadFailed ? tr("Could not load the themes") : tr("No themes installed")}
+              hint={loadFailed ? undefined : tr("Install one from the marketplace or upload a theme ZIP.")}
+              action={<AdminButtonLink href={adminPath('marketplace')}><Store className="h-4 w-4" /> {tr(" Browse the marketplace")}</AdminButtonLink>}
             />
           ) : (
             <>
               {themes.length > 1 && (
                 <div className="flex items-center justify-end gap-1">
                   <Button variant="ghost" size="xs" className="gap-1.5 text-xs" disabled={savingPolicy || enabledCount === themes.length} onClick={() => setAll(true)}>
-                    <Power className="h-3.5 w-3.5" /> Enable all
-                  </Button>
+                    <Power className="h-3.5 w-3.5" /> {tr(" Enable all ")}</Button>
                   <Button variant="ghost" size="xs" className="gap-1.5 text-xs" disabled={savingPolicy || enabledCount === 0} onClick={() => setAll(false)}>
-                    <PowerOff className="h-3.5 w-3.5" /> Disable all
-                  </Button>
+                    <PowerOff className="h-3.5 w-3.5" /> {tr(" Disable all ")}</Button>
                 </div>
               )}
               <AdminList>
@@ -320,16 +318,16 @@ export function ThemesPage() {
                     titleExtra={(
                       <>
                         <span className="text-xs text-muted-foreground">v{theme.version}</span>
-                        {!theme.enabled && <Badge>Off</Badge>}
-                        {theme.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>Forced on</Badge>}
+                        {!theme.enabled && <Badge>{tr("Off")}</Badge>}
+                        {theme.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>{tr("Forced on")}</Badge>}
                       </>
                     )}
                     description={theme.description}
                     meta={(
                       <>
-                        by {theme.author || 'unknown'}
+                        {tr(" by ")}{theme.author || tr("unknown")}
                         {theme.variants && theme.variants.length > 0 && <> &middot; {theme.variants.join(', ')}</>}
-                        {theme.source?.kind === 'marketplace' && <> &middot; Marketplace</>}
+                        {theme.source?.kind === 'marketplace' && <> {tr(" &middot; Marketplace")}</>}
                       </>
                     )}
                     control={(
@@ -337,7 +335,7 @@ export function ThemesPage() {
                         checked={isOn(theme)}
                         disabled={savingPolicy}
                         onChange={(checked) => { setMessage(null); setEnabledDraft((prev) => ({ ...prev, [theme.id]: checked })); }}
-                        ariaLabel={`${theme.name} enabled`}
+                        ariaLabel={tr("{0} enabled", theme.name)}
                       />
                     )}
                   />
@@ -347,19 +345,19 @@ export function ThemesPage() {
           )}
         </SettingsSection>
 
-        <SettingsSection id="policy" title="Theme policy" description="Control theme availability and defaults for users.">
-          <SettingItem label="Themes" description="Allow users to select and apply themes">
+        <SettingsSection id="policy" title={tr("Theme policy")} description={tr("Control theme availability and defaults for users.")}>
+          <SettingItem label={tr("Themes")} description={tr("Allow users to select and apply themes")}>
             <ToggleSwitch checked={themesEnabled} onChange={(v) => setFeature('themesEnabled', v)} />
           </SettingItem>
-          <SettingItem label="Default theme" description="Theme applied when users have not chosen one">
+          <SettingItem label={tr("Default theme")} description={tr("Theme applied when users have not chosen one")}>
             <select
               value={policy.themePolicy?.defaultThemeId || ''}
               onChange={(e) => setDefaultTheme(e.target.value || null)}
-              aria-label="Default theme"
+              aria-label={tr("Default theme")}
               className={cn(inputClass, 'w-full pe-8 cursor-pointer sm:w-auto')}
             >
-              <option value="">System default</option>
-              <optgroup label="Built-in">
+              <option value="">{tr("System default")}</option>
+              <optgroup label={tr("Built-in")}>
                 {BUILTIN_THEME_OPTIONS
                   .filter(t => !disabledBuiltin.includes(t.id))
                   .map(t => (
@@ -367,7 +365,7 @@ export function ThemesPage() {
                   ))}
               </optgroup>
               {themes.length > 0 && (
-                <optgroup label="Installed">
+                <optgroup label={tr("Installed")}>
                   {themes
                     .filter(t => !disabledInstalled.includes(t.id))
                     .map(t => (
@@ -377,24 +375,24 @@ export function ThemesPage() {
               )}
             </select>
           </SettingItem>
-          <SettingItem label="Default colour mode" description="Light, dark or system for users who have not picked one">
+          <SettingItem label={tr("Default colour mode")} description={tr("Light, dark or system for users who have not picked one")}>
             <select
               value={policy.themePolicy?.defaultColorMode || 'system'}
               onChange={(e) => setColorModePolicy({ defaultColorMode: e.target.value === 'system' ? null : e.target.value as ColorMode })}
-              aria-label="Default colour mode"
+              aria-label={tr("Default colour mode")}
               className={cn(inputClass, 'w-full pe-8 cursor-pointer sm:w-auto')}
             >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system">{tr("System")}</option>
+              <option value="light">{tr("Light")}</option>
+              <option value="dark">{tr("Dark")}</option>
             </select>
           </SettingItem>
-          <SettingItem label="Lock colour mode" description="Everyone gets the default colour mode and cannot switch it in settings, on the login page or in the command palette">
+          <SettingItem label={tr("Lock colour mode")} description={tr("Everyone gets the default colour mode and cannot switch it in settings, on the login page or in the command palette")}>
             <ToggleSwitch checked={lockColorMode} onChange={(v) => setColorModePolicy({ lockColorMode: v })} />
           </SettingItem>
         </SettingsSection>
 
-        <SettingsSection id="offered" title="Offered to users" description="Themes users can pick. Turn one off to hide it from the picker.">
+        <SettingsSection id="offered" title={tr("Offered to users")} description={tr("Themes users can pick. Turn one off to hide it from the picker.")}>
           {BUILTIN_THEME_OPTIONS.map(theme => (
             <SettingItem key={theme.id} label={theme.name}>
               <ToggleSwitch checked={!disabledBuiltin.includes(theme.id)} onChange={() => toggleBuiltinTheme(theme.id)} />
@@ -402,7 +400,7 @@ export function ThemesPage() {
           ))}
           {themes.length > 0 && (
             <>
-              <p className="mt-2 text-xs font-semibold text-muted-foreground">Installed</p>
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">{tr("Installed")}</p>
               {themes.map(theme => (
                 <SettingItem key={theme.id} label={theme.name}>
                   <ToggleSwitch checked={!disabledInstalled.includes(theme.id)} onChange={() => toggleAdminTheme(theme.id)} />
@@ -418,8 +416,8 @@ export function ThemesPage() {
         saving={savingPolicy}
         onSave={() => void save()}
         onDiscard={() => { setPolicy(savedPolicy); setEnabledDraft({}); }}
-        saveLabel="Save"
-        note="Users get the change when they next open or reload Bulwark"
+        saveLabel={tr("Save")}
+        note={tr("Users get the change when they next open or reload Bulwark")}
       />
     </div>
   );

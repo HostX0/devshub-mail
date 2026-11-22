@@ -1,5 +1,8 @@
 'use client';
 
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
+import { useCoreAdminI18n, useCoreAdminAsyncI18n } from '@/components/admin/core-i18n';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trash2, X } from '@/components/icons';
 import { AdminList, AdminListRow } from '@/components/admin/list';
@@ -17,9 +20,6 @@ type Pending =
   | { kind: 'user'; userKey: string; user: string; count: number }
   | { kind: 'forget'; device: DeviceView };
 
-function when(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString() : '';
-}
 
 /**
  * Browsers with offline mode on and desktop apps. A wipe waits for the device's
@@ -27,6 +27,10 @@ function when(iso: string | null): string {
  * with no draft and no save bar: each action happens when it's confirmed.
  */
 export function DeviceRegistryPanel() {
+  const { isArabic } = useAdminI18n();
+  const when = (iso: string | null) => iso ? new Date(iso).toLocaleString(isArabic ? 'ar-IQ-u-nu-latn' : 'en-US') : '';
+  const tr = useCoreAdminI18n();
+  const trAsync = useCoreAdminAsyncI18n();
   const [devices, setDevices] = useState<DeviceView[] | null>(null);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -41,15 +45,15 @@ export function DeviceRegistryPanel() {
       const params = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) });
       if (search) params.set('q', search);
       const res = await apiFetch(`/api/admin/devices?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(trAsync("HTTP {0}", { 0: res.status }));
       const data = await res.json() as { devices: DeviceView[]; total: number };
       setDevices(data.devices);
       setTotal(data.total);
       setError(null);
     } catch (e) {
-      setError(`Could not load the devices (${(e as Error).message})`);
+      setError(trAsync("Could not load the devices ({0})", { 0: (e as Error).message }));
     }
-  }, [offset, search]);
+  }, [offset, search, trAsync]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -61,10 +65,10 @@ export function DeviceRegistryPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(tr("HTTP {0}", { 0: res.status }));
       await load();
     } catch (e) {
-      setError(`That didn't work (${(e as Error).message})`);
+      setError(tr("That didn't work ({0})", { 0: (e as Error).message }));
     } finally {
       setBusy(null);
     }
@@ -96,8 +100,8 @@ export function DeviceRegistryPanel() {
   return (
     <SettingsSection
       id="registered"
-      title="Registered devices"
-      description="Browsers with offline mode on and desktop apps. A wipe deletes the mail, keys and files kept on the device and signs the account out the next time the device reaches this instance. A device that was signed out or had its browser data cleared has nothing left, and can't confirm: its row keeps saying the wipe is waiting."
+      title={tr("Registered devices")}
+      description={tr("Browsers with offline mode on and desktop apps. A wipe deletes the mail, keys and files kept on the device and signs the account out the next time the device reaches this instance. A device that was signed out or had its browser data cleared has nothing left, and can't confirm: its row keeps saying the wipe is waiting.")}
     >
       <form
         className="flex flex-wrap items-center gap-2 pb-3"
@@ -107,17 +111,17 @@ export function DeviceRegistryPanel() {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by user"
-          aria-label="Search by user"
+          placeholder={tr("Search by user")}
+          aria-label={tr("Search by user")}
           className="h-8 min-w-48 flex-1 rounded-md border border-input bg-background px-2 text-sm"
           data-testid="devices-search"
         />
-        <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">Search</Button>
+        <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">{tr("Search")}</Button>
       </form>
       {error && <p className="pb-3 text-sm text-destructive" role="alert">{error}</p>}
       {devices !== null && devices.length === 0 && (
         <p className="py-3 text-sm text-muted-foreground" data-testid="devices-empty">
-          {search ? 'No device matches that search.' : 'No device has registered yet.'}
+          {search ? tr("No device matches that search.") : tr("No device has registered yet.")}
         </p>
       )}
       <div className="space-y-4">
@@ -140,8 +144,7 @@ export function DeviceRegistryPanel() {
                     onClick={() => setPending({ kind: 'user', userKey: group.userKey, user: group.user, count: wipeable.length })}
                     data-testid="devices-wipe-user"
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> Wipe all {wipeable.length} devices
-                  </Button>
+                    <Trash2 className="h-3.5 w-3.5" />{' '}{tr("Wipe all")}{' '}{wipeable.length}{' '}{tr("devices")}{' '}</Button>
                 )}
               </div>
               <AdminList>
@@ -149,18 +152,18 @@ export function DeviceRegistryPanel() {
                   <AdminListRow
                     key={device.id}
                     data-testid="device-row"
-                    title={device.platform || 'Unknown device'}
+                    title={device.platform || tr("Unknown device")}
                     titleExtra={device.wipe
-                      ? <Badge tone="warning">Wipe waiting</Badge>
+                      ? <Badge tone="warning">{tr("Wipe waiting")}</Badge>
                       : device.wipedAt
-                        ? <Badge tone="muted">Wiped</Badge>
+                        ? <Badge tone="muted">{tr("Wiped")}</Badge>
                         : null}
                     description={device.wipe
-                      ? `Asked ${when(device.wipe.requestedAt)}. Happens the next time this device connects.`
+                      ? tr("Asked {0}. Happens the next time this device connects.", { 0: when(device.wipe.requestedAt) })
                       : device.wipedAt
-                        ? `Wiped ${when(device.wipedAt)}${device.wipeReason && device.wipeReason !== 'admin' ? ` (${wipeReasonLabel(device.wipeReason)})` : ''}`
+                        ? tr("Wiped {0}{1}", { 0: when(device.wipedAt), 1: device.wipeReason && device.wipeReason !== 'admin' ? ` (${wipeReasonLabel(device.wipeReason)})` : '' })
                         : undefined}
-                    meta={`${device.appVersion ? `Version ${device.appVersion} · ` : ''}Last seen ${when(device.lastSeen)} · First seen ${when(device.firstSeen)}`}
+                    meta={tr("{0}Last seen {1} · First seen {2}", { 0: device.appVersion ? `Version ${device.appVersion} · ` : '', 1: when(device.lastSeen), 2: when(device.firstSeen) })}
                     control={(
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         {!device.wipe && !device.wipedAt && (
@@ -173,8 +176,7 @@ export function DeviceRegistryPanel() {
                             onClick={() => setPending({ kind: 'device', device })}
                             data-testid="device-wipe"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Wipe
-                          </Button>
+                            <Trash2 className="h-3.5 w-3.5" />{' '}{tr("Wipe")}{' '}</Button>
                         )}
                         {device.wipe && (
                           <Button
@@ -186,8 +188,7 @@ export function DeviceRegistryPanel() {
                             onClick={() => { void act(device.id, { action: 'cancel', id: device.id }); }}
                             data-testid="device-cancel"
                           >
-                            <X className="h-3.5 w-3.5" /> Take back
-                          </Button>
+                            <X className="h-3.5 w-3.5" />{' '}{tr("Take back")}{' '}</Button>
                         )}
                         <Button
                           type="button"
@@ -197,9 +198,7 @@ export function DeviceRegistryPanel() {
                           disabled={busy === device.id}
                           onClick={() => setPending({ kind: 'forget', device })}
                           data-testid="device-forget"
-                        >
-                          Forget
-                        </Button>
+                        >{' '}{tr("Forget")}{' '}</Button>
                       </div>
                     )}
                   />
@@ -211,10 +210,10 @@ export function DeviceRegistryPanel() {
       </div>
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between gap-2 pt-3 text-xs text-muted-foreground">
-          <span>{offset + 1} to {Math.min(offset + PAGE_SIZE, total)} of {total}</span>
+          <span>{offset + 1}{' '}{tr("to")}{' '}{Math.min(offset + PAGE_SIZE, total)}{' '}{tr("of")}{' '}{total}</span>
           <span className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>Previous</Button>
-            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={offset + PAGE_SIZE >= total} onClick={() => setOffset(offset + PAGE_SIZE)}>Next</Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>{tr("Previous")}</Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={offset + PAGE_SIZE >= total} onClick={() => setOffset(offset + PAGE_SIZE)}>{tr("Next")}</Button>
           </span>
         </div>
       )}
@@ -222,9 +221,9 @@ export function DeviceRegistryPanel() {
         isOpen={pending !== null}
         onClose={() => setPending(null)}
         onConfirm={confirmPending}
-        title={pending?.kind === 'forget' ? 'Forget this device?' : 'Wipe this data?'}
+        title={pending?.kind === 'forget' ? tr("Forget this device?") : tr("Wipe this data?")}
         message={confirmMessage(pending)}
-        confirmText={pending?.kind === 'forget' ? 'Forget' : 'Wipe'}
+        confirmText={pending?.kind === 'forget' ? tr("Forget") : tr("Wipe")}
         variant="destructive"
       />
     </SettingsSection>

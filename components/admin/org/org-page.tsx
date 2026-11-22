@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import type { ReactNode } from 'react';
 import { Loader2, Lock, RotateCcw } from '@/components/icons';
 import { AdminPageHeader } from '@/components/admin/page-header';
@@ -18,9 +20,9 @@ export const chipClass = (selected: boolean) => cn(
 );
 
 /** "example.com, sales@example.com": what a scope matches, for labels. */
-export function scopeMatchSummary(scope: PolicyScope): string {
+export function scopeMatchSummary(scope: PolicyScope, tr: (text: string) => string = (text) => text): string {
   const parts = [...(scope.match.domains ?? []), ...(scope.match.groups ?? [])];
-  return parts.length > 0 ? parts.join(', ') : 'matches nobody yet';
+  return parts.length > 0 ? parts.join(', ') : tr('matches nobody yet');
 }
 
 /**
@@ -28,38 +30,33 @@ export function scopeMatchSummary(scope: PolicyScope): string {
  * one domain or group scope. Chips on wide screens; they wrap at phone width.
  */
 export function ScopeBar({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   return (
     <div className="rounded-md border border-border bg-muted/30 p-3" data-testid="org-scope-bar">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground me-1">Applies to</span>
+        <span className="text-xs font-medium text-muted-foreground me-1">{tr("Applies to")}</span>
         <button
           type="button"
           aria-pressed={draft.scopeId === EVERYONE}
           className={chipClass(draft.scopeId === EVERYONE)}
           onClick={() => draft.setScopeId(EVERYONE)}
-        >
-          Everyone
-        </button>
+        >{' '}{tr("Everyone")}{' '}</button>
         {draft.scopes.map((scope) => (
           <button
             key={scope.id}
             type="button"
             aria-pressed={draft.scopeId === scope.id}
             className={chipClass(draft.scopeId === scope.id)}
-            title={scopeMatchSummary(scope)}
+            title={scopeMatchSummary(scope, tr)}
             onClick={() => draft.setScopeId(scope.id)}
           >
             {scope.label}
           </button>
         ))}
-        <AdminLink href="/admin/organisation" className="ms-auto text-xs text-muted-foreground underline-offset-2 hover:underline">
-          Manage domains and groups
-        </AdminLink>
+        <AdminLink href="/admin/organisation" className="ms-auto text-xs text-muted-foreground underline-offset-2 hover:underline">{' '}{tr("Manage domains and groups")}{' '}</AdminLink>
       </div>
       {draft.scope && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Changes here apply to {scopeMatchSummary(draft.scope)} only. Settings this scope doesn&apos;t change come from Everyone.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{' '}{tr("Changes here apply to")}{' '}{scopeMatchSummary(draft.scope, tr)}{' '}{tr("only. Settings this scope doesn't change come from Everyone.")}{' '}</p>
       )}
     </div>
   );
@@ -72,14 +69,14 @@ export function InheritNote({ draft, own, everyone, onReset }: {
   everyone: ReactNode;
   onReset: () => void;
 }) {
+  const tr = useCoreAdminI18n();
   if (!draft.scope) return null;
   return (
     <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-      {own ? <span>Everyone: {everyone}</span> : <span>From Everyone: {everyone}</span>}
+      {own ? <span>{tr("Everyone:")}{' '}{everyone}</span> : <span>{tr("From Everyone:")}{' '}{everyone}</span>}
       {own && (
         <button type="button" onClick={onReset} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">
-          <RotateCcw className="h-3 w-3" /> Use Everyone&apos;s value
-        </button>
+          <RotateCcw className="h-3 w-3" />{' '}{tr("Use Everyone's value")}{' '}</button>
       )}
     </p>
   );
@@ -91,27 +88,25 @@ export function InheritNote({ draft, own, everyone, onReset }: {
  * restricted through this, never through a flag of its own.
  */
 export function RestrictionRow({ draft, def }: { draft: OrgPolicyDraft; def: RestrictionKeyDef }) {
+  const tr = useCoreAdminI18n();
   const { value, own, everyone } = draft.restriction(def.key);
   const current = value ?? {};
   const modes = def.modes ?? ['locked', 'hidden'];
   const set = (patch: Partial<typeof current>) => draft.setRestriction(def.key, { ...current, ...patch });
   const describe = (r: typeof current | undefined) =>
-    r?.hidden ? 'hidden' : r?.locked ? 'locked' : r?.allowedValues?.length ? `limited to ${r.allowedValues.join(', ')}` : 'users choose';
+    r?.hidden ? 'hidden' : r?.locked ? 'locked' : r?.allowedValues?.length ? tr("limited to {0}", { 0: r.allowedValues.join(', ') }) : tr("users choose");
   return (
-    <SettingItem label={def.label} description={def.description}>
+    <SettingItem label={tr(def.label)} description={tr(def.description)}>
       <div className="flex flex-col items-start gap-1 sm:items-end">
         <div className="flex flex-wrap items-center gap-3">
           {modes.includes('locked') && (
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" className="rounded border-input" checked={!!current.locked} onChange={(e) => set({ locked: e.target.checked })} />
-              <Lock className="h-3 w-3" /> Lock
-            </label>
+              <Lock className="h-3 w-3" />{' '}{tr("Lock")}{' '}</label>
           )}
           {modes.includes('hidden') && (
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-              <input type="checkbox" className="rounded border-input" checked={!!current.hidden} onChange={(e) => set({ hidden: e.target.checked })} />
-              Hide
-            </label>
+              <input type="checkbox" className="rounded border-input" checked={!!current.hidden} onChange={(e) => set({ hidden: e.target.checked })} />{' '}{tr("Hide")}{' '}</label>
           )}
           {modes.includes('allowedValues') && def.allowedValues?.map((option) => {
             const allowed = current.allowedValues as string[] | undefined;
@@ -128,7 +123,7 @@ export function RestrictionRow({ draft, def }: { draft: OrgPolicyDraft; def: Res
                     set({ allowedValues: next.length === def.allowedValues!.length ? undefined : next });
                   }}
                 />
-                {option}
+                {tr(option)}
               </label>
             );
           })}
@@ -150,14 +145,14 @@ export function OrgPage({ pageId, draft, children, scoped = true }: {
   /** Pages whose settings can be set per scope show the scope bar. */
   scoped?: boolean;
 }) {
+  const tr = useCoreAdminI18n();
   const page = adminPageDef(pageId);
   return (
     <div>
-      <AdminPageHeader title={page.label} description={page.description} />
+      <AdminPageHeader title={tr(page.label)} description={tr(page.description)} />
       {draft.loading ? (
         <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-          <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-        </div>
+          <Loader2 className="me-2 h-4 w-4 animate-spin" />{' '}{tr("Loading")}{' '}</div>
       ) : (
         <div className="space-y-10">
           {scoped && <ScopeBar draft={draft} />}
@@ -170,8 +165,8 @@ export function OrgPage({ pageId, draft, children, scoped = true }: {
         saving={draft.saving}
         onSave={() => void draft.save()}
         onDiscard={draft.discard}
-        saveLabel="Save"
-        note="Users get the change within 15 minutes"
+        saveLabel={tr("Save")}
+        note={tr("Users get the change within 15 minutes")}
       />
     </div>
   );

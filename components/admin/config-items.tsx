@@ -5,6 +5,7 @@ import { RotateCcw } from '@/components/icons';
 import { SettingItem, ToggleSwitch } from '@/components/settings/settings-section';
 import type { GlossaryId } from '@/components/ui/term';
 import { cn } from '@/lib/utils';
+import { useAdminI18n } from './use-admin-i18n';
 import { Badge } from './badge';
 
 /**
@@ -21,15 +22,18 @@ export const inputClass =
   'disabled:cursor-not-allowed disabled:opacity-50 transition-colors';
 
 export function SourceBadge({ source, label }: { source?: string; label?: string }) {
+  const { t } = useAdminI18n();
   if (!source || source === 'default') return null;
   return (
-    <Badge tone={source === 'admin' ? 'accent' : 'muted'} title={source === 'env' ? 'Set in the environment' : 'Set in this panel'}>
-      {label ?? source}
+    <Badge tone={source === 'admin' ? 'accent' : 'muted'} title={source === 'env' ? t('Set in the environment', 'محدد في متغيرات البيئة') : t('Set in this panel', 'محدد في لوحة الإدارة')}>
+      {label ?? (source === 'env' ? t('Environment', 'البيئة') : source === 'admin' ? t('Admin', 'الإدارة') : source)}
     </Badge>
   );
 }
 
-export function RevertButton({ onClick, title = 'Revert to default' }: { onClick: () => void; title?: string }) {
+export function RevertButton({ onClick, title }: { onClick: () => void; title?: string }) {
+  const { t } = useAdminI18n();
+  title ??= t('Revert to default', 'استعادة القيمة الافتراضية');
   return (
     <button
       type="button"

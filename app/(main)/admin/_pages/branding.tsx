@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Loader2, ImageIcon, Upload, Trash2, Plus, X } from '@/components/icons';
 import { apiFetch, withBasePath } from '@/lib/browser-navigation';
 import { adminPageDef } from '@/lib/admin/admin-nav';
@@ -98,6 +100,7 @@ const chipClass = (selected: boolean) => cn(
 );
 
 export function BrandingPage() {
+  const tr = useCoreAdminI18n();
   const [config, setConfig] = useState<Record<string, ConfigEntry>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -109,8 +112,10 @@ export function BrandingPage() {
   const [newHostInput, setNewHostInput] = useState('');
   const [newHostError, setNewHostError] = useState<string | null>(null);
 
+  const loadInitial = useEffectEvent(() => { void fetchConfig(); });
+
   useEffect(() => {
-    fetchConfig();
+    loadInitial();
   }, []);
 
   const domainEntries = useMemo<DomainBrandingEntry[]>(
@@ -134,7 +139,7 @@ export function BrandingPage() {
       if (!res.ok) throw new Error();
       setConfig(await res.json());
     } catch {
-      setMessage({ type: 'error', text: 'Could not load the settings' });
+      setMessage({ type: 'error', text: tr("Could not load the settings") });
     }
     setLoading(false);
   }
@@ -222,14 +227,14 @@ export function BrandingPage() {
       setMessage({
         type: 'success',
         text: selectedHost
-          ? `Branding for ${selectedHost} updated. Changes visible on next page load.`
-          : 'Branding updated. Changes visible on next page load.',
+          ? tr("Branding for {0} updated. Changes visible on next page load.", { 0: selectedHost })
+          : tr("Branding updated. Changes visible on next page load."),
       });
       setEdits({});
       await fetchConfig();
     } else {
       const data = await res.json();
-      setMessage({ type: 'error', text: data.error || 'Failed to save' });
+      setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Failed to save") }) });
     }
     setSaving(false);
   }
@@ -238,7 +243,7 @@ export function BrandingPage() {
     if (selectedHost && !EXACT_HOST_RE.test(selectedHost)) {
       setMessage({
         type: 'error',
-        text: 'Wildcard hosts cannot upload files. Enter a URL instead.',
+        text: tr("Wildcard hosts cannot upload files. Enter a URL instead."),
       });
       return;
     }
@@ -257,7 +262,7 @@ export function BrandingPage() {
 
     if (res.ok) {
       const data = await res.json();
-      setMessage({ type: 'success', text: `${file.name} uploaded` });
+      setMessage({ type: 'success', text: tr("{0} uploaded", { 0: file.name }) });
       setEdits(prev => {
         const next = { ...prev };
         delete next[slot];
@@ -268,7 +273,7 @@ export function BrandingPage() {
       void data;
     } else {
       const data = await res.json();
-      setMessage({ type: 'error', text: data.error || 'Upload failed' });
+      setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Upload failed") }) });
     }
     setUploading(null);
   }
@@ -286,7 +291,7 @@ export function BrandingPage() {
     });
 
     if (res.ok) {
-      setMessage({ type: 'success', text: 'Uploaded file removed. Reverted to default.' });
+      setMessage({ type: 'success', text: tr("Uploaded file removed. Reverted to default.") });
       setEdits(prev => {
         const next = { ...prev };
         delete next[slot];
@@ -295,7 +300,7 @@ export function BrandingPage() {
       await fetchConfig();
     } else {
       const data = await res.json();
-      setMessage({ type: 'error', text: data.error || 'Failed to remove' });
+      setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Failed to remove") }) });
     }
   }
 
@@ -337,15 +342,15 @@ export function BrandingPage() {
   async function handleAddDomain() {
     const host = newHostInput.trim().toLowerCase().replace(/\.+$/, '');
     if (!host) {
-      setNewHostError('Enter a hostname');
+      setNewHostError(tr("Enter a hostname"));
       return;
     }
     if (!HOST_RE.test(host)) {
-      setNewHostError('Invalid hostname. Use foo.example.com or *.example.com');
+      setNewHostError(tr("Invalid hostname. Use foo.example.com or *.example.com"));
       return;
     }
     if (domainEntries.some(e => e.host === host)) {
-      setNewHostError('A branding entry for this host already exists');
+      setNewHostError(tr("A branding entry for this host already exists"));
       return;
     }
     setNewHostError(null);
@@ -364,17 +369,17 @@ export function BrandingPage() {
       await fetchConfig();
     } else {
       const data = await res.json();
-      setNewHostError(data.error || 'Failed to add domain');
+      setNewHostError(tr(data.error, { fallback: tr("Failed to add domain") }));
     }
   }
 
   async function handleDeleteDomain() {
     if (!selectedHost) return;
     const ok = await confirm({
-      title: `Remove the branding for ${selectedHost}?`,
-      message: 'The settings for this domain are removed. Files uploaded for it stay on disk.',
-      confirmText: 'Remove',
-      cancelText: 'Cancel',
+      title: tr("Remove the branding for {0}?", { 0: selectedHost }),
+      message: tr("The settings for this domain are removed. Files uploaded for it stay on disk."),
+      confirmText: tr("Remove"),
+      cancelText: tr("Cancel"),
       variant: 'destructive',
     });
     if (!ok) return;
@@ -388,10 +393,10 @@ export function BrandingPage() {
       setSelectedHost(null);
       setEdits({});
       await fetchConfig();
-      setMessage({ type: 'success', text: `Removed branding entry for ${selectedHost}.` });
+      setMessage({ type: 'success', text: tr("Removed branding entry for {0}.", { 0: selectedHost }) });
     } else {
       const data = await res.json();
-      setMessage({ type: 'error', text: data.error || 'Failed to remove domain' });
+      setMessage({ type: 'error', text: tr(data.error, { fallback: tr("Failed to remove domain") }) });
     }
   }
 
@@ -415,8 +420,8 @@ export function BrandingPage() {
   if (loading) {
     return (
       <div>
-        <AdminPageHeader title={PAGE.label} description={PAGE.description} />
-        <AdminBodySkeleton status="Loading" />
+        <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
+        <AdminBodySkeleton status={tr("Loading")} />
       </div>
     );
   }
@@ -431,14 +436,14 @@ export function BrandingPage() {
   const imageRow = (field: { key: string; label: string; accept: string }) => (
     <ImageItem
       key={field.key}
-      label={field.label}
+      label={tr(field.label)}
       previewOn={field.key.endsWith('DarkUrl') ? 'dark' : field.key.endsWith('LightUrl') ? 'light' : undefined}
       accept={field.accept}
       value={currentValue(field.key)}
       badge={overrideBadge(field.key)}
       // Files upload to the default scope and to exact hosts; a wildcard has
       // no single host to serve them from (the scope line says so).
-      placeholder={wildcardScope ? 'Enter URL' : 'Enter URL or upload a file'}
+      placeholder={wildcardScope ? tr("Enter URL") : tr("Enter URL or upload a file")}
       uploading={uploading === field.key}
       uploadDisabled={wildcardScope}
       uploaded={isUploadedFile(field.key)}
@@ -451,7 +456,7 @@ export function BrandingPage() {
   );
 
   const textRow = (field: { key: string; label: string }, placeholder: string) => (
-    <SettingItem key={field.key} label={field.label}>
+    <SettingItem key={field.key} label={tr(field.label)}>
       <div className="flex w-full items-center gap-1.5 sm:w-auto">
         {overrideBadge(field.key)}
         <input
@@ -460,7 +465,7 @@ export function BrandingPage() {
           onChange={(e) => handleChange(field.key, e.target.value)}
           placeholder={placeholder}
           title={placeholder}
-          aria-label={field.label}
+          aria-label={tr(field.label)}
           autoComplete="off"
           spellCheck={false}
           className={cn(inputClass, 'w-full min-w-0 sm:w-72')}
@@ -472,18 +477,16 @@ export function BrandingPage() {
 
   return (
     <div>
-      <AdminPageHeader title={PAGE.label} description={PAGE.description} />
+      <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
 
       <ConfirmDialog {...confirmProps} />
 
       <div className="space-y-10">
         <SectionNav />
 
-        <SettingsSection id="scope" title="Scope">
+        <SettingsSection id="scope" title={tr("Scope")}>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => handleScopeChange(null)} aria-pressed={selectedHost === null} className={chipClass(selectedHost === null)}>
-              Default
-            </button>
+            <button type="button" onClick={() => handleScopeChange(null)} aria-pressed={selectedHost === null} className={chipClass(selectedHost === null)}>{' '}{tr("Default")}{' '}</button>
             {domainEntries.map(entry => (
               <button
                 key={entry.host}
@@ -501,9 +504,7 @@ export function BrandingPage() {
                 onClick={() => { setAddingHost(true); setNewHostError(null); }}
                 className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" />
-                Add domain
-              </button>
+                <Plus className="w-3.5 h-3.5" />{' '}{tr("Add domain")}{' '}</button>
             )}
           </div>
           {addingHost && (
@@ -514,54 +515,43 @@ export function BrandingPage() {
                 value={newHostInput}
                 onChange={(e) => { setNewHostInput(e.target.value); setNewHostError(null); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleAddDomain(); }}
-                placeholder="mail.example.com or *.example.com"
-                aria-label="Hostname"
+                placeholder={tr("mail.example.com or *.example.com")}
+                aria-label={tr("Hostname")}
                 autoComplete="off"
                 spellCheck={false}
                 className={cn(inputClass, 'w-64')}
               />
-              <Button type="button" size="sm" onClick={handleAddDomain}>
-                Add
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingHost(false); setNewHostInput(''); setNewHostError(null); }}>
-                Cancel
-              </Button>
+              <Button type="button" size="sm" onClick={handleAddDomain}>{' '}{tr("Add")}{' '}</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingHost(false); setNewHostInput(''); setNewHostError(null); }}>{' '}{tr("Cancel")}{' '}</Button>
               {newHostError && <span className="text-xs text-destructive">{newHostError}</span>}
             </div>
           )}
           {selectedHost ? (
             <div className="flex items-center justify-between gap-3 text-xs">
-              <p className="text-muted-foreground">
-                Editing overrides for <span className="font-mono text-foreground">{selectedHost}</span>.
-                Unset fields fall back to the Default values.
-                {wildcardScope && ' Uploads are disabled for wildcard hosts; enter a URL instead.'}
+              <p className="text-muted-foreground">{' '}{tr("Editing overrides for")}{' '}<span className="font-mono text-foreground">{selectedHost}</span>{tr(". Unset fields fall back to the Default values.")}{' '}{wildcardScope && tr("Uploads are disabled for wildcard hosts; enter a URL instead.")}
               </p>
               <button
                 type="button"
                 onClick={handleDeleteDomain}
                 className="inline-flex items-center gap-1 text-destructive hover:underline whitespace-nowrap"
               >
-                <X className="w-3.5 h-3.5" />
-                Remove domain
-              </button>
+                <X className="w-3.5 h-3.5" />{' '}{tr("Remove domain")}{' '}</button>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              Editing the Default branding. Add a domain to override branding when the webmail is served on a specific hostname.
-            </p>
+            <p className="text-xs text-muted-foreground">{' '}{tr("Editing the Default branding. Add a domain to override branding when the webmail is served on a specific hostname.")}{' '}</p>
           )}
         </SettingsSection>
 
-        <SettingsSection id="images" title="Images and logos" description="Upload a file or enter a URL. Supported formats: SVG, PNG, JPEG, WebP, ICO (max 2 MB)">
+        <SettingsSection id="images" title={tr("Images and logos")} description={tr("Upload a file or enter a URL. Supported formats: SVG, PNG, JPEG, WebP, ICO (max 2 MB)")}>
           {IMAGE_FIELDS.map(imageRow)}
         </SettingsSection>
 
         <SettingsSection
           id="login-page"
-          title="Login page"
-          description="The layout of the sign-in page and the picture behind it. Backgrounds can be JPEG, PNG, WebP or SVG up to 5 MB; without a dark-mode picture, dark mode uses the light one."
+          title={tr("Login page")}
+          description={tr("The layout of the sign-in page and the picture behind it. Backgrounds can be JPEG, PNG, WebP or SVG up to 5 MB; without a dark-mode picture, dark mode uses the light one.")}
         >
-          <SettingItem label="Layout" description="Centered puts the form in a card over the background. Split puts it in a panel at the side and lets the background fill the rest of the screen, on screens 1024 px and wider; it is meant for use with a background picture.">
+          <SettingItem label={tr("Layout")} description={tr("Centered puts the form in a card over the background. Split puts it in a panel at the side and lets the background fill the rest of the screen, on screens 1024 px and wider; it is meant for use with a background picture.")}>
             <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
               {overrideBadge('loginLayout')}
               {(selectedHost ? ['', 'centered', 'split'] : ['centered', 'split']).map((layout) => {
@@ -574,7 +564,7 @@ export function BrandingPage() {
                     onClick={() => handleChange('loginLayout', layout)}
                     className={chipClass(current === layout)}
                   >
-                    {layout === '' ? 'Same as default' : layout === 'split' ? 'Split' : 'Centered'}
+                    {layout === '' ? tr("Same as default") : layout === 'split' ? tr("Split") : tr("Centered")}
                   </button>
                 );
               })}
@@ -586,7 +576,7 @@ export function BrandingPage() {
             const value = effectiveValue(field.key);
             const number = Math.min(Number.parseInt(value, 10) || 0, field.max);
             return (
-              <SettingItem key={field.key} label={field.label} description={field.description}>
+              <SettingItem key={field.key} label={tr(field.label)} description={tr(field.description)}>
                 <div className="flex w-full items-center gap-2 sm:w-auto">
                   {overrideBadge(field.key)}
                   <input
@@ -596,11 +586,11 @@ export function BrandingPage() {
                     step={field.step}
                     value={number}
                     onChange={(e) => handleChange(field.key, e.target.value === '0' && selectedHost === null ? '' : e.target.value)}
-                    aria-label={field.label}
-                    aria-valuetext={`${number} ${field.unit}`}
+                    aria-label={tr(field.label)}
+                    aria-valuetext={`${number} ${tr(field.unit)}`}
                     className="w-full accent-primary sm:w-48"
                   />
-                  <span className="w-12 shrink-0 text-end text-sm tabular-nums text-muted-foreground">{number} {field.unit}</span>
+                  <span className="w-12 shrink-0 text-end text-sm tabular-nums text-muted-foreground">{number} {tr(field.unit)}</span>
                   {isOverriddenInScope(field.key) && <RevertButton onClick={() => handleRevert(field.key)} />}
                 </div>
               </SettingItem>
@@ -615,29 +605,29 @@ export function BrandingPage() {
           />
         </SettingsSection>
 
-        <SettingsSection id="pwa" title="Progressive web app" description="Shown when users install the webmail to their home screen. Leave fields blank to fall back to the favicon and app name.">
+        <SettingsSection id="pwa" title={tr("Progressive web app")} description={tr("Shown when users install the webmail to their home screen. Leave fields blank to fall back to the favicon and app name.")}>
           {PWA_IMAGE_FIELDS.map(imageRow)}
           {PWA_TEXT_FIELDS.map(field => textRow(field, field.placeholder))}
           {PWA_COLOR_FIELDS.map(field => {
             const value = currentValue(field.key) || field.defaultValue;
             return (
-              <SettingItem key={field.key} label={field.label}>
+              <SettingItem key={field.key} label={tr(field.label)}>
                 <div className="flex w-full items-center gap-1.5 sm:w-auto">
                   {overrideBadge(field.key)}
                   <input
                     type="color"
                     value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : field.defaultValue}
                     onChange={(e) => handleChange(field.key, e.target.value)}
-                    aria-label={`${field.label} picker`}
+                    aria-label={tr("{0} picker", { 0: tr(field.label) })}
                     className="h-9 w-10 shrink-0 cursor-pointer rounded-md border border-input bg-background p-0.5"
-                    title="Pick a color"
+                    title={tr("Pick a color")}
                   />
                   <input
                     type="text"
                     value={currentValue(field.key)}
                     onChange={(e) => handleChange(field.key, e.target.value)}
                     placeholder={field.defaultValue}
-                    aria-label={field.label}
+                    aria-label={tr(field.label)}
                     autoComplete="off"
                     spellCheck={false}
                     className={cn(inputClass, 'w-full min-w-0 font-mono sm:w-32')}
@@ -649,14 +639,14 @@ export function BrandingPage() {
           })}
         </SettingsSection>
 
-        <SettingsSection id="company" title="Company information">
-          {TEXT_FIELDS.map(field => textRow(field, 'placeholder' in field ? field.placeholder : field.key.includes('Url') ? 'https://...' : 'Enter value'))}
+        <SettingsSection id="company" title={tr("Company information")}>
+          {TEXT_FIELDS.map(field => textRow(field, 'placeholder' in field ? field.placeholder : field.key.includes(tr("Url")) ? 'https://...' : tr("Enter value")))}
         </SettingsSection>
 
         <SettingsSection
           id="accessibility-links"
-          title="Accessibility and help links"
-          description="Shown on the login page, in the settings sidebar and in the account menu, in the same place on every page. Leave a field empty to hide its link. Only http and https links are used; the barrier report can also be an email address."
+          title={tr("Accessibility and help links")}
+          description={tr("Shown on the login page, in the settings sidebar and in the account menu, in the same place on every page. Leave a field empty to hide its link. Only http and https links are used; the barrier report can also be an email address.")}
         >
           {HELP_FIELDS.map(field => textRow(field, field.placeholder))}
         </SettingsSection>
@@ -667,7 +657,7 @@ export function BrandingPage() {
         saving={saving}
         onSave={handleSave}
         onDiscard={() => setEdits({})}
-        note="Takes effect on the next page load"
+        note={tr("Takes effect on the next page load")}
       />
     </div>
   );
@@ -693,6 +683,7 @@ interface ImageItemProps {
 
 /** One image slot: a URL field, an upload button, and a preview of what is set. */
 function ImageItem({ label, previewOn, accept, value, badge, placeholder, uploading, uploadDisabled, uploaded, overridden, onChange, onUpload, onDeleteUpload, onRevert }: ImageItemProps) {
+  const tr = useCoreAdminI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <SettingItem label={label}>
@@ -728,8 +719,8 @@ function ImageItem({ label, previewOn, accept, value, badge, placeholder, upload
             className="w-9 shrink-0 px-0"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading || uploadDisabled}
-            title={uploadDisabled ? 'Uploads disabled for wildcard hosts' : 'Upload file'}
-            aria-label={uploadDisabled ? 'Uploads disabled for wildcard hosts' : 'Upload file'}
+            title={uploadDisabled ? tr("Uploads disabled for wildcard hosts") : tr("Upload file")}
+            aria-label={uploadDisabled ? tr("Uploads disabled for wildcard hosts") : tr("Upload file")}
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
           </Button>
@@ -738,8 +729,8 @@ function ImageItem({ label, previewOn, accept, value, badge, placeholder, upload
               type="button"
               onClick={onDeleteUpload}
               className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
-              title="Remove uploaded file"
-              aria-label="Remove uploaded file"
+              title={tr("Remove uploaded file")}
+              aria-label={tr("Remove uploaded file")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -782,10 +773,11 @@ interface LoginBackdropPreviewProps {
  * above applied: what app/login.css draws, at a fifth of a laptop screen.
  */
 function LoginBackdropPreview({ layout, lightUrl, darkUrl, dim, blur }: LoginBackdropPreviewProps) {
+  const tr = useCoreAdminI18n();
   const light = usableBackgroundUrl(lightUrl);
   const dark = usableBackgroundUrl(darkUrl) || light;
   return (
-    <div className="flex flex-wrap gap-4 py-2" aria-label="Preview of the sign-in page">
+    <div className="flex flex-wrap gap-4 py-2" aria-label={tr("Preview of the sign-in page")}>
       <PreviewScreen mode="light" layout={layout} url={light} dim={dim} blur={blur} />
       <PreviewScreen mode="dark" layout={layout} url={dark} dim={dim} blur={blur} />
     </div>
@@ -798,6 +790,7 @@ const PREVIEW_COLORS = {
 } as const;
 
 function PreviewScreen({ mode, layout, url, dim, blur }: { mode: 'light' | 'dark'; layout: 'centered' | 'split'; url: string; dim: number; blur: number }) {
+  const tr = useCoreAdminI18n();
   const c = PREVIEW_COLORS[mode];
   // A fifth of the size, so a fifth of the blur.
   const scaledBlur = blur / 5;
@@ -841,7 +834,7 @@ function PreviewScreen({ mode, layout, url, dim, blur }: { mode: 'light' | 'dark
           </div>
         )}
       </div>
-      <figcaption className="text-xs text-muted-foreground">{mode === 'light' ? 'Light mode' : 'Dark mode'}</figcaption>
+      <figcaption className="text-xs text-muted-foreground">{mode === 'light' ? tr("Light mode") : tr("Dark mode")}</figcaption>
     </figure>
   );
 }

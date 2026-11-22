@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useEffect, useId, useState } from 'react';
 import { Info } from '@/components/icons';
 import { SettingItem, SettingsSection } from '@/components/settings/settings-section';
@@ -34,6 +36,7 @@ const inputClass =
  * while an address is set.
  */
 export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const address = draft.orgValue('phishingReport', 'address');
   const format = draft.orgValue('phishingReport', 'format');
   const id = useId();
@@ -55,12 +58,12 @@ export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
   return (
     <SettingsSection
       id="phishing"
-      title="Phishing reports"
-      description="Adds “Report phishing” to the message menus. Bulwark sends the message to the address below, one report per message, without a copy in Sent, and moves it to Junk. Users confirm each report."
+      title={tr("Phishing reports")}
+      description={tr("Adds “Report phishing” to the message menus. Bulwark sends the message to the address below, one report per message, without a copy in Sent, and moves it to Junk. Users confirm each report.")}
     >
       <SettingItem
-        label="Send reports to"
-        description="An address of your security team or ticket system. Empty turns reporting off."
+        label={tr("Send reports to")}
+        description={tr("An address of your security team or ticket system. Empty turns reporting off.")}
       >
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <input
@@ -78,14 +81,10 @@ export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
             className={cn(inputClass, invalid ? 'border-red-500' : 'border-input')}
           />
           {invalid && (
-            <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">
-              This isn&apos;t an email address. The saved address stays until you enter a valid one.
-            </p>
+            <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">{' '}{tr("This isn't an email address. The saved address stays until you enter a valid one.")}{' '}</p>
           )}
           {postmaster && (
-            <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="org-phishing-postmaster">
-              Don&apos;t use postmaster@: Stalwart analyses mail to it as reports.
-            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="org-phishing-postmaster">{' '}{tr("Don't use postmaster@: Stalwart analyses mail to it as reports.")}{' '}</p>
           )}
           <InheritNote
             draft={draft}
@@ -96,8 +95,8 @@ export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
         </div>
       </SettingItem>
 
-      <SettingItem label="Report format" description="What the report looks like when it arrives.">
-        <div className="flex w-full flex-col gap-2 sm:w-80" role="radiogroup" aria-label="Report format">
+      <SettingItem label={tr("Report format")} description={tr("What the report looks like when it arrives.")}>
+        <div className="flex w-full flex-col gap-2 sm:w-80" role="radiogroup" aria-label={tr("Report format")}>
           {FORMATS.map((option) => (
             <label
               key={option.value}
@@ -116,15 +115,15 @@ export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
                 data-testid={`org-phishing-format-${option.value}`}
               />
               <span className="min-w-0">
-                <span className="block font-medium text-foreground">{option.label}</span>
-                <span className="block text-xs text-muted-foreground">{option.description}</span>
+                <span className="block font-medium text-foreground">{tr(option.label)}</span>
+                <span className="block text-xs text-muted-foreground">{tr(option.description)}</span>
               </span>
             </label>
           ))}
           <InheritNote
             draft={draft}
             own={format.own}
-            everyone={FORMATS.find((f) => f.value === format.everyone)?.label ?? format.everyone}
+            everyone={tr(FORMATS.find((f) => f.value === format.everyone)?.label ?? format.everyone)}
             onReset={() => draft.clearOrgValue('phishingReport', 'format')}
           />
         </div>
@@ -132,12 +131,8 @@ export function PhishingReportSection({ draft }: { draft: OrgPolicyDraft }) {
 
       <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <p>
-          Reports go out without the organisation signature, disclaimer, label or plugin checks. A reported message
-          shows a banner and its links are turned off.{' '}
-          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
-            How reporting works
-          </a>
+        <p>{' '}{tr("Reports go out without the organisation signature, disclaimer, label or plugin checks. A reported message shows a banner and its links are turned off.")}{' '}
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">{' '}{tr("How reporting works")}{' '}</a>
         </p>
       </div>
     </SettingsSection>

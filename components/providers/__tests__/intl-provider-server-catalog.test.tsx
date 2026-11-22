@@ -50,6 +50,18 @@ describe('the server catalog', () => {
 });
 
 describe('IntlProvider with a server catalog', () => {
+  it('limits the administrator surface to its supported languages without rewriting mailbox preferences', async () => {
+    useLocaleStore.setState({ locale: 'fr' });
+    render(<IntlProvider locale="en" messages={await loadCatalog('en')} allowedLocales={['ar', 'en']}><Strings /></IntlProvider>);
+    expect(screen.getByTestId('plain').textContent).toBe(enPlain.login.error.invalid_credentials);
+    expect(useLocaleStore.getState().locale).toBe('fr');
+    expect(document.documentElement.lang).toBe('en');
+    const arabic = await loadCatalog('ar') as typeof enCommon;
+    act(() => useLocaleStore.setState({ locale: 'ar' }));
+    await waitFor(() => expect(screen.getByTestId('plain').textContent).toBe(arabic.login.error.invalid_credentials));
+    expect(document.documentElement.dir).toBe('rtl');
+  });
+
   it('draws the first render from it and fetches no English', async () => {
     render(<IntlProvider locale="en" messages={await loadCatalog('en')}><Strings /></IntlProvider>);
     expect(screen.getByTestId('plain').textContent).toBe(enPlain.login.error.invalid_credentials);

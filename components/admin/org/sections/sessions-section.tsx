@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { SettingItem, SettingsSection } from '@/components/settings/settings-section';
 import { InheritNote } from '../org-page';
 import type { OrgPolicyDraft } from '../use-org-policy-draft';
@@ -41,19 +43,16 @@ const FIELDS: SessionField[] = [
   },
 ];
 
-function describe(value: number, field: SessionField): string {
-  return value > 0 ? `${value} ${field.unit}` : field.zero;
-}
-
 /** Organisation > Security > Sessions: the idle timeout and the maximum session length. */
 export function SessionsSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   return (
-    <SettingsSection id="sessions" title="Sessions" description="Sign users out after a time without activity, or a fixed time after they signed in. Both are off until you set them.">
+    <SettingsSection id="sessions" title={tr("Sessions")} description={tr("Sign users out after a time without activity, or a fixed time after they signed in. Both are off until you set them.")}>
       {FIELDS.map((field) => {
         const { value, own, everyone } = draft.orgValue('session', field.key);
         const inputId = `org-session-${field.key}`;
         return (
-          <SettingItem key={field.key} label={field.label} description={field.description}>
+          <SettingItem key={field.key} label={tr(field.label)} description={tr(field.description)}>
             <div className="flex flex-col items-start gap-1 sm:items-end">
               <div className="flex items-center gap-2">
                 <input
@@ -63,8 +62,8 @@ export function SessionsSection({ draft }: { draft: OrgPolicyDraft }) {
                   min={0}
                   max={field.max}
                   step={1}
-                  aria-label={`${field.label} (${field.unit})`}
-                  placeholder={field.zero}
+                  aria-label={`${tr(field.label)} (${tr(field.unit)})`}
+                  placeholder={tr(field.zero)}
                   value={value > 0 ? value : ''}
                   onChange={(e) => {
                     const raw = e.target.value.trim();
@@ -74,12 +73,12 @@ export function SessionsSection({ draft }: { draft: OrgPolicyDraft }) {
                   }}
                   className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden"
                 />
-                <span className="text-sm text-muted-foreground">{field.unit}</span>
+                <span className="text-sm text-muted-foreground">{tr(field.unit)}</span>
               </div>
               <InheritNote
                 draft={draft}
                 own={own}
-                everyone={describe(everyone, field)}
+                everyone={everyone > 0 ? `${everyone} ${tr(field.unit)}` : tr(field.zero)}
                 onReset={() => draft.clearOrgValue('session', field.key)}
               />
             </div>

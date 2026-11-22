@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useId, useRef, useState } from 'react';
 import { Check } from '@/components/icons';
 import { SettingsSection } from '@/components/settings/settings-section';
@@ -95,6 +97,7 @@ export function TemplateField({ label, hint, value, own, everyone, rows, testId,
 
 /** What a template looks like filled in with sample values: the HTML and the plain text. */
 export function TemplatePreview({ html, text, testId }: { html: string; text: string; testId: string }) {
+  const tr = useCoreAdminI18n();
   const plain = getPlainTextSignature({ textSignature: text, htmlSignature: html });
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-testid={testId}>
@@ -103,11 +106,11 @@ export function TemplatePreview({ html, text, testId }: { html: string; text: st
         <div className="min-h-[3rem] rounded-md border border-border bg-background p-3 text-sm break-words">
           {html
             ? <div dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtmlForDisplay(html) }} />
-            : <span className="text-muted-foreground">{plain ? 'Plain text only' : 'Nothing'}</span>}
+            : <span className="text-muted-foreground">{plain ? tr("Plain text only") : tr("Nothing")}</span>}
         </div>
       </div>
       <div className="min-w-0">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">Plain text{!text && html ? ' (from the HTML)' : ''}</p>
+        <p className="mb-1 text-xs font-medium text-muted-foreground">{tr("Plain text")}{!text && html ? tr("(from the HTML)") : ''}</p>
         <pre className="min-h-[3rem] whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-sans text-sm">{plain || ' '}</pre>
       </div>
     </div>
@@ -136,6 +139,7 @@ export function insertPlaceholder(target: FocusedTemplate | null, placeholder: S
  * `organisation.signature` and `organisation.disclaimer`.
  */
 export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const config = useConfig();
   const focused = useRef<FocusedTemplate | null>(null);
   const [emptyDetails, setEmptyDetails] = useState(false);
@@ -170,7 +174,7 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
   const values = signatureValuesFor(
     { name: 'Alex Example', email: `alex@${domain}` },
     emptyDetails ? EMPTY_DETAILS : SAMPLE_DETAILS,
-    config.loginCompanyName || 'Example Ltd',
+    config.loginCompanyName || tr("Example Ltd"),
   );
   const sample = buildOrgSignature({ html: html.value, text: text.value }, values);
   const sampleDisclaimer = buildOrgSignature({ html: disclaimerHtml.value, text: disclaimerText.value }, values);
@@ -180,14 +184,14 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
     <>
       <SettingsSection
         id="signature"
-        title="Signature"
-        description="The signature at the end of every message, filled in for the address it is sent from. Users without a signature of their own get it; lock it to replace everyone's."
+        title={tr("Signature")}
+        description={tr("The signature at the end of every message, filled in for the address it is sent from. Users without a signature of their own get it; lock it to replace everyone's.")}
       >
         <div className="space-y-5">
           <TemplateField
             draft={draft}
-            label="HTML signature"
-            hint="Placeholders are filled in as text. A line whose placeholders are all empty is left out, so a user without a mobile number gets no “Mobile:” line."
+            label={tr("HTML signature")}
+            hint={tr("Placeholders are filled in as text. A line whose placeholders are all empty is left out, so a user without a mobile number gets no “Mobile:” line.")}
             value={html.value}
             own={html.own}
             everyone={html.everyone}
@@ -199,8 +203,8 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
           />
           <TemplateField
             draft={draft}
-            label="Plain-text signature"
-            hint="For plain-text mail. Leave it empty to send the HTML signature as text."
+            label={tr("Plain-text signature")}
+            hint={tr("For plain-text mail. Leave it empty to send the HTML signature as text.")}
             value={text.value}
             own={text.own}
             everyone={text.everyone}
@@ -212,8 +216,8 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
           />
 
           <div>
-            <p className={labelClass}>Placeholders</p>
-            <p className={hintClass}>Click one to insert it at the cursor of the template you last edited.</p>
+            <p className={labelClass}>{tr("Placeholders")}</p>
+            <p className={hintClass}>{tr("Click one to insert it at the cursor of the template you last edited.")}</p>
             <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2" data-testid="org-signature-placeholders">
               {SIGNATURE_PLACEHOLDERS.map((placeholder) => (
                 <li key={placeholder} className="flex min-w-0 items-baseline gap-2 text-xs">
@@ -233,15 +237,13 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
 
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className={labelClass}>Preview</p>
+              <p className={labelClass}>{tr("Preview")}</p>
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                <input type="checkbox" className="rounded border-input" checked={emptyDetails} onChange={(e) => setEmptyDetails(e.target.checked)} />
-                For a user who filled in no details
-              </label>
+                <input type="checkbox" className="rounded border-input" checked={emptyDetails} onChange={(e) => setEmptyDetails(e.target.checked)} />{' '}{tr("For a user who filled in no details")}{' '}</label>
             </div>
             {sample
               ? <TemplatePreview html={sample.html} text={sample.text} testId="org-signature-preview" />
-              : <p className="text-sm text-muted-foreground">No organisation signature: users send their own.</p>}
+              : <p className="text-sm text-muted-foreground">{tr("No organisation signature: users send their own.")}</p>}
           </div>
 
           {restrictionKeysForPage('org-signatures').map((def) => <RestrictionRow key={def.key} draft={draft} def={def} />)}
@@ -250,8 +252,8 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
 
       <SettingsSection
         id="details"
-        title="User details"
-        description="Users fill these in once, under Settings > Account. They are asked only for what the signature uses."
+        title={tr("User details")}
+        description={tr("Users fill these in once, under Settings > Account. They are asked only for what the signature uses.")}
       >
         <ul className="space-y-1.5" data-testid="org-signature-fields">
           {SIGNATURE_FIELDS.map((field) => {
@@ -259,9 +261,9 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
             return (
               <li key={field} className={cn('flex flex-wrap items-center gap-x-2 text-sm', used ? 'text-foreground' : 'text-muted-foreground')} data-used={used || undefined}>
                 <Check className={cn('h-4 w-4 shrink-0', used ? 'text-primary' : 'opacity-0')} aria-hidden="true" />
-                <span>{FIELD_LABELS[field]}</span>
+                <span>{tr(FIELD_LABELS[field])}</span>
                 <span className="text-xs text-muted-foreground">
-                  {used ? 'asked for' : <>add <code className="font-mono">{`{${field}}`}</code> to ask for it</>}
+                  {used ? tr("asked for") : <>{tr("add")}{' '}<code className="font-mono">{`{${field}}`}</code>{' '}{tr("to ask for it")}</>}
                 </span>
               </li>
             );
@@ -271,14 +273,14 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
 
       <SettingsSection
         id="disclaimer"
-        title="Disclaimer"
-        description="Added below everything, the quoted message included, when a message is sent. Never in drafts. Users see it under the editor and can't remove it."
+        title={tr("Disclaimer")}
+        description={tr("Added below everything, the quoted message included, when a message is sent. Never in drafts. Users see it under the editor and can't remove it.")}
       >
         <div className="space-y-5">
           <TemplateField
             draft={draft}
-            label="HTML disclaimer"
-            hint="Goes into the HTML part, below a line. The placeholders work here too."
+            label={tr("HTML disclaimer")}
+            hint={tr("Goes into the HTML part, below a line. The placeholders work here too.")}
             value={disclaimerHtml.value}
             own={disclaimerHtml.own}
             everyone={disclaimerHtml.everyone}
@@ -290,8 +292,8 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
           />
           <TemplateField
             draft={draft}
-            label="Plain-text disclaimer"
-            hint="Goes into the text part, after a blank line. Leave it empty to send the HTML disclaimer as text."
+            label={tr("Plain-text disclaimer")}
+            hint={tr("Goes into the text part, after a blank line. Leave it empty to send the HTML disclaimer as text.")}
             value={disclaimerText.value}
             own={disclaimerText.own}
             everyone={disclaimerText.everyone}
@@ -302,9 +304,7 @@ export function SignatureSection({ draft }: { draft: OrgPolicyDraft }) {
             onFocusField={(el) => { focused.current = { el, apply: (value) => draft.setOrgValue('disclaimer', 'text', value) }; }}
           />
           {sampleDisclaimer && <TemplatePreview html={sampleDisclaimer.html} text={sampleDisclaimer.text} testId="org-disclaimer-sample" />}
-          <p className="text-xs text-muted-foreground">
-            Bulwark adds the signature and the disclaimer in the browser. Mail sent from other apps over <Term id="imap">IMAP</Term> and <Term id="smtp">SMTP</Term> gets neither.
-          </p>
+          <p className="text-xs text-muted-foreground">{' '}{tr("Bulwark adds the signature and the disclaimer in the browser. Mail sent from other apps over")}{' '}<Term id="imap">IMAP</Term>{' '}{tr("and")}{' '}<Term id="smtp">SMTP</Term>{' '}{tr("gets neither.")}{' '}</p>
         </div>
       </SettingsSection>
     </>

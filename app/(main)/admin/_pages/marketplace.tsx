@@ -1,5 +1,6 @@
 'use client';
 
+import { useExtensionI18n, extensionError, englishExtensionText, type ExtensionTranslator } from './extension-translations';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Search, Download, Check, Loader2, Store, Puzzle, SwatchBook, Star, Eye, AlertTriangle,
@@ -28,7 +29,6 @@ import { PluginPermissionList } from '@/components/plugins/plugin-permission-lis
 import {
   anyGrants,
   compactGrants,
-  describeReachAdded,
   grantsAdded,
   grantsOf,
   notAccepted,
@@ -129,47 +129,66 @@ export interface InstallQuestion {
 /** What the install question says about a theme's skin. */
 export const SKIN_NOTE = 'A theme with a skin restyles every part of the app, not only its colours.';
 
+/** Preserve every permission detail when localizing installation consent. */
+function localizedReach(added: Grants, firstInstall: boolean, tr: ExtensionTranslator): string[] {
+  const now = firstInstall ? '' : ' now';
+  const lines: string[] = [];
+  if (added.httpOrigins.length) lines.push(tr('May{0} contact {1}.', now, added.httpOrigins.join(', ')));
+  if (added.apiPostPaths.length) lines.push(tr("May{0} post to {1} with the user's login.", now, added.apiPostPaths.join(', ')));
+  if (added.frameOrigins.length) lines.push(tr('May{0} embed {1}.', now, added.frameOrigins.join(', ')));
+  if (added.credentialOrigins.length) lines.push(tr('May{0} send its credentials to {1}.', now, added.credentialOrigins.join(', ')));
+  if (added.credentials.length) lines.push(tr('Changes where stored credentials go: {0}.', added.credentials.join('; ')));
+  if (added.formerSecrets.length) lines.push(tr(
+    'Stops keeping the {0} {1} secret: what an admin enters there from now on can be read by the plugin and by every signed-in user. The value stored so far stays sealed, and the setting reads as empty until a new one is entered.',
+    added.formerSecrets.length === 1 ? 'setting' : 'settings', added.formerSecrets.map(key => `"${key}"`).join(', '),
+  ));
+  if (added.privileged) lines.push(tr('Runs with full access to the app.'));
+  if (added.skin) lines.push(tr('Brings a skin that restyles every part of the app.'));
+  return lines;
+}
+
 /** The question for a 409 that lists what a version adds (lib/admin/extension-grants.ts). */
 export function grantsQuestion(
   name: string,
   added: Grants,
   compared: 'listing' | 'installed' | 'rollback',
+  tr: ExtensionTranslator = englishExtensionText,
 ): Omit<InstallQuestion, 'cancelText'> {
   const names = added.permissions.join(', ');
-  const reach = describeReachAdded(added, compared === 'listing').join(' ');
+  const reach = localizedReach(added, compared === 'listing', tr).join(' ');
   if (added.skin && !anyGrants({ ...added, skin: false })) {
-    if (compared === 'listing') return { title: 'Install a theme with a skin?', message: `${name} comes with a skin. ${SKIN_NOTE}`, confirmText: 'Install' };
-    if (compared === 'rollback') return { title: 'Bring the skin back?', message: `${name} brings back a skin. ${SKIN_NOTE}`, confirmText: 'Roll back' };
-    return { title: 'Allow the new skin?', message: `${name} adds a skin. ${SKIN_NOTE}`, confirmText: 'Update' };
+    if (compared === 'listing') return { title: tr("Install a theme with a skin?"), message: tr("{0} comes with a skin. {1}", name, tr(SKIN_NOTE)), confirmText: tr("Install") };
+    if (compared === 'rollback') return { title: tr("Bring the skin back?"), message: tr("{0} brings back a skin. {1}", name, tr(SKIN_NOTE)), confirmText: tr("Roll back") };
+    return { title: tr("Allow the new skin?"), message: tr("{0} adds a skin. {1}", name, tr(SKIN_NOTE)), confirmText: tr("Update") };
   }
   if (compared === 'listing') {
     const head = names
-      ? `${name} asks for permissions that the directory's listing did not show: ${names}.`
-      : `${name} may do more than the directory's listing shows.`;
-    return { title: 'Allow what the listing did not show?', message: `${head} ${reach}`.trim(), confirmText: 'Install' };
+      ? tr("{0} asks for permissions that the directory's listing did not show: {1}.", name, names)
+      : tr("{0} may do more than the directory's listing shows.", name);
+    return { title: tr("Allow what the listing did not show?"), message: `${head} ${reach}`.trim(), confirmText: tr("Install") };
   }
   if (compared === 'rollback') {
     const head = names
-      ? `${name} brings back permissions that the installed version doesn't have: ${names}.`
-      : `${name} may do more than the installed version.`;
-    return { title: 'Allow what comes back?', message: `${head} ${reach}`.trim(), confirmText: 'Roll back' };
+      ? tr("{0} brings back permissions that the installed version doesn't have: {1}.", name, names)
+      : tr("{0} may do more than the installed version.", name);
+    return { title: tr("Allow what comes back?"), message: `${head} ${reach}`.trim(), confirmText: tr("Roll back") };
   }
   const head = names
-    ? `${name} asks for new permissions that the installed version doesn't have: ${names}.`
-    : `${name} may do more than the installed version.`;
-  return { title: names ? 'Allow the new permissions?' : 'Allow what it adds?', message: `${head} ${reach}`.trim(), confirmText: 'Update' };
+    ? tr("{0} asks for new permissions that the installed version doesn't have: {1}.", name, names)
+    : tr("{0} may do more than the installed version.", name);
+  return { title: names ? tr("Allow the new permissions?") : tr("Allow what it adds?"), message: `${head} ${reach}`.trim(), confirmText: tr("Update") };
 }
 
 /**
  * What the rollback confirm says about whether the directory had withdrawn
  * the kept version when it was installed (lib/admin/extension-history.ts).
  */
-export function withdrawnNote(version: string, withdrawn: { reason: string | null } | 'unknown' | undefined): string {
+export function withdrawnNote(version: string, withdrawn: { reason: string | null } | 'unknown' | undefined, tr: ExtensionTranslator = englishExtensionText): string {
   if (withdrawn === 'unknown') {
-    return ` Whether the directory had withdrawn v${version} is not known: this copy was kept before that was recorded.`;
+    return tr(" Whether the directory had withdrawn v{0} is not known: this copy was kept before that was recorded.", version);
   }
   if (withdrawn) {
-    return ` The directory had withdrawn v${version} when it was installed${withdrawn.reason ? `: ${withdrawn.reason}` : '.'}`;
+    return tr(" The directory had withdrawn v{0} when it was installed{1}", version, withdrawn.reason ? `: ${withdrawn.reason}` : '.');
   }
   return '';
 }
@@ -183,6 +202,7 @@ export function withdrawnNote(version: string, withdrawn: { reason: string | nul
 export async function rollbackVersion(
   body: { kind: 'plugin' | 'theme'; id: string; name: string; version: string },
   confirm: (question: InstallQuestion) => boolean | Promise<boolean>,
+  tr: ExtensionTranslator = englishExtensionText,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   let accepted: Grants | undefined;
   const send = () => apiFetch(`/api/admin/extensions/${body.kind}/${encodeURIComponent(body.id)}/rollback`, {
@@ -198,16 +218,16 @@ export async function rollbackVersion(
     let data = await res.json().catch(() => ({}));
     const added = res.status === 409 ? reportedGrants(data) : null;
     if (added) {
-      const question = grantsQuestion(`"${body.name}" v${body.version}`, added, 'rollback');
-      if (!(await confirm({ ...question, cancelText: 'Cancel' }))) return { ok: false, error: 'Not rolled back.' };
+      const question = grantsQuestion(`"${body.name}" v${body.version}`, added, 'rollback', tr);
+      if (!(await confirm({ ...question, cancelText: tr("Cancel") }))) return { ok: false, error: tr("Not rolled back.") };
       accepted = added;
       res = await send();
       data = await res.json().catch(() => ({}));
     }
-    if (!res.ok) return { ok: false, error: data.error || 'Rollback failed' };
+    if (!res.ok) return { ok: false, error: extensionError(data.error, tr("Rollback failed"), tr) };
     return { ok: true };
   } catch {
-    return { ok: false, error: 'Rollback failed - network error' };
+    return { ok: false, error: tr("Rollback failed - network error") };
   }
 }
 
@@ -221,8 +241,9 @@ export function reportedGrants(data: { grantsAdded?: unknown; permissionsAdded?:
 export async function installVersion(
   body: { slug: string; version: string; type: 'plugin' | 'theme' },
   confirm: (question: InstallQuestion) => boolean | Promise<boolean>,
-  opts: { shown?: { permissions: readonly string[]; frameOrigins?: readonly string[] } } = {},
+  opts: { shown?: { permissions: readonly string[]; frameOrigins?: readonly string[] }; tr?: ExtensionTranslator } = {},
 ): Promise<{ ok: true; warnings: string[]; signature: string | null; updated: boolean } | { ok: false; error: string }> {
+  const tr = opts.tr ?? englishExtensionText;
   let force = false;
   let accepted: Grants | undefined = opts.shown ? grantsOf(opts.shown) : undefined;
   let askedGrants = false;
@@ -246,36 +267,37 @@ export async function installVersion(
         // What the calling page already showed is not asked about again.
         const fresh = accepted ? notAccepted(added, accepted) : added;
         const compared = data.compared === 'listing' ? 'listing' : 'installed';
-        const question = grantsQuestion(`${body.slug} ${body.version}`, anyGrants(fresh) ? fresh : added, compared);
-        if (!(await confirm({ ...question, cancelText: 'Cancel' }))) {
-          return { ok: false, error: 'Not installed.' };
+        const question = grantsQuestion(`${body.slug} ${body.version}`, anyGrants(fresh) ? fresh : added, compared, tr);
+        if (!(await confirm({ ...question, cancelText: tr("Cancel") }))) {
+          return { ok: false, error: tr("Not installed.") };
         }
         // The answer names exactly what the question listed, nothing more.
         accepted = added;
       } else if (data.yanked && !force) {
-        if (!(await confirm({ title: 'Install it anyway?', message: data.error, confirmText: 'Install', cancelText: 'Cancel' }))) {
-          return { ok: false, error: 'Not installed.' };
+        if (!(await confirm({ title: tr("Install it anyway?"), message: extensionError(data.error, 'This version was withdrawn by its publisher; you will be asked to confirm.', tr), confirmText: tr("Install"), cancelText: tr("Cancel") }))) {
+          return { ok: false, error: tr("Not installed.") };
         }
         force = true;
       } else if (data.downgrade && !force) {
-        if (!(await confirm({ title: 'Install the older version anyway?', message: data.error, confirmText: 'Install', cancelText: 'Cancel' }))) {
-          return { ok: false, error: 'Not installed.' };
+        if (!(await confirm({ title: tr("Install the older version anyway?"), message: extensionError(data.error, 'Install the older version anyway?', tr), confirmText: tr("Install"), cancelText: tr("Cancel") }))) {
+          return { ok: false, error: tr("Not installed.") };
         }
         force = true;
       } else {
-        return { ok: false, error: data.error || 'Installation failed' };
+        return { ok: false, error: extensionError(data.error, tr("Installation failed"), tr) };
       }
       res = await send();
     }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: data.error || 'Installation failed' };
+    if (!res.ok) return { ok: false, error: extensionError(data.error, tr("Installation failed"), tr) };
     return { ok: true, warnings: data.warnings ?? [], signature: data.signature ?? null, updated: !!data.updated };
   } catch {
-    return { ok: false, error: 'Installation failed - network error' };
+    return { ok: false, error: tr("Installation failed - network error") };
   }
 }
 
 export function MarketplacePage() {
+  const tr = useExtensionI18n();
   const { dialogProps: confirmProps, confirm } = useConfirmDialog();
   const [extensions, setExtensions] = useState<MarketplaceListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -321,7 +343,7 @@ export function MarketplacePage() {
       const res = await apiFetch(`/api/admin/marketplace?${params}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || 'Failed to connect to extension directory');
+        setError(extensionError(data.error, "Failed to connect to extension directory", tr));
         setExtensions([]);
         return;
       }
@@ -332,12 +354,12 @@ export function MarketplacePage() {
       setDirectoryUrl(data.directoryUrl ?? null);
       setChannel(data.channel ?? 'stable');
     } catch {
-      setError('Failed to connect to extension directory. Make sure it is running.');
+      setError(tr("Failed to connect to extension directory. Make sure it is running."));
       setExtensions([]);
     } finally {
       setLoading(false);
     }
-  }, [query, typeFilter, page, perPage, sort]);
+  }, [query, typeFilter, page, perPage, sort, tr]);
 
   const fetchUpdates = useCallback(async () => {
     setUpdatesLoading(true);
@@ -371,22 +393,22 @@ export function MarketplacePage() {
   async function install(ext: { slug: string; name: string; type: 'plugin' | 'theme' }, version: string, isUpdate: boolean, turnOn?: boolean) {
     markInstalling(ext.slug, true);
     setMessage(null);
-    const result = await installVersion({ slug: ext.slug, version, type: ext.type }, confirm);
+    const result = await installVersion({ slug: ext.slug, version, type: ext.type }, confirm, { tr });
     markInstalling(ext.slug, false);
     if (!result.ok) {
       setMessage({ type: 'error', text: result.error });
       return false;
     }
-    const warnings = result.warnings.length ? ` (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})` : '';
-    const signed = result.signature === 'verified' ? ', signed by the directory' : '';
+    const warnings = result.warnings.length ? tr(" ({0} warning{1})", result.warnings.length, result.warnings.length === 1 ? '' : 's') : '';
+    const signed = result.signature === 'verified' ? tr(", signed by the directory") : '';
     const outcome: TurnOnOutcome = !isUpdate && ext.type === 'plugin'
-      ? await offerToTurnOnPlugins(turnOn === undefined ? confirm : () => turnOn)
+      ? await offerToTurnOnPlugins(turnOn === undefined ? confirm : () => turnOn, tr)
       : 'already-on';
     setMessage({
       type: 'success',
       text: isUpdate
-        ? `"${ext.name}" updated to v${version}${signed}${warnings}`
-        : `"${ext.name}" installed (v${version})${signed}${warnings}.${turnOnNote(outcome)}`,
+        ? tr("\"{0}\" updated to v{1}{2}{3}", ext.name, version, signed, warnings)
+        : tr("\"{0}\" installed (v{1}){2}{3}.{4}", ext.name, version, signed, warnings, turnOnNote(outcome, tr)),
     });
     setExtensions((prev) => prev.map((e) => (e.slug === ext.slug
       ? { ...e, installed: true, installedVersion: version, installedSource: { kind: 'marketplace', slug: ext.slug, directoryUrl: directoryUrl ?? '' } }
@@ -406,8 +428,8 @@ export function MarketplacePage() {
       if (!ok) failed++;
     }
     setMessage(failed
-      ? { type: 'error', text: `${failed} update${failed === 1 ? '' : 's'} failed; see above` }
-      : { type: 'success', text: `All ${updates.updates.length} update${updates.updates.length === 1 ? '' : 's'} installed` });
+      ? { type: 'error', text: tr("{0} update{1} failed; see above", failed, failed === 1 ? '' : 's') }
+      : { type: 'success', text: tr("All {0} update{1} installed", updates.updates.length, updates.updates.length === 1 ? '' : 's') });
   }
 
   const totalPages = Math.ceil(total / perPage);
@@ -424,13 +446,12 @@ export function MarketplacePage() {
         actions={(
           <>
             {channel === 'beta' && (
-              <Badge tone="info" title="Pre-release versions are offered (extensionDirectoryChannel)">Beta channel</Badge>
+              <Badge tone="info" title={tr("Pre-release versions are offered (extensionDirectoryChannel)")}>{tr("Beta channel")}</Badge>
             )}
             {directoryUrl && (
               <AdminButtonLink external href={directoryUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
-                Open directory
-              </AdminButtonLink>
+                {tr(" Open directory ")}</AdminButtonLink>
             )}
           </>
         )}
@@ -442,13 +463,13 @@ export function MarketplacePage() {
         onClose={() => setQuickInstall(null)}
         role="alertdialog"
         showClose={false}
-        title={`Install ${quickInstall?.name ?? ''}?`}
-        description={`${quickInstall?.author ? `By ${quickInstall.author.displayName}. ` : ''}${quickPluginsOff
-          ? 'It is installed for every user. Plugins are off for users, so it only runs once you turn them on.'
-          : 'It is installed for every user and turned on for them; they can turn it off in their settings.'} What it may do in each mailbox:`}
+        title={tr("Install {0}?", quickInstall?.name ?? '')}
+        description={tr("{0}{1} What it may do in each mailbox:", quickInstall?.author ? tr("By {0}. ", quickInstall.author.displayName) : '', quickPluginsOff
+          ? tr("It is installed for every user. Plugins are off for users, so it only runs once you turn them on.")
+          : tr("It is installed for every user and turned on for them; they can turn it off in their settings."))}
         footer={(
           <>
-            <Button variant="outline" onClick={() => setQuickInstall(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setQuickInstall(null)}>{tr("Cancel")}</Button>
             {quickPluginsOff && (
               <Button
                 variant="outline"
@@ -458,8 +479,7 @@ export function MarketplacePage() {
                   if (ext?.latestVersion) void install(ext, ext.latestVersion, false, false);
                 }}
               >
-                Install only
-              </Button>
+                {tr(" Install only ")}</Button>
             )}
             <Button
               disabled={quickPluginsOff === null}
@@ -470,7 +490,7 @@ export function MarketplacePage() {
                 if (ext?.latestVersion) void install(ext, ext.latestVersion, false, turnOn);
               }}
             >
-              {quickPluginsOff ? 'Install and turn on plugins' : 'Install'}
+              {quickPluginsOff ? tr("Install and turn on plugins") : tr("Install")}
             </Button>
           </>
         )}
@@ -498,7 +518,7 @@ export function MarketplacePage() {
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className={pillGroupClass}>
-              {([['browse', 'Browse'], ['installed', `Installed${installedCount ? ` (${installedCount})` : ''}`]] as const).map(([v, label]) => (
+              {([['browse', tr("Browse")], ['installed', tr("Installed{0}", installedCount ? ` (${installedCount})` : '')]] as const).map(([v, label]) => (
                 <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={pillClass(view === v)}>
                   {label}
                 </button>
@@ -508,10 +528,10 @@ export function MarketplacePage() {
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder={view === 'browse' ? 'Search extensions...' : 'Filter installed...'}
+                placeholder={view === 'browse' ? tr("Search extensions...") : tr("Filter installed...")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                aria-label={view === 'browse' ? 'Search extensions' : 'Filter installed'}
+                aria-label={view === 'browse' ? tr("Search extensions") : tr("Filter installed")}
                 className={cn(inputClass, 'w-full ps-9')}
               />
             </div>
@@ -526,17 +546,17 @@ export function MarketplacePage() {
                       aria-pressed={typeFilter === t}
                       className={pillClass(typeFilter === t)}
                     >
-                      {t === 'all' ? 'All' : t === 'plugin' ? 'Plugins' : 'Themes'}
+                      {t === 'all' ? tr("All") : t === 'plugin' ? tr("Plugins") : tr("Themes")}
                     </button>
                   ))}
                 </div>
                 <select
                   value={sort}
                   onChange={(e) => { setSort(e.target.value as Sort); setPage(1); }}
-                  aria-label="Sort"
+                  aria-label={tr("Sort")}
                   className={cn(inputClass, 'cursor-pointer self-start pe-8 sm:self-auto')}
                 >
-                  {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  {SORTS.map((s) => <option key={s.value} value={s.value}>{tr(s.label)}</option>)}
                 </select>
               </>
             )}
@@ -556,30 +576,28 @@ export function MarketplacePage() {
                 <EmptyState
                   icon={Store}
                   title={error}
-                  hint="The directory needs its v2 API (extensions.bulwarkmail.org has it; a self-hosted one must be from October 2026 or later)"
-                  action={<Button size="sm" onClick={fetchExtensions}>Retry</Button>}
+                  hint={tr("The directory needs its v2 API (extensions.bulwarkmail.org has it; a self-hosted one must be from October 2026 or later)")}
+                  action={<Button size="sm" onClick={fetchExtensions}>{tr("Retry")}</Button>}
                 />
               )}
 
               {loading && !error && (
                 <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                  <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-                </div>
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" /> {tr(" Loading ")}</div>
               )}
 
               {!loading && !error && extensions.length === 0 && (
                 <EmptyState
                   icon={Store}
-                  title="No extensions found"
-                  hint={query ? 'Try a different search term' : undefined}
+                  title={tr("No extensions found")}
+                  hint={query ? tr("Try a different search term") : undefined}
                 />
               )}
 
               {!loading && !error && extensions.length > 0 && (
                 <>
                   <div className="text-xs text-muted-foreground">
-                    {total} extension{total !== 1 ? 's' : ''} found
-                  </div>
+                    {total} {tr(" extension")}{tr(total !== 1 ? 's' : '')} {tr(" found ")}</div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {extensions.map((ext) => (
                       <ExtensionCard
@@ -598,14 +616,12 @@ export function MarketplacePage() {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-center gap-2 pt-2">
                       <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
-                        Previous
-                      </Button>
+                        {tr(" Previous ")}</Button>
                       <span className="text-sm text-muted-foreground">
-                        Page {page} of {totalPages}
+                        {tr(" Page ")}{page} {tr(" of ")}{totalPages}
                       </span>
                       <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-                        Next
-                      </Button>
+                        {tr(" Next ")}</Button>
                     </div>
                   )}
                 </>
@@ -630,13 +646,14 @@ function UpdatesSection({
   onUpdate: (u: UpdatesResult['updates'][number]) => void;
   onUpdateAll: () => void;
 }) {
+  const tr = useExtensionI18n();
   const names = new Map(updates.installed.map((e) => [e.id, e.name]));
   const name = (slug: string) => names.get(slug) ?? slug;
   const busy = installing.size > 0;
   const hasNotices = updates.advisories.length > 0 || updates.yanked.length > 0 || updates.suspended.length > 0 || updates.deprecated.length > 0;
   const title = updates.updates.length > 0
-    ? `${updates.updates.length} update${updates.updates.length === 1 ? '' : 's'} available`
-    : 'Notices';
+    ? tr("{0} update{1} available", updates.updates.length, updates.updates.length === 1 ? '' : 's')
+    : tr("Notices");
 
   return (
     <SettingsSection id="updates" title={title}>
@@ -646,8 +663,7 @@ function UpdatesSection({
             <div className="flex justify-end">
               <Button size="sm" className="gap-1.5" onClick={onUpdateAll} disabled={busy}>
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                Update all
-              </Button>
+                {tr(" Update all ")}</Button>
             </div>
           )}
           <ul className="divide-y divide-border rounded-lg border border-border">
@@ -660,25 +676,25 @@ function UpdatesSection({
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <AdminLink href={detailHref(u.slug, u.version)} className="font-medium text-foreground hover:underline">{name(u.slug)}</AdminLink>
                       <span className="text-muted-foreground">v{u.currentVersion} → v{u.version}</span>
-                      {u.channel === 'beta' && <Badge tone="info">beta</Badge>}
+                      {u.channel === 'beta' && <Badge tone="info">{tr("beta")}</Badge>}
                       <ChangelogBadges flags={{ security: anyFlag(entries, 'security'), breaking: anyFlag(entries, 'breaking') }} />
                     </div>
                     {(u.addedPermissions?.length ?? 0) > 0 && (
                       <p className="mt-1 text-xs text-amber-800 dark:text-amber-300" data-testid={`update-permissions-${u.slug}`}>
-                        New permissions: <span className="font-mono">{u.addedPermissions!.join(', ')}</span>
+                        {tr(" New permissions: ")}<span className="font-mono">{u.addedPermissions!.join(', ')}</span>
                       </p>
                     )}
                     {withNotes.length > 0 ? (
                       <details className="mt-1" data-testid={`update-notes-${u.slug}`}>
                         <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-                          {entries.length > 1 ? `What's new in ${entries.length} versions` : "What's new"}
+                          {entries.length > 1 ? tr("What's new in {0} versions", entries.length) : tr("What's new")}
                         </summary>
                         <div className="mt-2 max-h-80 overflow-y-auto pe-2">
                           <ChangelogEntries entries={entries} />
                         </div>
                       </details>
                     ) : (
-                      <p className="mt-0.5 text-xs text-muted-foreground">No changelog for this update.</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{tr("No changelog for this update.")}</p>
                     )}
                   </div>
                   <Button
@@ -689,8 +705,7 @@ function UpdatesSection({
                     disabled={installing.has(u.slug)}
                   >
                     {installing.has(u.slug) ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpCircle className="h-3 w-3" />}
-                    Update
-                  </Button>
+                    {tr(" Update ")}</Button>
                 </li>
               );
             })}
@@ -705,8 +720,8 @@ function UpdatesSection({
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 <AdminLink href={detailHref(a.extension)} className="font-medium hover:underline">{name(a.extension)}</AdminLink>
-                {' '}has a security advisory ({a.severity}): {a.summary}
-                {a.fixedIn ? ` Fixed in v${a.fixedIn}.` : ' No fixed version yet.'}
+                {' '}{tr("has a security advisory (")}{tr(a.severity)}): {a.summary}
+                {a.fixedIn ? tr(" Fixed in v{0}.", a.fixedIn) : tr(' No fixed version yet.')}
               </span>
             </li>
           ))}
@@ -715,17 +730,16 @@ function UpdatesSection({
               <Ban className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 <AdminLink href={detailHref(slug)} className="font-medium hover:underline">{name(slug)}</AdminLink>
-                {' '}was suspended by the directory. Consider removing it.
-              </span>
+                {' '}{tr("was suspended by the directory. Consider removing it. ")}</span>
             </li>
           ))}
           {updates.yanked.map((y) => (
             <li key={`${y.slug}@${y.version}`} className="flex items-start gap-2 text-amber-800 dark:text-amber-300">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                The installed v{y.version} of{' '}
+                {tr(" The installed v")}{y.version} {tr(" of")}{' '}
                 <AdminLink href={detailHref(y.slug)} className="font-medium hover:underline">{name(y.slug)}</AdminLink>
-                {' '}was withdrawn by its publisher{y.reason ? `: ${y.reason}` : '.'}
+                {' '}{tr("was withdrawn by its publisher")}{y.reason ? `: ${y.reason}` : '.'}
               </span>
             </li>
           ))}
@@ -734,8 +748,8 @@ function UpdatesSection({
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 <AdminLink href={detailHref(d.slug)} className="font-medium text-foreground hover:underline">{name(d.slug)}</AdminLink>
-                {' '}is deprecated{d.message ? `: ${d.message}` : '.'}
-                {d.replacement && <> Use <AdminLink href={detailHref(d.replacement)} className="underline">{d.replacement}</AdminLink> instead.</>}
+                {' '}{tr("is deprecated")}{d.message ? `: ${d.message}` : '.'}
+                {d.replacement && <> {tr(" Use ")}<AdminLink href={detailHref(d.replacement)} className="underline">{d.replacement}</AdminLink> {tr(" instead.")}</>}
               </span>
             </li>
           ))}
@@ -759,6 +773,7 @@ function InstalledView({
   installing: Set<string>;
   onUpdate: (entry: InstalledEntry, version: string) => void;
 }) {
+  const tr = useExtensionI18n();
   const rows = useMemo(() => {
     if (!updates) return [];
     const q = filter.trim().toLowerCase();
@@ -773,21 +788,20 @@ function InstalledView({
   if (loading && !updates) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-        <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-      </div>
+        <Loader2 className="me-2 h-4 w-4 animate-spin" /> {tr(" Loading ")}</div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <EmptyState icon={Store} title={filter ? 'Nothing installed matches' : 'Nothing installed yet'} />
+      <EmptyState icon={Store} title={filter ? tr("Nothing installed matches") : tr("Nothing installed yet")} />
     );
   }
 
   return (
     <div className="space-y-3">
       {updates?.error && (
-        <ConfigNote tone="warning">Could not check for updates: {updates.error}</ConfigNote>
+        <ConfigNote tone="warning">{tr("Could not check for updates: ")}{extensionError(updates.error, 'Failed to connect to extension directory', tr)}</ConfigNote>
       )}
       <AdminList>
         {rows.map(({ entry, newer, yanked, advisory }) => {
@@ -803,12 +817,12 @@ function InstalledView({
               titleExtra={(
                 <>
                   <span className="text-xs text-muted-foreground">v{entry.version}</span>
-                  {!entry.enabled && <Badge>Off</Badge>}
+                  {!entry.enabled && <Badge>{tr("Off")}</Badge>}
                   {entry.source?.kind === 'upload'
-                    ? <Badge icon={<Upload className="h-3 w-3" />}>Uploaded</Badge>
-                    : <Badge icon={<Store className="h-3 w-3" />}>Marketplace</Badge>}
-                  {advisory && <Badge tone="danger" icon={<ShieldAlert className="h-3 w-3" />}>Advisory</Badge>}
-                  {yanked && <Badge tone="warning" icon={<AlertTriangle className="h-3 w-3" />}>Withdrawn</Badge>}
+                    ? <Badge icon={<Upload className="h-3 w-3" />}>{tr("Uploaded")}</Badge>
+                    : <Badge icon={<Store className="h-3 w-3" />}>{tr("Marketplace")}</Badge>}
+                  {advisory && <Badge tone="danger" icon={<ShieldAlert className="h-3 w-3" />}>{tr("Advisory")}</Badge>}
+                  {yanked && <Badge tone="warning" icon={<AlertTriangle className="h-3 w-3" />}>{tr("Withdrawn")}</Badge>}
                 </>
               )}
               control={(
@@ -821,10 +835,10 @@ function InstalledView({
                       disabled={installing.has(entry.id)}
                     >
                       {installing.has(entry.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowUpCircle className="h-3 w-3" />}
-                      Update to v{newer}
+                      {tr(" Update to v")}{newer}
                     </Button>
                   )}
-                  <AdminButtonLink href={manageHref} className="h-8 text-xs">Manage</AdminButtonLink>
+                  <AdminButtonLink href={manageHref} className="h-8 text-xs">{tr("Manage")}</AdminButtonLink>
                 </>
               )}
             />
@@ -836,9 +850,10 @@ function InstalledView({
 }
 
 function Rating({ rating }: { rating: { average: number; count: number } }) {
+  const tr = useExtensionI18n();
   if (!rating.count) return null;
   return (
-    <span className="inline-flex items-center gap-1" title={`${rating.average} out of 5 from ${rating.count} rating${rating.count === 1 ? '' : 's'}`}>
+    <span className="inline-flex items-center gap-1" title={tr("{0} out of 5 from {1} rating{2}", rating.average, rating.count, rating.count === 1 ? '' : 's')}>
       <Star className="w-3 h-3 fill-current" />
       {rating.average.toFixed(1)}
       <span className="opacity-70">({rating.count})</span>
@@ -855,6 +870,7 @@ function ExtensionCard({
   installing: boolean;
   onInstall: () => void;
 }) {
+  const tr = useExtensionI18n();
   const isPlugin = extension.type === 'plugin';
   const previewHref = detailHref(extension.slug);
   const offered = extension.latest;
@@ -902,13 +918,13 @@ function ExtensionCard({
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <Badge tone={isPlugin ? 'info' : 'accent'}>
-                {isPlugin ? pluginTypeLabel(extension.pluginType) : 'Theme'}
+                {isPlugin ? pluginTypeLabel(extension.pluginType, tr) : tr("Theme")}
               </Badge>
-              {offered?.channel === 'beta' && <Badge tone="info">beta</Badge>}
-              {extension.deprecated && <Badge>deprecated</Badge>}
+              {offered?.channel === 'beta' && <Badge tone="info">{tr("beta")}</Badge>}
+              {extension.deprecated && <Badge>{tr("deprecated")}</Badge>}
               {extension.author && (
                 <span className="text-xs text-muted-foreground truncate">
-                  by {extension.author.displayName}
+                  {tr(" by ")}{extension.author.displayName}
                 </span>
               )}
             </div>
@@ -931,19 +947,18 @@ function ExtensionCard({
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Download className="w-3 h-3" />
-              {extension.totalDownloads.toLocaleString()}
+              {extension.totalDownloads.toLocaleString('en-US')}
             </span>
             <Rating rating={extension.rating} />
             {extension.permissions && extension.permissions.length > 0 && (
               <span title={extension.permissions.join(', ')}>
-                {extension.permissions.length} permission{extension.permissions.length !== 1 ? 's' : ''}
+                {extension.permissions.length} {tr(" permission")}{tr(extension.permissions.length !== 1 ? 's' : '')}
               </span>
             )}
           </div>
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground">
             <Eye className="w-3 h-3" />
-            Details
-          </span>
+            {tr(" Details ")}</span>
         </div>
       </AdminLink>
 
@@ -954,30 +969,30 @@ function ExtensionCard({
             className="h-8 gap-1.5 text-xs"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onInstall(); }}
             disabled={installing}
-            title={`Update from v${extension.installedVersion} to v${offered.version}`}
+            title={tr("Update from v{0} to v{1}", extension.installedVersion, offered.version)}
           >
             {installing ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               <ArrowUpCircle className="w-3 h-3" />
             )}
-            Update to v{offered.version}
+            {tr(" Update to v")}{offered.version}
           </Button>
         ) : extension.installed ? (
           <Badge
             tone="success"
             icon={<Check className="w-3 h-3" />}
-            title={extension.installedVersion ? `Installed: v${extension.installedVersion}` : undefined}
+            title={extension.installedVersion ? tr("Installed: v{0}", extension.installedVersion) : undefined}
           >
-            Installed{extension.installedVersion ? ` v${extension.installedVersion}` : ''}
+            {tr(" Installed")}{extension.installedVersion ? ` v${extension.installedVersion}` : ''}
           </Badge>
         ) : !offered ? (
           <Badge
             tone="warning"
             icon={<AlertTriangle className="w-3 h-3" />}
-            title={`No published version runs on Bulwark v${CURRENT_APP_VERSION}. Open the details to see what the newest version needs.`}
+            title={tr("No published version runs on Bulwark v{0}. Open the details to see what the newest version needs.", CURRENT_APP_VERSION)}
           >
-            Not for v{CURRENT_APP_VERSION}
+            {tr(" Not for v")}{CURRENT_APP_VERSION}
           </Badge>
         ) : (
           <Button
@@ -985,15 +1000,14 @@ function ExtensionCard({
             className="h-8 gap-1.5 text-xs"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onInstall(); }}
             disabled={installing}
-            title={`Install v${offered.version}`}
+            title={tr("Install v{0}", offered.version)}
           >
             {installing ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               <Download className="w-3 h-3" />
             )}
-            Quick install
-          </Button>
+            {tr(" Quick install ")}</Button>
         )}
       </div>
     </div>

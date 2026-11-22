@@ -69,6 +69,8 @@ interface IntlProviderProps {
    * nothing, never its raw name, and the page draws again once it's there.
    */
   partial?: boolean;
+  /** Optional surface-specific languages; unsupported saved choices leave the mailbox preference intact. */
+  allowedLocales?: readonly string[];
   children: React.ReactNode;
 }
 
@@ -82,7 +84,7 @@ function noteEarlyMiss(path: string): void {
   (w.__bulwarkCatalogMisses ??= []).push(path);
 }
 
-export function IntlProvider({ locale: initialLocale, messages: initialMessages, partial = false, children }: IntlProviderProps) {
+export function IntlProvider({ locale: initialLocale, messages: initialMessages, partial = false, allowedLocales, children }: IntlProviderProps) {
   const currentLocale = useLocaleStore((state) => state.locale);
   // Browser zone is detected on mount (SSR has no browser, so it renders UTC
   // until then); the user's `timeZone` setting overrides it (#755).
@@ -175,11 +177,12 @@ export function IntlProvider({ locale: initialLocale, messages: initialMessages,
   // is never overridden by detection. Loading a not-yet-cached catalog is
   // async; until it lands we keep rendering the previous locale.
   useEffect(() => {
-    const target =
+    const requested =
       !currentLocale || currentLocale === 'auto'
         ? detectBrowserLocale(initialLocale)
         : currentLocale;
 
+    const target = allowedLocales && !allowedLocales.includes(requested) ? initialLocale : requested;
     const cached = loadedRef.current[target];
     if (cached) {
       setCatalog((prev) => (prev?.locale === target ? prev : { locale: target, messages: cached }));
@@ -200,7 +203,7 @@ export function IntlProvider({ locale: initialLocale, messages: initialMessages,
     });
     return () => { stale = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLocale]);
+  }, [currentLocale, allowedLocales]);
 
   // Keep <html> lang/dir in sync with the rendered locale (RTL for he/fa).
   const activeLocale = catalog?.locale;

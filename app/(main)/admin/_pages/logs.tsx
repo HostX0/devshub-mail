@@ -7,9 +7,10 @@ import { AdminPageHeader } from '@/components/admin/page-header';
 import { Badge } from '@/components/admin/badge';
 import { EmptyState } from '@/components/admin/empty-state';
 import { useAdminFeedback } from '@/components/admin/feedback';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { inputClass } from '@/components/admin/config-items';
 import type { AuditEntry } from '@/lib/admin/types';
-import { formatAuditDetail } from '@/lib/admin/audit-format';
+import { useAdminAuditLabels } from '@/components/admin/audit-labels';
 import { adminPageDef } from '@/lib/admin/admin-nav';
 import { apiFetch } from '@/lib/browser-navigation';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,9 @@ import { cn } from '@/lib/utils';
 const PAGE = adminPageDef('logs');
 
 export function LogsPage() {
+  const { t, isArabic } = useAdminI18n();
+  const dateLocale = isArabic ? 'ar-u-nu-latn' : 'en-US';
+  const { actionLabels, auditDetail } = useAdminAuditLabels();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -40,10 +44,10 @@ export function LogsPage() {
       setTotal(data.total || 0);
     } catch {
       setLoadFailed(true);
-      setMessage({ type: 'error', text: 'Could not load the audit log' });
+      setMessage({ type: 'error', text: t('Could not load the audit log', 'تعذّر تحميل سجل النشاط') });
     }
     setLoading(false);
-  }, [page, actionFilter, setMessage]);
+  }, [page, actionFilter, setMessage, t]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -54,40 +58,21 @@ export function LogsPage() {
     <div>
       <AdminPageHeader
         title={PAGE.label}
-        description={<>{PAGE.description} &middot; {total} total entries</>}
+        description={t(`Administrator actions and changes · ${total} total entries`, `إجراءات الإدارة والتغييرات · إجمالي السجلات: ${total}`)}
         actions={(
           <>
             <select
               value={actionFilter}
               onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-              aria-label="Filter by action"
+              aria-label={t('Filter by action', 'تصفية حسب الإجراء')}
               className={cn(inputClass, 'pe-8 cursor-pointer')}
             >
-              <option value="">All actions</option>
-              <option value="admin.login">Login</option>
-              <option value="admin.logout">Logout</option>
-              <option value="admin.login_failed">Login Failed</option>
-              <option value="admin.login_blocked">Login Blocked</option>
-              <option value="admin.change-password">Password Change</option>
-              <option value="config.update">Config Update</option>
-              <option value="config.revert">Config Revert</option>
-              <option value="policy.update">Policy Update</option>
-              <option value="plugin.install">Plugin Install</option>
-              <option value="plugin.update">Plugin Update</option>
-              <option value="plugin.rollback">Plugin Rollback</option>
-              <option value="plugin.delete">Plugin Removal</option>
-              <option value="theme.install">Theme Install</option>
-              <option value="theme.update">Theme Update</option>
-              <option value="theme.rollback">Theme Rollback</option>
-              <option value="theme.delete">Theme Removal</option>
-              <option value="device.wipe.request">Device Wipe Requested</option>
-              <option value="device.wipe.confirm">Device Wipe Confirmed</option>
-              <option value="device.wipe.cancel">Device Wipe Cancelled</option>
-              <option value="device.forget">Device Forgotten</option>
+              <option value="">{t('All actions', 'جميع الإجراءات')}</option>
+              {Object.entries(actionLabels).map(([action, label]) => <option key={action} value={action}>{label}</option>)}
             </select>
             <Button type="button" variant="outline" size="sm" className="gap-2" onClick={fetchLogs} disabled={loading}>
               <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin [animation-direction:reverse]')} />
-              Refresh
+              {t('Refresh', 'تحديث')}
             </Button>
           </>
         )}
@@ -95,13 +80,13 @@ export function LogsPage() {
 
       {initialLoading ? (
         <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-          <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
+          <Loader2 className="me-2 h-4 w-4 animate-spin" /> {t('Loading', 'جارٍ التحميل')}
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
           icon={ScrollText}
-          title={loadFailed ? 'Could not load the audit log' : 'No entries found'}
-          hint={loadFailed ? undefined : actionFilter ? 'Nothing matches this action filter.' : 'Admin actions show up here as they happen.'}
+          title={loadFailed ? t('Could not load the audit log', 'تعذّر تحميل سجل النشاط') : t('No entries found', 'لا توجد سجلات')}
+          hint={loadFailed ? undefined : actionFilter ? t('Nothing matches this action filter.', 'لا توجد سجلات تطابق الإجراء المحدد.') : t('Admin actions show up here as they happen.', 'تظهر إجراءات الإدارة هنا فور تنفيذها.')}
         />
       ) : (
         <>
@@ -109,13 +94,13 @@ export function LogsPage() {
             {entries.map((entry, i) => (
               <div key={i} className="rounded-lg border border-border p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge className="font-mono text-xs truncate">{entry.action}</Badge>
+                  <Badge className="font-mono text-xs truncate">{actionLabels[entry.action] ?? entry.action}</Badge>
                   <span className="text-[0.6875rem] text-muted-foreground whitespace-nowrap">
-                    {new Date(entry.ts).toLocaleString()}
+                    {new Date(entry.ts).toLocaleString(dateLocale)}
                   </span>
                 </div>
                 <div className="text-xs text-foreground break-words">
-                  {formatAuditDetail(entry.detail) || '-'}
+                  {auditDetail(entry.detail) || '-'}
                 </div>
                 <div className="text-[0.6875rem] text-muted-foreground font-mono">
                   {entry.ip}
@@ -128,23 +113,23 @@ export function LogsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">Time</th>
-                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">Action</th>
-                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground">Details</th>
-                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">IP</th>
+                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">{t('Time', 'الوقت')}</th>
+                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">{t('Action', 'الإجراء')}</th>
+                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground">{t('Details', 'التفاصيل')}</th>
+                  <th className="text-start px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">{t('IP', 'عنوان الشبكة')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {entries.map((entry, i) => (
                   <tr key={i} className="hover:bg-muted/20">
                     <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(entry.ts).toLocaleString()}
+                      {new Date(entry.ts).toLocaleString(dateLocale)}
                     </td>
                     <td className="px-4 py-2">
-                      <Badge className="font-mono text-xs">{entry.action}</Badge>
+                      <Badge className="font-mono text-xs">{actionLabels[entry.action] ?? entry.action}</Badge>
                     </td>
-                    <td className="w-full max-w-0 truncate px-4 py-2 text-xs text-foreground" title={formatAuditDetail(entry.detail)}>
-                      {formatAuditDetail(entry.detail) || '-'}
+                    <td className="w-full max-w-0 truncate px-4 py-2 text-xs text-foreground" title={auditDetail(entry.detail)}>
+                      {auditDetail(entry.detail) || '-'}
                     </td>
                     <td className="px-4 py-2 text-xs text-muted-foreground font-mono">
                       {/* A fixed width, so a full IPv6 address wraps instead of pushing the table wide. */}
@@ -161,14 +146,14 @@ export function LogsPage() {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
+            {t(`Page ${page} of ${totalPages}`, `الصفحة ${page} من ${totalPages}`)}
           </p>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-              Previous
+              {t('Previous', 'السابق')}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-              Next
+              {t('Next', 'التالي')}
             </Button>
           </div>
         </div>

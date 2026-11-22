@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { useAdminI18n } from './use-admin-i18n';
+import { localizeAdminMetadata } from '@/lib/admin/admin-nav-i18n';
 import { AdminLink } from './admin-link';
 
 interface AdminPageHeaderProps {
@@ -23,6 +25,8 @@ interface AdminPageHeaderProps {
  * description and the actions stay.
  */
 export function AdminPageHeader({ title, description, actions, back, leading, className }: AdminPageHeaderProps) {
+  const { isArabic } = useAdminI18n();
+  const localize = (value: ReactNode) => typeof value === 'string' ? localizeAdminMetadata(value, isArabic) : value;
   return (
     <div className={cn('mb-6 space-y-3', className)}>
       {back && (
@@ -31,7 +35,7 @@ export function AdminPageHeader({ title, description, actions, back, leading, cl
           // The phone shell's top bar already has the back arrow.
           className="hidden desk:inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
           {back.label}
         </AdminLink>
       )}
@@ -39,8 +43,8 @@ export function AdminPageHeader({ title, description, actions, back, leading, cl
         <div className="flex items-start gap-3 min-w-0">
           {leading}
           <div className="min-w-0">
-            <h1 className={cn('text-xl font-semibold text-foreground leading-tight', !back && 'hidden desk:block')}>{title}</h1>
-            {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+            <h1 className={cn('text-xl font-semibold text-foreground leading-tight', !back && 'hidden desk:block')}>{localize(title)}</h1>
+            {description && <p className="text-sm text-muted-foreground mt-1">{localize(description)}</p>}
           </div>
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}

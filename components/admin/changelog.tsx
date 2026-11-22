@@ -1,7 +1,10 @@
+'use client';
+
 import { Fragment, useMemo, type ReactNode } from 'react';
 import { ShieldAlert, AlertTriangle } from '@/components/icons';
 import { parseChangelog, type Inline } from '@/lib/admin/changelog-markdown';
 import { cn } from '@/lib/utils';
+import { useAdminI18n } from './use-admin-i18n';
 import { Badge } from './badge';
 
 export interface ChangelogFlags {
@@ -47,11 +50,12 @@ export function ChangelogNotes({ markdown, className }: { markdown: string; clas
 
 /** "Security" and "Breaking" next to an update, when its notes have those headings. */
 export function ChangelogBadges({ flags }: { flags: ChangelogFlags | undefined }) {
+  const { t } = useAdminI18n();
   if (!flags?.security && !flags?.breaking) return null;
   return (
     <>
-      {flags.security && <Badge tone="danger" icon={<ShieldAlert className="h-3 w-3" />}>Security</Badge>}
-      {flags.breaking && <Badge tone="warning" icon={<AlertTriangle className="h-3 w-3" />}>Breaking</Badge>}
+      {flags.security && <Badge tone="danger" icon={<ShieldAlert className="h-3 w-3" />}>{t('Security', 'أمان')}</Badge>}
+      {flags.breaking && <Badge tone="warning" icon={<AlertTriangle className="h-3 w-3" />}>{t('Breaking', 'تغييرات غير متوافقة')}</Badge>}
     </>
   );
 }
@@ -60,16 +64,17 @@ export const anyFlag = (entries: ChangelogEntry[], key: keyof ChangelogFlags) =>
 
 /** The notes of several versions, newest first, each under its version. */
 export function ChangelogEntries({ entries }: { entries: ChangelogEntry[] }) {
+  const { t, isArabic } = useAdminI18n();
   return (
     <ol className="space-y-3">
       {entries.map((e) => (
         <li key={e.version}>
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs">
             <span className="font-mono font-medium text-foreground">v{e.version}</span>
-            {e.publishedAt && <span className="text-muted-foreground">{new Date(e.publishedAt).toLocaleDateString()}</span>}
+            {e.publishedAt && <span className="text-muted-foreground">{new Date(e.publishedAt).toLocaleDateString(isArabic ? 'ar-u-nu-latn' : 'en')}</span>}
             <ChangelogBadges flags={e.notes} />
           </div>
-          {e.changelog ? <ChangelogNotes markdown={e.changelog} /> : <p className="text-xs italic text-muted-foreground">No notes for this version.</p>}
+          {e.changelog ? <ChangelogNotes markdown={e.changelog} /> : <p className="text-xs italic text-muted-foreground">{t('No notes for this version.', 'لا توجد ملاحظات لهذا الإصدار.')}</p>}
         </li>
       ))}
     </ol>

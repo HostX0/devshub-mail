@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/admin/empty-state';
 import { AdminBodySkeleton } from '@/components/boot-skeleton/admin-skeleton';
 import { Badge, type BadgeTone } from '@/components/admin/badge';
 import { useAdminFeedback } from '@/components/admin/feedback';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { adminPageDef } from '@/lib/admin/admin-nav';
 import { apiFetch } from '@/lib/browser-navigation';
 import type { UpdateStatus, UpdateSeverity } from '@/lib/version-check/types';
@@ -35,35 +36,39 @@ interface VersionAdminStatus {
 
 const PAGE = adminPageDef('version');
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'never';
-  const d = Date.now() - new Date(iso).getTime();
-  if (d < 0) return new Date(iso).toLocaleString();
-  const m = Math.floor(d / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} min ago`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h} hours ago`;
-  return `${Math.floor(h / 24)} days ago`;
+type Translate = (english: string, arabic: string) => string;
+function timeAgo(iso: string | null, t: Translate, locale: string): string {
+  if (!iso) return t('Never', 'لم يحدث بعد');
+  const elapsed = Date.now() - new Date(iso).getTime();
+  if (elapsed < 0) return new Date(iso).toLocaleString(locale);
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return t('Just now', 'الآن');
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (minutes < 60) return relative.format(-minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return relative.format(-hours, 'hour');
+  return relative.format(-Math.floor(hours / 24), 'day');
 }
 
-function severityChip(severity: UpdateSeverity): { label: string; tone: BadgeTone; Icon: typeof CheckCircle2 } {
+function severityChip(severity: UpdateSeverity, t: Translate): { label: string; tone: BadgeTone; Icon: typeof CheckCircle2 } {
   switch (severity) {
     case 'security':
-      return { label: 'Security update', tone: 'danger', Icon: ShieldAlert };
+      return { label: t('Security update', 'تحديث أمني'), tone: 'danger', Icon: ShieldAlert };
     case 'deprecated':
-      return { label: 'Deprecated', tone: 'danger', Icon: ShieldAlert };
+      return { label: t('Deprecated', 'إصدار قديم'), tone: 'danger', Icon: ShieldAlert };
     case 'normal':
-      return { label: 'Update available', tone: 'warning', Icon: AlertTriangle };
+      return { label: t('Update available', 'يتوفر تحديث'), tone: 'warning', Icon: AlertTriangle };
     case 'unknown':
-      return { label: 'Unknown', tone: 'muted', Icon: AlertTriangle };
+      return { label: t('Unknown', 'غير معروف'), tone: 'muted', Icon: AlertTriangle };
     case 'none':
     default:
-      return { label: 'Up to date', tone: 'success', Icon: CheckCircle2 };
+      return { label: t('Up to date', 'محدّث'), tone: 'success', Icon: CheckCircle2 };
   }
 }
 
 export function VersionPage() {
+  const { t, isArabic } = useAdminI18n();
+  const dateLocale = isArabic ? 'ar-u-nu-latn' : 'en-US';
   const [data, setData] = useState<VersionAdminStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -94,9 +99,11 @@ export function VersionPage() {
       });
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       setMessage(j.ok
-        ? { type: 'success', text: 'Update check completed.' }
-        : { type: 'error', text: `Failed: ${j.error ?? 'unknown'}` });
+        ? { type: 'success', text: t('Update check completed.', 'اكتمل التحقق من التحديثات.') }
+        : { type: 'error', text: t('Could not check for updates. Try again.', 'تعذّر التحقق من التحديثات. حاول مجدداً.') });
       await refresh();
+    } catch {
+      setMessage({ type: 'error', text: t('Could not connect. Try again.', 'تعذّر الاتصال. حاول مجدداً.') });
     } finally {
       setChecking(false);
     }
@@ -109,7 +116,7 @@ export function VersionPage() {
       actions={(
         <Button type="button" size="sm" className="gap-2" disabled={checking || loading} onClick={() => void checkNow()}>
           {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Check now
+          {t('Check now', 'تحقّق الآن')}
         </Button>
       )}
     />
@@ -120,8 +127,8 @@ export function VersionPage() {
       <div>
         {header}
         <EmptyState
-          title="Could not load the update status"
-          action={<Button type="button" size="sm" onClick={() => void refresh()}>Retry</Button>}
+          title={t('Could not load the update status', 'تعذّر تحميل حالة التحديث')}
+          action={<Button type="button" size="sm" onClick={() => void refresh()}>{t('Retry', 'إعادة المحاولة')}</Button>}
         />
       </div>
     );
@@ -132,13 +139,13 @@ export function VersionPage() {
     return (
       <div>
         {header}
-        <AdminBodySkeleton status="Loading" />
+        <AdminBodySkeleton status={t('Loading', 'جارٍ التحميل')} />
       </div>
     );
   }
 
   const status = data.status;
-  const chip = severityChip(status?.severity ?? 'none');
+  const chip = severityChip(status?.severity ?? 'none', t);
   const ChipIcon = chip.Icon;
   const releaseUrl = status?.url ?? null;
   const newer = status?.latest && status.latest !== data.current ? status.latest : null;
@@ -149,15 +156,15 @@ export function VersionPage() {
 
 
       <div className="space-y-10">
-        <SettingsSection id="status" title="Status">
-          <SettingItem label="Severity">
+        <SettingsSection id="status" title={t('Status', 'الحالة')}>
+          <SettingItem label={t('Severity', 'أهمية التحديث')}>
             <Badge tone={chip.tone} icon={<ChipIcon className="h-3 w-3" />}>{chip.label}</Badge>
           </SettingItem>
-          <SettingItem label="Running" description={data.build !== 'unknown' ? `Build ${data.build}` : undefined}>
+          <SettingItem label={t('Running', 'الإصدار الحالي')} description={data.build !== 'unknown' ? t(`Build ${data.build}`, `رقم البناء ${data.build}`) : undefined}>
             <span className="text-sm font-mono text-foreground">{data.current}</span>
           </SettingItem>
           {newer && (
-            <SettingItem label="Latest release">
+            <SettingItem label={t('Latest release', 'أحدث إصدار')}>
               {releaseUrl ? (
                 <a
                   href={releaseUrl}
@@ -173,37 +180,37 @@ export function VersionPage() {
             </SettingItem>
           )}
           {status?.advisory && (
-            <SettingItem label="Advisory">
+            <SettingItem label={t('Advisory', 'تنبيه')}>
               <span className="text-sm font-mono text-red-600 dark:text-red-400">{status.advisory}</span>
             </SettingItem>
           )}
         </SettingsSection>
 
-        <SettingsSection id="schedule" title="Schedule" description="Hourly polling with ±5 minute jitter.">
-          <SettingItem label="Last checked">
-            <span className="text-sm text-foreground">{timeAgo(data.lastCheckedAt)}</span>
+        <SettingsSection id="schedule" title={t('Schedule', 'الجدول الزمني')} description={t('Hourly polling with ±5 minute jitter.', 'تحقق كل ساعة، مع فارق توقيت يصل إلى 5 دقائق.')}>
+          <SettingItem label={t('Last checked', 'آخر تحقق')}>
+            <span className="text-sm text-foreground">{timeAgo(data.lastCheckedAt, t, dateLocale)}</span>
           </SettingItem>
-          <SettingItem label="Last success">
-            <span className="text-sm text-foreground">{timeAgo(data.lastSuccessAt)}</span>
+          <SettingItem label={t('Last success', 'آخر تحقق ناجح')}>
+            <span className="text-sm text-foreground">{timeAgo(data.lastSuccessAt, t, dateLocale)}</span>
           </SettingItem>
-          <SettingItem label="Next scheduled">
-            <span className="text-sm text-foreground">{timeAgo(data.nextScheduledAt)}</span>
+          <SettingItem label={t('Next scheduled', 'التحقق القادم')}>
+            <span className="text-sm text-foreground">{timeAgo(data.nextScheduledAt, t, dateLocale)}</span>
           </SettingItem>
           {status?.checkedAt && (
-            <SettingItem label="Server timestamp" description="When the server last refreshed its release list.">
-              <span className="text-sm text-foreground">{new Date(status.checkedAt).toLocaleString()}</span>
+            <SettingItem label={t('Server timestamp', 'وقت تحديث الخادم')} description={t('When the server last refreshed its release list.', 'وقت آخر تحديث لقائمة الإصدارات على الخادم.')}>
+              <span className="text-sm text-foreground">{new Date(status.checkedAt).toLocaleString(dateLocale)}</span>
             </SettingItem>
           )}
         </SettingsSection>
 
         <SettingsSection
           id="source"
-          title="Source"
-          description="Hourly check against the Bulwark version server. Severity is decided server-side and disable with BULWARK_UPDATE_CHECK=off."
+          title={t('Source', 'المصدر')}
+          description={t('Hourly check against the Bulwark version server. Severity is decided server-side and disable with BULWARK_UPDATE_CHECK=off.', 'يتحقق النظام كل ساعة من خادم الإصدارات، ويحدد الخادم أهمية التحديث. يمكن تعطيل التحقق بإعداد BULWARK_UPDATE_CHECK=off.')}
         >
           <SettingItem
-            label="Endpoint"
-            description={data.endpoint === data.defaultEndpoint ? 'Default endpoint.' : `Default: ${data.defaultEndpoint}`}
+            label={t('Endpoint', 'عنوان الخدمة')}
+            description={data.endpoint === data.defaultEndpoint ? t('Default endpoint.', 'عنوان الخدمة الافتراضي.') : t(`Default: ${data.defaultEndpoint}`, `الافتراضي: ${data.defaultEndpoint}`)}
           >
             <a
               href={data.endpoint}
@@ -214,14 +221,14 @@ export function VersionPage() {
               {data.endpoint} <ExternalLink className="w-3 h-3 shrink-0" />
             </a>
           </SettingItem>
-          <SettingItem label="Disabled by env" description="Set BULWARK_UPDATE_CHECK=off to disable.">
+          <SettingItem label={t('Disabled by env', 'معطّل من إعدادات البيئة')} description={t('Set BULWARK_UPDATE_CHECK=off to disable.', 'استخدم الإعداد BULWARK_UPDATE_CHECK=off لتعطيل التحقق.')}>
             <span className={`text-sm font-medium ${data.disabledByEnv ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-              {data.disabledByEnv ? 'Yes' : 'No'}
+              {data.disabledByEnv ? t('Yes', 'نعم') : t('No', 'لا')}
             </span>
           </SettingItem>
           {data.disabledByNoThirdPartyTraffic && (
-            <SettingItem label="Off: no third-party traffic" description="NO_THIRD_PARTY_TRAFFIC is on, so this server never asks the version endpoint. See Users > Security.">
-              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Yes</span>
+            <SettingItem label={t('Off: no third-party traffic', 'معطّل بسبب منع الاتصالات الخارجية')} description={t('NO_THIRD_PARTY_TRAFFIC is on, so this server never asks the version endpoint. See Users > Security.', 'منع الاتصالات الخارجية مفعّل، لذلك لا يتصل الخادم بخدمة الإصدارات. راجع المستخدمون ← الأمان.')}>
+              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">{t('Yes', 'نعم')}</span>
             </SettingItem>
           )}
         </SettingsSection>

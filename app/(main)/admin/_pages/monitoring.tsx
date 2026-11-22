@@ -10,6 +10,7 @@ import { AdminBodySkeleton } from '@/components/boot-skeleton/admin-skeleton';
 import { AdminSaveBar } from '@/components/admin/save-bar';
 import { withEdit } from '@/lib/admin/edits';
 import { useAdminFeedback } from '@/components/admin/feedback';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
 import { ConfigTextItem, ConfigNote } from '@/components/admin/config-items';
 
 interface ConfigEntry {
@@ -40,6 +41,7 @@ const KEYS = ['errorReportingDsn', 'errorReportingSampleRate', 'errorReportingEn
 const DOCS = 'https://bulwarkmail.org/docs/deployment/monitoring';
 
 export function MonitoringPage() {
+  const { t } = useAdminI18n();
   const [config, setConfig] = useState<Record<string, ConfigEntry>>({});
   const [state, setState] = useState<MonitoringState | null>(null);
   const [edits, setEdits] = useState<Record<string, unknown>>({});
@@ -54,10 +56,10 @@ export function MonitoringPage() {
       if (stateRes.ok) setState(await stateRes.json());
       if (!configRes.ok || !stateRes.ok) throw new Error();
     } catch {
-      setMessage({ type: 'error', text: 'Could not load the settings' });
+      setMessage({ type: 'error', text: t('Could not load the settings', 'تعذّر تحميل الإعدادات') });
     }
     setLoading(false);
-  }, [setMessage]);
+  }, [setMessage, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -75,35 +77,40 @@ export function MonitoringPage() {
     if (Object.keys(edits).length === 0) return;
     setSaving(true);
     setMessage(null);
-    const res = await apiFetch('/api/admin/config', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(edits),
-    });
-    if (res.ok) {
-      setMessage({ type: 'success', text: 'Saved. Browsers pick it up on their next page load.' });
-      setEdits({});
-      await load();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setMessage({ type: 'error', text: data.error || 'Failed to save' });
-    }
-    setSaving(false);
+    try {
+      const res = await apiFetch('/api/admin/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(edits),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: t('Saved. Browsers pick it up on their next page load.', 'تم الحفظ. تُطبّق الإعدادات عند فتح الصفحة مجدداً.') });
+        setEdits({});
+        await load();
+      } else {
+        setMessage({ type: 'error', text: t('Could not save the settings. Try again.', 'تعذّر حفظ الإعدادات. حاول مجدداً.') });
+      }
+    } catch {
+      setMessage({ type: 'error', text: t('Connection failed. Please try again.', 'تعذّر الاتصال. أعد المحاولة.') });
+    } finally { setSaving(false); }
   }
 
   async function handleRevert(key: string) {
-    const res = await apiFetch('/api/admin/config', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key }),
-    });
-    if (res.ok) {
+    try {
+      const res = await apiFetch('/api/admin/config', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      if (!res.ok) throw new Error();
       setEdits((prev) => {
         const next = { ...prev };
         delete next[key];
         return next;
       });
       await load();
+    } catch {
+      setMessage({ type: 'error', text: t('Could not restore the setting. Try again.', 'تعذّر استعادة الإعداد. حاول مجدداً.') });
     }
   }
 
@@ -114,7 +121,7 @@ export function MonitoringPage() {
     return (
       <div>
         <AdminPageHeader title={PAGE.label} description={PAGE.description} />
-        <AdminBodySkeleton status="Loading" />
+        <AdminBodySkeleton status={t('Loading', 'جارٍ التحميل')} />
       </div>
     );
   }
@@ -127,36 +134,33 @@ export function MonitoringPage() {
       <div className="space-y-10">
         <SectionNav />
 
-        <SettingsSection id="errors" title="Error reporting">
+        <SettingsSection id="errors" title={t('Error reporting', 'الإبلاغ عن الأخطاء')}>
           <ConfigNote>
-            Send errors from browsers and from this server to your own error tracker: Bugsink, GlitchTip or
-            Sentry. Off while the address is empty. Message text, addresses, file names, tokens and URLs are
-            removed before anything is sent. <a className="underline" href={DOCS} target="_blank" rel="noreferrer">What is sent</a>
+            {t('Send errors from browsers and this server to your error tracker: Bugsink, GlitchTip or Sentry. Disabled while the address is empty. Message text, addresses, file names, tokens and URLs are removed before sending.', 'أرسل أخطاء المتصفحات والخادم إلى خدمة تتبّع الأخطاء الخاصة بك، مثل Bugsink أو GlitchTip أو Sentry. يتوقف الإرسال عندما يكون العنوان فارغاً. تُحذف نصوص الرسائل والعناوين وأسماء الملفات والرموز والروابط قبل الإرسال.')} <a className="underline" href={DOCS} target="_blank" rel="noreferrer">{t('What is sent', 'البيانات المُرسلة')}</a>
           </ConfigNote>
-          <ConfigTextItem label="Error reporting address (DSN)" configKey="errorReportingDsn" value={currentValue('errorReportingDsn')} source={config.errorReportingDsn?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://<key>@errors.example.com/1" wide />
-          <ConfigTextItem label="Sample rate" configKey="errorReportingSampleRate" value={currentValue('errorReportingSampleRate')} source={config.errorReportingSampleRate?.source} onChange={handleChange} onRevert={handleRevert} placeholder="1" />
-          <ConfigTextItem label="Environment" configKey="errorReportingEnvironment" value={currentValue('errorReportingEnvironment')} source={config.errorReportingEnvironment?.source} onChange={handleChange} onRevert={handleRevert} placeholder="production" />
+          <ConfigTextItem label={t('Error reporting address (DSN)', 'عنوان الإبلاغ عن الأخطاء')} configKey="errorReportingDsn" value={currentValue('errorReportingDsn')} source={config.errorReportingDsn?.source} onChange={handleChange} onRevert={handleRevert} placeholder="https://<key>@errors.example.com/1" wide />
+          <ConfigTextItem label={t('Sample rate', 'نسبة أخذ العيّنات')} configKey="errorReportingSampleRate" value={currentValue('errorReportingSampleRate')} source={config.errorReportingSampleRate?.source} onChange={handleChange} onRevert={handleRevert} placeholder="1" />
+          <ConfigTextItem label={t('Environment', 'بيئة التشغيل')} configKey="errorReportingEnvironment" value={currentValue('errorReportingEnvironment')} source={config.errorReportingEnvironment?.source} onChange={handleChange} onRevert={handleRevert} placeholder={t('production', 'مثال: production')} />
         </SettingsSection>
 
-        <SettingsSection id="errors-today" title="Errors today">
+        <SettingsSection id="errors-today" title={t('Errors today', 'أخطاء اليوم')}>
           {!state?.collecting ? (
             <ConfigNote>
-              Not counting errors. Counting starts when an error reporting address is set, the metrics
-              endpoint is on, or error counts are sent with the usage stats.
+              {t('Error counting is off. It starts when an error reporting address is set, metrics are enabled, or error counts are included in usage statistics.', 'احتساب الأخطاء متوقف. يبدأ عند ضبط عنوان الإبلاغ عن الأخطاء، أو تفعيل المؤشرات، أو إرسال أعداد الأخطاء مع إحصاءات الاستخدام.')}
             </ConfigNote>
           ) : !today || today.total === 0 ? (
-            <p className="text-sm text-muted-foreground">No errors so far today (UTC).</p>
+            <p className="text-sm text-muted-foreground">{t('No errors so far today (UTC).', 'لا توجد أخطاء اليوم حتى الآن، بحسب التوقيت العالمي.')}</p>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">{today.total} errors today (UTC), most frequent first.</p>
+              <p className="text-sm text-muted-foreground">{t(`${today.total} errors today (UTC), most frequent first.`, `عدد أخطاء اليوم بالتوقيت العالمي: ${today.total}، مرتبة من الأكثر تكراراً.`)}</p>
               <ul className="divide-y divide-border rounded-md border border-border text-sm">
                 {today.top.map((entry) => (
                   <li key={entry.fingerprint} className="flex items-start justify-between gap-4 px-3 py-2">
                     <div className="min-w-0">
                       <div className="font-medium">{entry.name}{entry.code ? `: ${entry.code}` : ''}</div>
                       <div className="truncate font-mono text-xs text-muted-foreground">
-                        {entry.frames[0] ? `${entry.frames[0].path}:${entry.frames[0].line ?? ''}:${entry.frames[0].column ?? ''}` : 'no stack'}
-                        {' · '}{entry.runtime}{' · '}{entry.version}
+                        {entry.frames[0] ? `${entry.frames[0].path}:${entry.frames[0].line ?? ''}:${entry.frames[0].column ?? ''}` : t('no stack', 'لا تتوفر تفاصيل التتبّع')}
+                        {' · '}{entry.runtime === 'browser' ? t('Browser', 'المتصفح') : t('Server', 'الخادم')}{' · '}{entry.version}
                       </div>
                     </div>
                     <span className="shrink-0 tabular-nums">{entry.count}</span>
@@ -167,37 +171,34 @@ export function MonitoringPage() {
           )}
         </SettingsSection>
 
-        <SettingsSection id="metrics" title="Metrics">
+        <SettingsSection id="metrics" title={t('Metrics', 'المؤشرات')}>
           <p className="text-sm">
             {state?.metrics?.enabled
-              ? <>On. Prometheus scrapes <code className="font-mono">/api/metrics</code> on each replica with the token as a bearer token.</>
-              : <>Off. Set <code className="font-mono">METRICS_TOKEN</code> (or <code className="font-mono">METRICS_TOKEN_FILE</code>) in the environment to turn on <code className="font-mono">/api/metrics</code>.</>}
+              ? t('Enabled. Prometheus reads /api/metrics on each replica using bearer-token authentication.', 'مفعّل. يقرأ نظام Prometheus المؤشرات من /api/metrics في كل نسخة باستخدام رمز المصادقة.')
+              : t('Disabled. Set METRICS_TOKEN or METRICS_TOKEN_FILE in the environment to enable /api/metrics.', 'معطّل. اضبط METRICS_TOKEN أو METRICS_TOKEN_FILE في بيئة التشغيل لتفعيل /api/metrics.')}
           </p>
           <ConfigNote>
-            Requests per route group, sign-ins, calls to Stalwart and other services, browser errors, memory and
-            event-loop lag. <a className="underline" href={`${DOCS}#metrics`} target="_blank" rel="noreferrer">Metric list and scrape config</a>
+            {t('Requests per route group, sign-ins, calls to Stalwart and other services, browser errors, memory and event-loop lag.', 'تشمل المؤشرات الطلبات بحسب مساراتها، وتسجيلات الدخول، والاتصالات بخادم البريد والخدمات الأخرى، وأخطاء المتصفح، والذاكرة، وتأخر معالجة الأحداث.')} <a className="underline" href={`${DOCS}#metrics`} target="_blank" rel="noreferrer">{t('Metric list and collection settings', 'قائمة المؤشرات وإعدادات جمعها')}</a>
           </ConfigNote>
         </SettingsSection>
 
-        <SettingsSection id="health" title="Health checks">
+        <SettingsSection id="health" title={t('Health checks', 'فحوص الجاهزية')}>
           <ul className="space-y-1 text-sm">
-            <li><code className="font-mono">/api/health/live</code>: the process answers. For liveness probes and the Docker health check.</li>
-            <li><code className="font-mono">/api/health/ready</code>: config loaded, data dirs writable, Stalwart reachable. For readiness probes.</li>
+            <li><code className="font-mono">/api/health/live</code>: {t('The process responds. For liveness probes and the Docker health check.', 'تستجيب الخدمة. يُستخدم لفحص عمل الخدمة وفحص الحاوية.')}</li>
+            <li><code className="font-mono">/api/health/ready</code>: {t('Configuration loaded, data folders writable, mail server reachable. For readiness probes.', 'الإعدادات محمّلة، ومجلدات البيانات قابلة للكتابة، وخادم البريد متاح. يُستخدم لفحص الجاهزية.')}</li>
           </ul>
         </SettingsSection>
 
-        <SettingsSection id="tracing" title="Tracing">
+        <SettingsSection id="tracing" title={t('Tracing', 'تتبّع الطلبات')}>
           <p className="text-sm">
             {state?.tracing?.active
-              ? <>On. Spans go to <code className="font-mono">{state.tracing.endpointHost ?? 'the OTLP endpoint'}</code> over OTLP/HTTP.</>
+              ? t(`Enabled. Traces are sent to ${state.tracing.endpointHost ?? 'the OTLP endpoint'} over OTLP/HTTP.`, `مفعّل. تُرسل بيانات التتبّع إلى ${state.tracing.endpointHost ?? 'خدمة التتبّع'} عبر OTLP/HTTP.`)
               : state?.tracing?.configured
-                ? <>Configured, but not running in this process. Restart Bulwark after setting the <code className="font-mono">OTEL_*</code> variables.</>
-                : <>Off. Set <code className="font-mono">OTEL_EXPORTER_OTLP_ENDPOINT</code> (and the other standard <code className="font-mono">OTEL_*</code> variables you need) to send traces.</>}
+                ? t('Configured but not running in this process. Restart the application after setting the OTEL_* variables.', 'تم ضبط التتبّع لكنه غير فعّال في هذه العملية. أعد تشغيل التطبيق بعد ضبط متغيرات OTEL_*.')
+                : t('Disabled. Set OTEL_EXPORTER_OTLP_ENDPOINT and the other required OTEL_* variables to send traces.', 'معطّل. اضبط OTEL_EXPORTER_OTLP_ENDPOINT ومتغيرات OTEL_* المطلوبة لإرسال بيانات التتبّع.')}
           </p>
           <ConfigNote>
-            Next&apos;s request spans plus spans for calls to Stalwart and other services. Stalwart gets the trace
-            context, so its spans join the trace. URLs, user agents and addresses are removed from spans.{' '}
-            <a className="underline" href={`${DOCS}#tracing`} target="_blank" rel="noreferrer">Setup</a>
+            {t('Includes application requests and calls to the mail server and other services. The mail server receives the trace context to link its operations. URLs, user agents and addresses are removed.', 'يشمل طلبات التطبيق واتصالات خادم البريد والخدمات الأخرى. يستقبل خادم البريد سياق التتبّع لربط عملياته به. تُحذف الروابط وبيانات المتصفح والعناوين.')} <a className="underline" href={`${DOCS}#tracing`} target="_blank" rel="noreferrer">{t('Setup instructions', 'تعليمات الإعداد')}</a>
           </ConfigNote>
         </SettingsSection>
       </div>
@@ -207,7 +208,7 @@ export function MonitoringPage() {
         saving={saving}
         onSave={handleSave}
         onDiscard={() => setEdits({})}
-        note="Browsers pick it up on their next page load"
+        note={t('Browsers apply this on their next page load', 'تُطبّق الإعدادات عند فتح الصفحة مجدداً')}
       />
     </div>
   );

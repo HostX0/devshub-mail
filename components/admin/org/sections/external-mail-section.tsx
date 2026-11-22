@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useEffect, useState } from 'react';
 import { Download, Info } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -52,6 +54,7 @@ const onOff = (v: boolean) => (v ? 'on' : 'off');
  * hand-over from the External Mail Warning plugin.
  */
 export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const senderLabel = draft.orgValue('externalMail', 'senderLabel');
   const recipientWarning = draft.orgValue('externalMail', 'recipientWarning');
   const domains = draft.orgValue('externalMail', 'domains');
@@ -89,11 +92,11 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
       draft.setMessage({
         type: 'success',
         text: added.length > 0
-          ? `Added ${added.length} ${added.length === 1 ? 'domain' : 'domains'} from the plugin. Save to apply them.`
-          : fromPlugin.length > 0 ? 'The list already has every domain the plugin had.' : 'The plugin has no safe domains set.',
+          ? tr("Added {0} {1} from the plugin. Save to apply them.", { 0: added.length, 1: added.length === 1 ? 'domain' : 'domains' })
+          : fromPlugin.length > 0 ? tr("The list already has every domain the plugin had.") : tr("The plugin has no safe domains set."),
       });
     } catch {
-      draft.setMessage({ type: 'error', text: 'Could not read the plugin settings' });
+      draft.setMessage({ type: 'error', text: tr("Could not read the plugin settings") });
     } finally {
       setImporting(false);
     }
@@ -104,24 +107,24 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
   return (
     <SettingsSection
       id="external"
-      title="External mail"
-      description="Label mail from senders outside the organisation and confirm before sending outside it. Both are off until you turn them on."
+      title={tr("External mail")}
+      description={tr("Label mail from senders outside the organisation and confirm before sending outside it. Both are off until you turn them on.")}
     >
-      <SettingItem label="Label external senders" description="Shows an “External” chip next to the sender of mail from outside the organisation.">
+      <SettingItem label={tr("Label external senders")} description={tr("Shows an “External” chip next to the sender of mail from outside the organisation.")}>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={senderLabel.value} onChange={(v) => draft.setOrgValue('externalMail', 'senderLabel', v)} testId="org-external-sender-label" />
           <InheritNote draft={draft} own={senderLabel.own} everyone={onOff(senderLabel.everyone)} onReset={() => draft.clearOrgValue('externalMail', 'senderLabel')} />
         </div>
       </SettingItem>
 
-      <SettingItem label="Confirm external recipients" description="Before a message goes out, lists the recipients outside the organisation and asks “Send anyway” or “Back”. Quick replies too.">
+      <SettingItem label={tr("Confirm external recipients")} description={tr("Before a message goes out, lists the recipients outside the organisation and asks “Send anyway” or “Back”. Quick replies too.")}>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={recipientWarning.value} onChange={(v) => draft.setOrgValue('externalMail', 'recipientWarning', v)} testId="org-external-recipient-warning" />
           <InheritNote draft={draft} own={recipientWarning.own} everyone={onOff(recipientWarning.everyone)} onReset={() => draft.clearOrgValue('externalMail', 'recipientWarning')} />
         </div>
       </SettingItem>
 
-      <SettingItem label="Trust contacts" description="Recipients in the user's contacts are sent to without asking.">
+      <SettingItem label={tr("Trust contacts")} description={tr("Recipients in the user's contacts are sent to without asking.")}>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <ToggleSwitch checked={trustContacts.value} onChange={(v) => draft.setOrgValue('externalMail', 'trustContacts', v)} testId="org-external-trust-contacts" />
           <InheritNote draft={draft} own={trustContacts.own} everyone={onOff(trustContacts.everyone)} onReset={() => draft.clearOrgValue('externalMail', 'trustContacts')} />
@@ -129,10 +132,8 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
       </SettingItem>
 
       <div className="space-y-2 py-3">
-        <label htmlFor="org-external-domains" className="text-sm font-medium text-foreground">More organisation domains</label>
-        <p className="text-xs text-muted-foreground">
-          Your users&apos; own domains always count as internal. Add partner or sister-company domains here, one per line or separated by commas. A domain covers its subdomains: example.com also covers eu.example.com.
-        </p>
+        <label htmlFor="org-external-domains" className="text-sm font-medium text-foreground">{tr("More organisation domains")}</label>
+        <p className="text-xs text-muted-foreground">{' '}{tr("Your users' own domains always count as internal. Add partner or sister-company domains here, one per line or separated by commas. A domain covers its subdomains: example.com also covers eu.example.com.")}{' '}</p>
         <textarea
           id="org-external-domains"
           data-testid="org-external-domains"
@@ -145,8 +146,7 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
           className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden"
         />
         {rejected.length > 0 && (
-          <p className="text-xs text-destructive" role="status" data-testid="org-external-domains-rejected">
-            Left out, not a domain: {rejected.join(', ')}
+          <p className="text-xs text-destructive" role="status" data-testid="org-external-domains-rejected">{' '}{tr("Left out, not a domain:")}{' '}{rejected.join(', ')}
           </p>
         )}
         <InheritNote
@@ -157,8 +157,7 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
         />
         {plugin && (
           <Button type="button" variant="outline" size="sm" onClick={() => void importFromPlugin()} disabled={importing} className="gap-1.5" data-testid="org-external-import-plugin">
-            <Download className="h-4 w-4" /> Import from the plugin
-          </Button>
+            <Download className="h-4 w-4" />{' '}{tr("Import from the plugin")}{' '}</Button>
         )}
       </div>
 
@@ -167,14 +166,13 @@ export function ExternalMailSection({ draft }: { draft: OrgPolicyDraft }) {
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
           <div className="min-w-0 space-y-1">
             <p className="font-medium text-foreground">
-              {outdated ? 'Update or remove the External Mail Warning plugin' : 'You can remove the External Mail Warning plugin'}
+              {outdated ? tr("Update or remove the External Mail Warning plugin") : tr("You can remove the External Mail Warning plugin")}
             </p>
             <p className="text-muted-foreground">
               {outdated
-                ? `Version ${plugin.version || 'unknown'} is installed. For each switch that is on, Bulwark skips the matching part of the plugin (its send confirm, or its banner and new-mail toast) so nobody is warned twice; version ${PLUGIN_STEPS_BACK_FROM} and later step back by themselves.`
-                : 'It turns off its own send confirm, banner and toast for each switch that is on here.'}{' '}
-              &ldquo;Import from the plugin&rdquo; copies its safe domains into the list above.{' '}
-              <AdminLink href={`/admin/plugins/${EXTERNAL_MAIL_WARNING_PLUGIN_ID}`} className="underline underline-offset-2 hover:text-foreground">Open the plugin</AdminLink>
+                ? tr("Version {0} is installed. For each switch that is on, Bulwark skips the matching part of the plugin (its send confirm, or its banner and new-mail toast) so nobody is warned twice; version {1} and later step back by themselves.", { 0: plugin.version || 'unknown', 1: PLUGIN_STEPS_BACK_FROM })
+                : tr("It turns off its own send confirm, banner and toast for each switch that is on here.")}{' '}{' '}{tr("&ldquo;Import from the plugin&rdquo; copies its safe domains into the list above.")}{' '}
+              <AdminLink href={`/admin/plugins/${EXTERNAL_MAIL_WARNING_PLUGIN_ID}`} className="underline underline-offset-2 hover:text-foreground">{tr("Open the plugin")}</AdminLink>
             </p>
           </div>
         </div>

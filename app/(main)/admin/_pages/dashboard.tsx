@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useAdminI18n } from '@/components/admin/use-admin-i18n';
+import { useCoreAdminI18n, translateCoreAdmin } from '@/components/admin/core-i18n';
+
+import { useEffect, useEffectEvent, useState, type ReactNode } from 'react';
 import { AlertTriangle } from '@/components/icons';
 import { SettingsSection, SettingItem } from '@/components/settings/settings-section';
 import { AdminPageHeader } from '@/components/admin/page-header';
@@ -8,7 +11,7 @@ import { AdminLink } from '@/components/admin/admin-link';
 import { AdminList, AdminListRow } from '@/components/admin/list';
 import { Badge } from '@/components/admin/badge';
 import type { AuditEntry } from '@/lib/admin/types';
-import { formatAuditDetail } from '@/lib/admin/audit-format';
+import { useAdminAuditLabels } from '@/components/admin/audit-labels';
 import { adminPageDef, adminPath } from '@/lib/admin/admin-nav';
 import { apiFetch } from '@/lib/browser-navigation';
 import type { UpdateStatus } from '@/lib/version-check/types';
@@ -42,13 +45,13 @@ interface InstancesData {
 }
 
 /** The storage line: which store, and how many instances share it (#1066). */
-export function storageSummary(data: InstancesData | null): { value: string; description?: string } {
+export function storageSummary(data: InstancesData | null, tr: (text: string, values?: Record<string, string | number>) => string = (text, values) => translateCoreAdmin(text, false, values)): { value: string; description?: string } {
   if (!data) return { value: '-' };
-  if (data.mode === 'local') return { value: 'Local files on this server' };
+  if (data.mode === 'local') return { value: tr('Local files on this server') };
   const count = data.instances === null
-    ? 'store unreachable'
-    : `${data.instances} ${data.instances === 1 ? 'instance' : 'instances'} checked in during the last minute`;
-  return { value: `Shared store, ${count}`, description: data.location };
+    ? tr('store unreachable')
+    : tr('{0} {1} checked in during the last minute', { 0: data.instances, 1: data.instances === 1 ? 'instance' : 'instances' });
+  return { value: tr('Shared store, {0}', { 0: count }), description: data.location };
 }
 
 /**
@@ -56,16 +59,20 @@ export function storageSummary(data: InstancesData | null): { value: string; des
  * there is something to install: latest can be older than what runs here, right
  * after a release or on a beta. A version the server doesn't know gets no line.
  */
-export function versionSummary(version: VersionData | null): { text?: string; tone: StatTone } {
+export function versionSummary(version: VersionData | null, tr: (text: string, values?: Record<string, string | number>) => string = (text, values) => translateCoreAdmin(text, false, values)): { text?: string; tone: StatTone } {
   if (!version || version.status?.severity === 'unknown') return { tone: 'muted' };
   const { updateAvailable, latest, severity } = version.status ?? {};
-  if (!updateAvailable || !latest) return { text: 'Up to date', tone: 'muted' };
-  return { text: `v${latest} available`, tone: severity === 'security' || severity === 'deprecated' ? 'danger' : 'warning' };
+  if (!updateAvailable || !latest) return { text: tr('Up to date'), tone: 'muted' };
+  return { text: tr('v{0} available', { 0: latest }), tone: severity === 'security' || severity === 'deprecated' ? 'danger' : 'warning' };
 }
 
 const PAGE = adminPageDef('dashboard');
 
 export function DashboardPage() {
+  const { isArabic } = useAdminI18n();
+  const dateLocale = isArabic ? 'ar-IQ-u-nu-latn' : 'en-US';
+  const tr = useCoreAdminI18n();
+  const { actionLabels, auditDetail } = useAdminAuditLabels();
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [recentActivity, setRecentActivity] = useState<AuditEntry[]>([]);
   const [config, setConfig] = useState<ConfigData | null>(null);
@@ -78,8 +85,10 @@ export function DashboardPage() {
   const [version, setVersion] = useState<VersionData | null>(null);
   const [instances, setInstances] = useState<InstancesData | null>(null);
 
+  const loadInitial = useEffectEvent(() => { void fetchDashboardData(); });
+
   useEffect(() => {
-    fetchDashboardData();
+    loadInitial();
   }, []);
 
   async function fetchDashboardData() {
@@ -143,25 +152,25 @@ export function DashboardPage() {
       // Server redacts the raw value for sensitive keys; rely on hasValue,
       // which is false when unset or matching a known placeholder default.
       if (!sessionSecret?.hasValue) {
-        w.push('SESSION_SECRET is not set or using a default value. Sessions are insecure.');
+        w.push(tr("SESSION_SECRET is not set or using a default value. Sessions are insecure."));
       }
       const adminPassword = sources?.adminPassword;
       if (adminPassword?.value && adminPassword.source === 'env') {
-        w.push('ADMIN_PASSWORD is still set in environment variables. Remove it now that the hash is stored securely.');
+        w.push(tr("ADMIN_PASSWORD is still set in environment variables. Remove it now that the hash is stored securely."));
       }
     }
     setWarnings(w);
   }
 
-  const storage = storageSummary(instances);
+  const storage = storageSummary(instances, tr);
   const jmapUrl = config?.jmapServerUrl || '-';
   const jmapHostname = jmapUrl !== '-' ? (() => { try { return new URL(jmapUrl).hostname; } catch { return jmapUrl; } })() : '-';
 
-  const versionSub = versionSummary(version);
+  const versionSub = versionSummary(version, tr);
 
   return (
     <div>
-      <AdminPageHeader title={PAGE.label} description={PAGE.description} />
+      <AdminPageHeader title={tr(PAGE.label)} description={tr(PAGE.description)} />
 
       <div className="space-y-10">
         {warnings.length > 0 && (
@@ -169,7 +178,7 @@ export function DashboardPage() {
             {warnings.map((msg, i) => (
               <div key={i} className="flex items-start gap-3 rounded-lg border border-warning/20 bg-warning/10 p-4">
                 <AlertTriangle className="w-5 h-5 text-warning mt-0.5 shrink-0" />
-                <p className="text-sm text-warning">{msg}</p>
+                <p className="text-sm text-warning">{tr(msg)}</p>
               </div>
             ))}
           </div>
@@ -177,20 +186,20 @@ export function DashboardPage() {
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile
-            label="Accounts"
+            label={tr("Accounts")}
             value={accountCounts?.total ?? '-'}
-            sub={accountCounts ? `${accountCounts.active7d} active this week` : undefined}
+            sub={accountCounts ? tr("{0} active this week", { 0: accountCounts.active7d }) : undefined}
           />
           <StatTile
-            label="Plugins"
+            label={tr("Plugins")}
             value={pluginCount}
             href={adminPath('plugins')}
-            sub={pendingApprovals > 0 ? `${pendingApprovals} awaiting approval` : undefined}
+            sub={pendingApprovals > 0 ? tr("{0} awaiting approval", { 0: pendingApprovals }) : undefined}
             subTone="warning"
           />
-          <StatTile label="Themes" value={themeCount} href={adminPath('themes')} />
+          <StatTile label={tr("Themes")} value={themeCount} href={adminPath('themes')} />
           <StatTile
-            label="Version"
+            label={tr("Version")}
             value={version?.current ?? '-'}
             href={adminPath('version')}
             sub={versionSub.text}
@@ -198,50 +207,48 @@ export function DashboardPage() {
           />
         </div>
 
-        <SettingsSection id="server" title="Server">
-          <SettingItem label="Application">
+        <SettingsSection id="server" title={tr("Server")}>
+          <SettingItem label={tr("Application")}>
             <span className="text-sm text-foreground">{config?.appName || '-'}</span>
           </SettingItem>
-          <SettingItem label="Storage" description={storage.description}>
+          <SettingItem label={tr("Storage")} description={tr(storage.description)}>
             <span className="text-sm text-foreground">{storage.value}</span>
           </SettingItem>
-          <SettingItem label="JMAP server" description={jmapUrl !== '-' ? jmapUrl : undefined}>
+          <SettingItem label={tr("JMAP server")} description={jmapUrl !== '-' ? jmapUrl : undefined}>
             <span className="text-sm text-foreground">{jmapHostname}</span>
           </SettingItem>
-          <SettingItem label="Last admin login">
+          <SettingItem label={tr("Last admin login")}>
             <span className="text-sm text-foreground">
-              {status?.lastLogin ? new Date(status.lastLogin).toLocaleString() : 'Never'}
+              {status?.lastLogin ? new Date(status.lastLogin).toLocaleString(dateLocale) : tr("Never")}
             </span>
           </SettingItem>
-          <SettingItem label="Settings sync" description="Synchronize user settings across devices">
+          <SettingItem label={tr("Settings sync")} description={tr("Synchronize user settings across devices")}>
             <OnOff on={!!config?.settingsSyncEnabled} />
           </SettingItem>
-          <SettingItem label="OAuth" description="OAuth authentication provider">
+          <SettingItem label="OAuth" description={tr("OAuth authentication provider")}>
             <OnOff on={!!config?.oauthEnabled} />
           </SettingItem>
-          <SettingItem label="Stalwart integration" description="Stalwart mail server features">
+          <SettingItem label={tr("Stalwart integration")} description={tr("Stalwart mail server features")}>
             <OnOff on={config?.stalwartFeaturesEnabled !== false} />
           </SettingItem>
         </SettingsSection>
 
-        <SettingsSection id="activity" title="Recent activity">
+        <SettingsSection id="activity" title={tr("Recent activity")}>
           {recentActivity.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">No activity recorded yet</p>
+            <p className="py-4 text-sm text-muted-foreground">{tr("No activity recorded yet")}</p>
           ) : (
             <AdminList>
               {recentActivity.map((entry, i) => (
                 <AdminListRow
                   key={i}
-                  title={<code className="font-mono text-xs">{entry.action}</code>}
-                  description={formatAuditDetail(entry.detail) || undefined}
-                  meta={<>{entry.ip} &middot; {new Date(entry.ts).toLocaleString()}</>}
+                  title={<code className="font-mono text-xs">{actionLabels[entry.action] ?? entry.action}</code>}
+                  description={auditDetail(entry.detail) || undefined}
+                  meta={<>{entry.ip} &middot; {new Date(entry.ts).toLocaleString(dateLocale)}</>}
                 />
               ))}
             </AdminList>
           )}
-          <AdminLink href={adminPath('logs')} className="inline-block text-sm font-medium text-primary hover:underline">
-            All entries
-          </AdminLink>
+          <AdminLink href={adminPath('logs')} className="inline-block text-sm font-medium text-primary hover:underline">{' '}{tr("All entries")}{' '}</AdminLink>
         </SettingsSection>
       </div>
     </div>
@@ -285,5 +292,6 @@ function StatTile({ label, value, sub, subTone = 'muted', href }: StatTileProps)
 }
 
 function OnOff({ on }: { on: boolean }) {
-  return <Badge tone={on ? 'success' : 'muted'}>{on ? 'On' : 'Off'}</Badge>;
+  const tr = useCoreAdminI18n();
+  return <Badge tone={on ? 'success' : 'muted'}>{on ? tr("On") : tr("Off")}</Badge>;
 }

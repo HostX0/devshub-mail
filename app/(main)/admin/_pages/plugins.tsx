@@ -1,5 +1,6 @@
 'use client';
 
+import { useExtensionI18n, extensionError } from './extension-translations';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, Loader2, Puzzle, Lock, Store, Power, PowerOff, ShieldAlert, AlertTriangle } from '@/components/icons';
 import type { SettingsPolicy } from '@/lib/admin/types';
@@ -27,6 +28,7 @@ import { useExtensionIcons } from './use-extension-icons';
 import type { ExtensionEntry } from './extension-detail';
 
 export function PluginsPage() {
+  const tr = useExtensionI18n();
   const [plugins, setPlugins] = useState<ExtensionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -50,11 +52,11 @@ export function PluginsPage() {
       setPlugins(await res.json());
     } catch {
       setLoadFailed(true);
-      setMessage({ type: 'error', text: 'Could not load the plugins' });
+      setMessage({ type: 'error', text: tr("Could not load the plugins") });
     } finally {
       setLoading(false);
     }
-  }, [setMessage]);
+  }, [setMessage, tr]);
 
   const fetchPolicy = useCallback(async () => {
     try {
@@ -68,7 +70,8 @@ export function PluginsPage() {
     } catch { /* the defaults stay */ }
   }, []);
 
-  useEffect(() => { fetchPlugins(); fetchPolicy(); }, [fetchPlugins, fetchPolicy]);
+  useEffect(() => { fetchPlugins(); }, [fetchPlugins]);
+  useEffect(() => { fetchPolicy(); }, [fetchPolicy]);
 
   const features = policy.features;
   const pluginsEnabled = features.pluginsEnabled ?? false;
@@ -106,9 +109,9 @@ export function PluginsPage() {
         return null;
       }
       const data = await res.json().catch(() => ({}));
-      return data.error || 'Could not save the plugin policy';
+      return extensionError(data.error, tr("Could not save the plugin policy"), tr);
     } catch {
-      return 'Could not save the plugin policy';
+      return tr("Could not save the plugin policy");
     }
   }
 
@@ -127,8 +130,8 @@ export function PluginsPage() {
     }
     setSavingPolicy(false);
     setMessage(errors.length > 0
-      ? { type: 'error', text: `Couldn't save everything. ${errors.join('; ')}` }
-      : { type: 'success', text: 'Plugins saved. Users get the change when they next open or reload Bulwark.' });
+      ? { type: 'error', text: tr("Couldn't save everything. {0}", errors.join('; ')) }
+      : { type: 'success', text: tr("Plugins saved. Users get the change when they next open or reload Bulwark.") });
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -142,21 +145,21 @@ export function PluginsPage() {
       const res = await apiFetch('/api/admin/plugins', { method: 'POST', body: formData });
       const data = await res.json();
       if (res.ok) {
-        const warnings = data.warnings?.length ? ` (${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'})` : '';
+        const warnings = data.warnings?.length ? tr(" ({0} warning{1})", data.warnings.length, data.warnings.length === 1 ? '' : 's') : '';
         // Only asks when plugins are off as saved, not about an unsaved switch below.
-        const outcome = savedPolicy.features.pluginsEnabled ? 'already-on' : await offerToTurnOnPlugins(confirm);
+        const outcome = savedPolicy.features.pluginsEnabled ? 'already-on' : await offerToTurnOnPlugins(confirm, tr);
         if (outcome === 'turned-on') {
           setPolicy((prev) => ({ ...prev, features: { ...prev.features, pluginsEnabled: true } }));
           setSavedPolicy((prev) => ({ ...prev, features: { ...prev.features, pluginsEnabled: true } }));
           void fetchPolicy();
         }
-        setMessage({ type: 'success', text: `"${data.plugin.name}" installed${warnings}.${turnOnNote(outcome)}` });
+        setMessage({ type: 'success', text: tr("\"{0}\" installed{1}.{2}", data.plugin.name, warnings, turnOnNote(outcome, tr)) });
         await fetchPlugins();
       } else {
-        setMessage({ type: 'error', text: data.error || 'Upload failed' });
+        setMessage({ type: 'error', text: extensionError(data.error, tr("Upload failed"), tr) });
       }
     } catch {
-      setMessage({ type: 'error', text: 'Upload failed' });
+      setMessage({ type: 'error', text: tr("Upload failed") });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -175,7 +178,7 @@ export function PluginsPage() {
       return null;
     }
     const data = await res.json().catch(() => ({}));
-    return data.error || 'Could not change the plugin';
+    return extensionError(data.error, tr("Could not change the plugin"), tr);
   }
 
   function setAll(enabled: boolean) {
@@ -188,18 +191,16 @@ export function PluginsPage() {
   return (
     <div>
       <AdminPageHeader
-        title="Plugins"
-        description="Plugins installed for every user of this Bulwark. Open one to configure it."
+        title={tr("Plugins")}
+        description={tr("Plugins installed for every user of this Bulwark. Open one to configure it.")}
         actions={(
           <>
             <AdminButtonLink href={adminPath('marketplace')}>
               <Store className="h-4 w-4" />
-              Marketplace
-            </AdminButtonLink>
+              {tr(" Marketplace ")}</AdminButtonLink>
             <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload plugin
-              <input
+              {tr(" Upload plugin ")}<input
                 ref={fileInputRef}
                 type="file"
                 accept=".zip"
@@ -216,26 +217,25 @@ export function PluginsPage() {
       <ConfirmDialog {...confirmProps} />
 
       <div className="space-y-10">
-        <SettingsSection id="policy" title="Plugins for users" description="Whether plugins run for users at all, and what users may install themselves.">
+        <SettingsSection id="policy" title={tr("Plugins for users")} description={tr("Whether plugins run for users at all, and what users may install themselves.")}>
           {!pluginsEnabled && (
             <div role="status" data-testid="plugins-off-banner" className="flex flex-wrap items-center gap-3 rounded-md border border-warning/40 bg-warning/10 p-3">
               <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
               <p className="min-w-0 flex-1 text-sm text-foreground">
-                Plugins are off for users. Nothing on this page runs for anyone until you turn them on.
-              </p>
-              <Button size="sm" onClick={() => setFeature('pluginsEnabled', true)}>Turn on</Button>
+                {tr(" Plugins are off for users. Nothing on this page runs for anyone until you turn them on. ")}</p>
+              <Button size="sm" onClick={() => setFeature('pluginsEnabled', true)}>{tr("Turn on")}</Button>
             </div>
           )}
-          <SettingItem label="Plugins" description="Load and run plugins for users at all. Off hides the plugin system everywhere.">
+          <SettingItem label={tr("Plugins")} description={tr("Load and run plugins for users at all. Off hides the plugin system everywhere.")}>
             <ToggleSwitch checked={pluginsEnabled} onChange={(v) => setFeature('pluginsEnabled', v)} />
           </SettingItem>
-          <SettingItem nested label="Users may upload plugins" description="Let users install plugin ZIPs for their own account from their settings.">
+          <SettingItem nested label={tr("Users may upload plugins")} description={tr("Let users install plugin ZIPs for their own account from their settings.")}>
             <ToggleSwitch checked={pluginsEnabled && pluginsUploadEnabled} disabled={!pluginsEnabled} onChange={(v) => setFeature('pluginsUploadEnabled', v)} />
           </SettingItem>
           <SettingItem
             nested
-            label="Require approval"
-            description="A plugin a user uploads stays off until an admin has approved that exact package here."
+            label={tr("Require approval")}
+            description={tr("A plugin a user uploads stays off until an admin has approved that exact package here.")}
           >
             <ToggleSwitch checked={pluginsEnabled && pluginsUploadEnabled && requirePluginApproval} disabled={!pluginsEnabled || !pluginsUploadEnabled} onChange={(v) => setFeature('requirePluginApproval', v)} />
           </SettingItem>
@@ -245,30 +245,27 @@ export function PluginsPage() {
 
         <SettingsSection
           id="installed"
-          title="Installed plugins"
-          description={loading || plugins.length === 0 ? undefined : `${enabledCount} of ${plugins.length} on. The switch turns a plugin on or off for everyone; open one to choose whether users can turn it off.`}
+          title={tr("Installed plugins")}
+          description={loading || plugins.length === 0 ? undefined : tr("{0} of {1} on. The switch turns a plugin on or off for everyone; open one to choose whether users can turn it off.", enabledCount, plugins.length)}
         >
           {loading ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-              <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-            </div>
+              <Loader2 className="me-2 h-4 w-4 animate-spin" /> {tr(" Loading ")}</div>
           ) : plugins.length === 0 ? (
             <EmptyState
               icon={Puzzle}
-              title={loadFailed ? 'Could not load the plugins' : 'No plugins installed'}
-              hint={loadFailed ? undefined : 'Install one from the marketplace or upload a plugin ZIP.'}
-              action={<AdminButtonLink href={adminPath('marketplace')}><Store className="h-4 w-4" /> Browse the marketplace</AdminButtonLink>}
+              title={loadFailed ? tr("Could not load the plugins") : tr("No plugins installed")}
+              hint={loadFailed ? undefined : tr("Install one from the marketplace or upload a plugin ZIP.")}
+              action={<AdminButtonLink href={adminPath('marketplace')}><Store className="h-4 w-4" /> {tr(" Browse the marketplace")}</AdminButtonLink>}
             />
           ) : (
             <>
               {plugins.length > 1 && (
                 <div className="flex items-center justify-end gap-1">
                   <Button variant="ghost" size="xs" className="gap-1.5 text-xs" disabled={savingPolicy || enabledCount === plugins.length} onClick={() => setAll(true)}>
-                    <Power className="h-3.5 w-3.5" /> Enable all
-                  </Button>
+                    <Power className="h-3.5 w-3.5" /> {tr(" Enable all ")}</Button>
                   <Button variant="ghost" size="xs" className="gap-1.5 text-xs" disabled={savingPolicy || enabledCount === 0} onClick={() => setAll(false)}>
-                    <PowerOff className="h-3.5 w-3.5" /> Disable all
-                  </Button>
+                    <PowerOff className="h-3.5 w-3.5" /> {tr(" Disable all ")}</Button>
                 </div>
               )}
               <AdminList>
@@ -285,13 +282,13 @@ export function PluginsPage() {
                       titleExtra={(
                         <>
                           <span className="text-xs text-muted-foreground">v{plugin.version}</span>
-                          {!plugin.enabled && <Badge>Off</Badge>}
-                          {plugin.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>Always on</Badge>}
-                          {plugin.enabled && !plugin.forceEnabled && plugin.defaultOff && <Badge>Users turn it on</Badge>}
-                          {plugin.dev && <Badge tone="info" title="Loaded from the dev plugins directory">Dev</Badge>}
+                          {!plugin.enabled && <Badge>{tr("Off")}</Badge>}
+                          {plugin.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>{tr("Always on")}</Badge>}
+                          {plugin.enabled && !plugin.forceEnabled && plugin.defaultOff && <Badge>{tr("Users turn it on")}</Badge>}
+                          {plugin.dev && <Badge tone="info" title={tr("Loaded from the dev plugins directory")}>{tr("Dev")}</Badge>}
                           {risky.length > 0 && (
                             <Badge tone="warning" icon={<ShieldAlert className="h-3 w-3" />} title={risky.join(', ')} className="whitespace-normal">
-                              {risky.length} high-risk permission{risky.length === 1 ? '' : 's'}
+                              {risky.length} {tr(" high-risk permission")}{tr(risky.length === 1 ? '' : 's')}
                             </Badge>
                           )}
                         </>
@@ -299,10 +296,10 @@ export function PluginsPage() {
                       description={plugin.description}
                       meta={(
                         <>
-                          by {plugin.author || 'unknown'}
-                          {plugin.type && <> &middot; {pluginTypeLabel(plugin.type)}</>}
-                          {perms.length > 0 && <> &middot; {perms.length} permission{perms.length === 1 ? '' : 's'}</>}
-                          {plugin.source?.kind === 'marketplace' && <> &middot; Marketplace</>}
+                          {tr(" by ")}{plugin.author || tr("unknown")}
+                          {plugin.type && <> &middot; {pluginTypeLabel(plugin.type, tr)}</>}
+                          {perms.length > 0 && <> &middot; {perms.length} {tr(" permission")}{tr(perms.length === 1 ? '' : 's')}</>}
+                          {plugin.source?.kind === 'marketplace' && <> {tr(" &middot; Marketplace")}</>}
                         </>
                       )}
                       control={(
@@ -310,7 +307,7 @@ export function PluginsPage() {
                           checked={isOn(plugin)}
                           disabled={savingPolicy}
                           onChange={(checked) => { setMessage(null); setEnabledDraft((prev) => ({ ...prev, [plugin.id]: checked })); }}
-                          ariaLabel={`${plugin.name} enabled`}
+                          ariaLabel={tr("{0} enabled", plugin.name)}
                         />
                       )}
                     />
@@ -327,8 +324,8 @@ export function PluginsPage() {
         saving={savingPolicy}
         onSave={() => void save()}
         onDiscard={() => { setPolicy(savedPolicy); setEnabledDraft({}); }}
-        saveLabel="Save"
-        note="Users get the change when they next open or reload Bulwark"
+        saveLabel={tr("Save")}
+        note={tr("Users get the change when they next open or reload Bulwark")}
       />
     </div>
   );

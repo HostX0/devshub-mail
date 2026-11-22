@@ -15,8 +15,11 @@ import { WindowMenuBar } from '@/components/layout/window-menu-bar';
  * see i18n/request.ts) and the user's own choice takes over in the
  * browser, like on every other page.
  */
+const ADMIN_LOCALES = ['ar', 'en'] as const;
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const locale = await getLocale();
+  const requestedLocale = await getLocale();
+  const locale = requestedLocale === 'ar' ? 'ar' : 'en';
   let messages;
   try {
     messages = await loadCatalog(locale);
@@ -24,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     messages = await loadCatalog(defaultLocale);
   }
   return (
-    <IntlProvider locale={locale} messages={messages}>
+    <IntlProvider locale={locale} messages={messages} allowedLocales={ADMIN_LOCALES}>
       <ThemeProvider>
         <TourProvider>
           <WindowMenuBar />

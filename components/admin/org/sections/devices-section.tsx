@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { AlertTriangle } from '@/components/icons';
 import { SettingItem, SettingsSection, ToggleSwitch } from '@/components/settings/settings-section';
 import { InheritNote } from '../org-page';
@@ -71,28 +73,24 @@ const onOff = (on: boolean) => (on ? 'on' : 'off');
  * Ctrl+P) the strictest account signed in decides.
  */
 export function DevicesSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   return (
     <SettingsSection
       id="devices"
-      title="Downloads, printing and notifications"
-      description="Make it harder to copy mail out of Bulwark on the devices people use. Each switch is off until you turn it on."
+      title={tr("Downloads, printing and notifications")}
+      description={tr("Make it harder to copy mail out of Bulwark on the devices people use. Each switch is off until you turn it on.")}
     >
       <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200" data-testid="org-devices-warning">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <p>
-          These settings make copying harder in Bulwark. They don&apos;t stop screenshots, other mail apps, or someone who
-          knows the browser&apos;s tools: the browser fetches mail from the mail server directly, so only the push text and
-          the office editor are checked on the server.{' '}
-          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
-            What each switch covers
-          </a>
+        <p>{' '}{tr("These settings make copying harder in Bulwark. They don't stop screenshots, other mail apps, or someone who knows the browser's tools: the browser fetches mail from the mail server directly, so only the push text and the office editor are checked on the server.")}{' '}
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">{' '}{tr("What each switch covers")}{' '}</a>
         </p>
       </div>
 
       {DEVICE_FIELDS.map((field) => {
         const { value, own, everyone } = draft.orgValue('devices', field.key);
         return (
-          <SettingItem key={field.key} label={field.label} description={`${field.description} ${ENFORCED[field.enforced]}`}>
+          <SettingItem key={field.key} label={tr(field.label)} description={`${tr(field.description)} ${tr(ENFORCED[field.enforced])}`}>
             <div className="flex flex-col items-start gap-1 sm:items-end">
               <ToggleSwitch checked={value} onChange={(v) => draft.setOrgValue('devices', field.key, v)} testId={`org-devices-${field.key}`} />
               <InheritNote draft={draft} own={own} everyone={onOff(everyone)} onReset={() => draft.clearOrgValue('devices', field.key)} />
@@ -101,11 +99,7 @@ export function DevicesSection({ draft }: { draft: OrgPolicyDraft }) {
         );
       })}
 
-      <p className="pt-2 text-xs text-muted-foreground">
-        With several accounts signed in, each message follows its own account&apos;s settings. What isn&apos;t about one
-        message (the install prompt, Ctrl+P, the Files app) follows the strictest account. Lite has no push and no office
-        editor, so there everything is checked in the browser.
-      </p>
+      <p className="pt-2 text-xs text-muted-foreground">{' '}{tr("With several accounts signed in, each message follows its own account's settings. What isn't about one message (the install prompt, Ctrl+P, the Files app) follows the strictest account. Lite has no push and no office editor, so there everything is checked in the browser.")}{' '}</p>
     </SettingsSection>
   );
 }

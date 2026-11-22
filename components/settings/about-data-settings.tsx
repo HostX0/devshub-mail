@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useConfig } from '@/hooks/use-config';
 import { SettingsSection, SettingItem, ToggleSwitch } from './settings-section';
@@ -27,6 +27,7 @@ const GIT_COMMIT = process.env.NEXT_PUBLIC_GIT_COMMIT || "unknown";
 const UPSTREAM_SOURCE_URL = "https://github.com/bulwarkmail/webmail";
 
 function VersionUpdateTag() {
+  const isArabic = useLocale().startsWith('ar');
   const status = useUpdateStore((s) => s.status);
   const startPolling = useUpdateStore((s) => s.startPolling);
 
@@ -39,9 +40,9 @@ function VersionUpdateTag() {
 
   const important = status.severity === 'security' || status.severity === 'deprecated';
   const label =
-    status.severity === 'security' ? 'security'
-    : status.severity === 'deprecated' ? 'deprecated'
-    : status.latest ?? 'update';
+    status.severity === 'security' ? (isArabic ? 'أمان' : 'security')
+    : status.severity === 'deprecated' ? (isArabic ? 'قديم' : 'deprecated')
+    : status.latest ?? (isArabic ? 'تحديث' : 'update');
 
   return (
     <span
@@ -52,7 +53,7 @@ function VersionUpdateTag() {
           : "bg-amber-500/15 text-amber-700 dark:text-amber-300",
       )}
     >
-      {important ? label : `update: ${label}`}
+      {important ? label : `${isArabic ? 'تحديث' : 'update'}: ${label}`}
     </span>
   );
 }

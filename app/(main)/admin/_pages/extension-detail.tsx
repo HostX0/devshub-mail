@@ -1,5 +1,6 @@
 'use client';
 
+import { useExtensionI18n, extensionError, extensionDate } from './extension-translations';
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Puzzle, SwatchBook, Loader2, Eye, EyeOff, Lock, RotateCcw, Trash2, Shield, ShieldAlert, Store, Upload } from '@/components/icons';
 import { apiFetch } from '@/lib/browser-navigation';
@@ -129,8 +130,9 @@ interface Props {
  * can turn it off, what it may do, and the versions kept for a rollback.
  */
 export function ExtensionDetailPage({ kind, id }: Props) {
+  const tr = useExtensionI18n();
   const { dialogProps: confirmProps, confirm } = useConfirmDialog();
-  const words = KIND_LABEL[kind];
+  const words = { ...KIND_LABEL[kind], one: tr(kind === 'plugin' ? 'plugin' : 'theme'), many: tr(KIND_LABEL[kind].many) };
   const listHref = adminPath(kind === 'plugin' ? 'plugins' : 'themes');
   const [entry, setEntry] = useState<ExtensionEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,7 +201,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
     if (!schema) return;
     for (const [key, field] of Object.entries(schema)) {
       if (field.required && !formValues[key]?.trim()) {
-        setMessage({ type: 'error', text: `"${field.label}" is required` });
+        setMessage({ type: 'error', text: tr("\"{0}\" is required", field.label) });
         return;
       }
     }
@@ -244,10 +246,10 @@ export function ExtensionDetailPage({ kind, id }: Props) {
         else await noteError(res);
       }
       setMessage(failed
-        ? { type: 'error', text: firstError ?? 'Some settings could not be saved' }
-        : { type: 'success', text: 'Settings saved' });
+        ? { type: 'error', text: extensionError(firstError, 'Some settings could not be saved', tr) }
+        : { type: 'success', text: tr("Settings saved") });
     } catch {
-      setMessage({ type: 'error', text: 'Could not save the settings' });
+      setMessage({ type: 'error', text: tr("Could not save the settings") });
     } finally {
       setSaving(false);
     }
@@ -264,7 +266,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
       });
       if (res.ok) return true;
       const data = await res.json().catch(() => ({}));
-      setMessage({ type: 'error', text: data.error || `Could not change the ${words.one}` });
+      setMessage({ type: 'error', text: extensionError(data.error, tr("Could not change the {0}", words.one), tr) });
       return false;
     } finally {
       setBusy(null);
@@ -286,26 +288,26 @@ export function ExtensionDetailPage({ kind, id }: Props) {
   async function save() {
     if (availabilityDirty && !(await saveAvailability())) return;
     if (dirty) await saveConfig();
-    else setMessage({ type: 'success', text: 'Saved' });
+    else setMessage({ type: 'success', text: tr("Saved") });
   }
 
   async function rollback(version: string) {
     if (!entry) return;
     const ok = await confirm({
-      title: `Roll back to v${version}?`,
-      message: `"${entry.name}" v${version} replaces v${entry.version}. The copy kept on this server is used.`
-        + (entry.changelog ? ` What v${entry.version} changed, listed under Versions, is undone.` : '')
-        + withdrawnNote(version, entry.previousWithdrawn?.[version]),
-      confirmText: 'Roll back',
-      cancelText: 'Cancel',
+      title: tr("Roll back to v{0}?", version),
+      message: tr("\"{0}\" v{1} replaces v{2}. The copy kept on this server is used.", entry.name, version, entry.version)
+        + (entry.changelog ? tr(" What v{0} changed, listed under Versions, is undone.", entry.version) : '')
+        + withdrawnNote(version, entry.previousWithdrawn?.[version], tr),
+      confirmText: tr("Roll back"),
+      cancelText: tr("Cancel"),
     });
     if (!ok) return;
     setBusy(`rollback:${version}`);
     setMessage(null);
     try {
-      const result = await rollbackVersion({ kind, id, name: entry.name, version }, confirm);
+      const result = await rollbackVersion({ kind, id, name: entry.name, version }, confirm, tr);
       if (result.ok) {
-        setMessage({ type: 'success', text: `"${entry.name}" rolled back to v${version}` });
+        setMessage({ type: 'success', text: tr("\"{0}\" rolled back to v{1}", entry.name, version) });
         await load();
       } else {
         setMessage({ type: 'error', text: result.error });
@@ -318,13 +320,13 @@ export function ExtensionDetailPage({ kind, id }: Props) {
   async function remove() {
     if (!entry) return;
     const ok = await confirm({
-      title: `Remove "${entry.name}"?`,
+      title: tr("Remove \"{0}\"?", entry.name),
       // A plugin's settings and stored keys go with it; a theme has neither.
       message: kind === 'plugin'
-        ? 'It is removed for every user, with the versions kept on this server. Its settings and stored keys are deleted. This cannot be undone.'
-        : 'It is removed for every user, with the versions kept on this server. This cannot be undone.',
-      confirmText: 'Remove',
-      cancelText: 'Cancel',
+        ? tr("It is removed for every user, with the versions kept on this server. Its settings and stored keys are deleted. This cannot be undone.")
+        : tr("It is removed for every user, with the versions kept on this server. This cannot be undone."),
+      confirmText: tr("Remove"),
+      cancelText: tr("Cancel"),
       variant: 'destructive',
     });
     if (!ok) return;
@@ -340,7 +342,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
       return;
     }
     const data = await res.json().catch(() => ({}));
-    setMessage({ type: 'error', text: data.error || 'Could not remove it' });
+    setMessage({ type: 'error', text: extensionError(data.error, tr("Could not remove it"), tr) });
     setBusy(null);
   }
 
@@ -350,10 +352,9 @@ export function ExtensionDetailPage({ kind, id }: Props) {
   if (loading && !entry) {
     return (
       <div>
-        <AdminPageHeader back={back} title={<span className="text-muted-foreground">Loading</span>} />
+        <AdminPageHeader back={back} title={<span className="text-muted-foreground">{tr("Loading")}</span>} />
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-          <Loader2 className="me-2 h-4 w-4 animate-spin" /> Loading
-        </div>
+          <Loader2 className="me-2 h-4 w-4 animate-spin" /> {tr(" Loading ")}</div>
       </div>
     );
   }
@@ -361,7 +362,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
   if (!entry) {
     return (
       <div>
-        <AdminPageHeader back={back} title={`${words.one[0].toUpperCase()}${words.one.slice(1)} not found`} description={<>Nothing is installed under the id <code className="font-mono text-xs">{id}</code>.</>} />
+        <AdminPageHeader back={back} title={tr(kind === 'plugin' ? 'Plugin not found' : 'Theme not found')} description={<>{tr("Nothing is installed under the id ")}<code className="font-mono text-xs">{id}</code>.</>} />
       </div>
     );
   }
@@ -383,33 +384,32 @@ export function ExtensionDetailPage({ kind, id }: Props) {
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {entry.name}
             <span className="text-sm font-normal text-muted-foreground">v{entry.version}</span>
-            {entry.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>Always on</Badge>}
-            {entry.dev && <Badge tone="info" title="Loaded from the dev plugins directory">Dev</Badge>}
+            {entry.forceEnabled && <Badge tone="warning" icon={<Lock className="h-3 w-3" />}>{tr("Always on")}</Badge>}
+            {entry.dev && <Badge tone="info" title={tr("Loaded from the dev plugins directory")}>{tr("Dev")}</Badge>}
           </span>
         )}
         description={(
           <>
-            by {entry.author || 'unknown'}
-            {entry.type && <> &middot; {kind === 'plugin' ? pluginTypeLabel(entry.type) : entry.type}</>}
+            {tr(" by ")}{entry.author || tr("unknown")}
+            {entry.type && <> &middot; {kind === 'plugin' ? pluginTypeLabel(entry.type, tr) : tr('Theme')}</>}
             {entry.variants && entry.variants.length > 0 && <> &middot; {entry.variants.join(', ')}</>}
-            {entry.installedAt && <> &middot; installed {new Date(entry.installedAt).toLocaleDateString()}</>}
+            {entry.installedAt && <> {tr(" &middot; installed ")}{extensionDate(entry.installedAt, tr)}</>}
           </>
         )}
         actions={(
           <>
             <label className="flex h-9 items-center gap-2.5 rounded-md border border-input bg-background px-3 text-sm">
-              <span className={cn('font-medium', shownEnabled ? 'text-foreground' : 'text-muted-foreground')}>{shownEnabled ? 'On' : 'Off'}</span>
+              <span className={cn('font-medium', shownEnabled ? 'text-foreground' : 'text-muted-foreground')}>{shownEnabled ? tr("On") : tr("Off")}</span>
               <ToggleSwitch
                 checked={shownEnabled}
                 disabled={busy === 'availability' || shownForced}
                 onChange={(v) => { setMessage(null); setAvailabilityDraft((prev) => ({ ...prev, enabled: v })); }}
-                ariaLabel={`${entry.name} enabled`}
+                ariaLabel={tr("{0} enabled", entry.name)}
               />
             </label>
             <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" disabled={busy === 'remove'} onClick={() => void remove()}>
               {busy === 'remove' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              Remove
-            </Button>
+              {tr(" Remove ")}</Button>
           </>
         )}
       />
@@ -419,18 +419,18 @@ export function ExtensionDetailPage({ kind, id }: Props) {
       <ConfirmDialog {...confirmProps} />
 
       <div className="space-y-10">
-        <SettingsSection id="availability" title="Availability" description={`Whether users get this ${words.one} and whether they can turn it off.`}>
+        <SettingsSection id="availability" title={tr("Availability")} description={tr("Whether users get this {0} and whether they can turn it off.", words.one)}>
           {kind === 'plugin' ? (
             <SettingItem
-              label="For users"
+              label={tr("For users")}
               description={shownEnabled
-                ? PLUGIN_USER_MODES.find((m) => m.value === shownMode)!.description
-                : 'The plugin is off for everyone. Turn it on at the top of this page first.'}
+                ? tr(PLUGIN_USER_MODES.find((m) => m.value === shownMode)!.description)
+                : tr("The plugin is off for everyone. Turn it on at the top of this page first.")}
             >
               <Select
                 value={shownMode}
                 disabled={busy === 'availability'}
-                options={PLUGIN_USER_MODES.map(({ value, label }) => ({ value, label }))}
+                options={PLUGIN_USER_MODES.map(({ value, label }) => ({ value, label: tr(label) }))}
                 onChange={(value) => {
                   setMessage(null);
                   setAvailabilityDraft((prev) => ({ ...prev, forceEnabled: value === 'always', defaultOff: value === 'default-off' }));
@@ -439,8 +439,8 @@ export function ExtensionDetailPage({ kind, id }: Props) {
             </SettingItem>
           ) : (
             <SettingItem
-              label="Always on for everyone"
-              description="Users can't deactivate it. Turning this on also enables the theme."
+              label={tr("Always on for everyone")}
+              description={tr("Users can't deactivate it. Turning this on also enables the theme.")}
             >
               <ToggleSwitch
                 checked={shownForced}
@@ -449,19 +449,18 @@ export function ExtensionDetailPage({ kind, id }: Props) {
               />
             </SettingItem>
           )}
-          <SettingItem label="Source" description={entry.source?.kind === 'marketplace' ? 'Installed from the extension directory; updates show up in the marketplace.' : 'Installed from an uploaded ZIP.'}>
+          <SettingItem label={tr("Source")} description={entry.source?.kind === 'marketplace' ? tr("Installed from the extension directory; updates show up in the marketplace.") : tr("Installed from an uploaded ZIP.")}>
             {entry.source?.kind === 'marketplace' ? (
               <AdminLink href={adminPath('marketplace', entry.source.slug)} className="inline-flex items-center gap-1.5 text-sm text-foreground hover:underline">
-                <Store className="h-4 w-4 text-muted-foreground" /> Open in marketplace
-              </AdminLink>
+                <Store className="h-4 w-4 text-muted-foreground" /> {tr(" Open in marketplace ")}</AdminLink>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Upload className="h-4 w-4" /> Upload</span>
+              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"><Upload className="h-4 w-4" /> {tr(" Upload")}</span>
             )}
           </SettingItem>
         </SettingsSection>
 
         {kind === 'plugin' && (
-          <SettingsSection id="permissions" title="Permissions" description={perms.length === 0 ? 'This plugin asks for no permissions.' : 'What the plugin may do in each user\'s mailbox. High-risk ones first.'}>
+          <SettingsSection id="permissions" title={tr("Permissions")} description={perms.length === 0 ? tr("This plugin asks for no permissions.") : tr("What the plugin may do in each user's mailbox. High-risk ones first.")}>
             {perms.length > 0 && (
               <ul className="divide-y divide-border rounded-lg border border-border">
                 {perms.map((perm) => {
@@ -469,10 +468,10 @@ export function ExtensionDetailPage({ kind, id }: Props) {
                   return (
                     <li key={perm} className="flex items-center gap-2.5 px-3 py-2 text-sm">
                       {risky
-                        ? <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-label="High risk" />
+                        ? <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-label={tr("High risk")} />
                         : <Shield className="h-4 w-4 shrink-0 text-muted-foreground/60" />}
                       <PermissionText perm={perm} />
-                      {risky && <Badge tone="warning">High risk</Badge>}
+                      {risky && <Badge tone="warning">{tr("High risk")}</Badge>}
                     </li>
                   );
                 })}
@@ -481,16 +480,15 @@ export function ExtensionDetailPage({ kind, id }: Props) {
           </SettingsSection>
         )}
 
-        <SettingsSection id="versions" title="Versions" description={previous.length === 0 ? 'No earlier version is kept on this server.' : 'Earlier versions kept on this server can be put back without the directory.'}>
-          <VersionRow label="Installed" changelog={entry.changelog} notesLabel={`What's new in v${entry.version}`}>
+        <SettingsSection id="versions" title={tr("Versions")} description={previous.length === 0 ? tr("No earlier version is kept on this server.") : tr("Earlier versions kept on this server can be put back without the directory.")}>
+          <VersionRow label={tr("Installed")} changelog={entry.changelog} notesLabel={tr("What's new in v{0}", entry.version)}>
             <span className="font-mono text-sm text-foreground">v{entry.version}</span>
           </VersionRow>
           {previous.map((version) => (
-            <VersionRow key={version} label={`v${version}`} description="Kept on this server" changelog={entry.previousChangelogs?.[version]} notesLabel="Changelog">
+            <VersionRow key={version} label={`v${version}`} description={tr("Kept on this server")} changelog={entry.previousChangelogs?.[version]} notesLabel={tr("Changelog")}>
               <Button variant="outline" size="sm" className="gap-1.5" disabled={busy !== null} onClick={() => void rollback(version)}>
                 {busy === `rollback:${version}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                Roll back
-              </Button>
+                {tr(" Roll back ")}</Button>
             </VersionRow>
           ))}
         </SettingsSection>
@@ -499,7 +497,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
 
         {/* The plugin's own settings come last: they are the long part. */}
         {kind === 'plugin' && hasSchema && schema && (
-          <SettingsSection id="settings" title="Settings" description="What this plugin reads from the server. Saved for every user.">
+          <SettingsSection id="settings" title={tr("Settings")} description={tr("What this plugin reads from the server. Saved for every user.")}>
             {Object.entries(schema).map(([key, field]) => field.type === 'string' && field.multiline ? (
               <MultilineConfigItem
                 key={key}
@@ -532,7 +530,7 @@ export function ExtensionDetailPage({ kind, id }: Props) {
         saving={saving || busy === 'availability'}
         onSave={() => void save()}
         onDiscard={() => { setFormValues(savedValues); setAvailabilityDraft({}); }}
-        saveLabel="Save"
+        saveLabel={tr("Save")}
       />
     </div>
   );
@@ -571,6 +569,7 @@ function ConfigFieldControl({ field, value, stored, revealed, onReveal, onChange
   onReveal: () => void;
   onChange: (value: string) => void;
 }) {
+  const tr = useExtensionI18n();
   const width = 'w-full sm:w-64';
   if (field.type === 'boolean') {
     return (
@@ -580,7 +579,7 @@ function ConfigFieldControl({ field, value, stored, revealed, onReveal, onChange
   if (field.type === 'select' && field.options) {
     return (
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={field.label} className={cn(inputClass, width, 'cursor-pointer')}>
-        <option value="">Choose</option>
+        <option value="">{tr("Choose")}</option>
         {field.options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>
     );
@@ -592,7 +591,7 @@ function ConfigFieldControl({ field, value, stored, revealed, onReveal, onChange
           type={revealed ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={stored ? 'Saved. Type to replace' : field.placeholder || ''}
+          placeholder={stored ? tr("Saved. Type to replace") : field.placeholder || ''}
           aria-label={field.label}
           autoComplete="off"
           className={cn(inputClass, 'w-full pe-9 font-mono')}
@@ -601,7 +600,7 @@ function ConfigFieldControl({ field, value, stored, revealed, onReveal, onChange
           type="button"
           onClick={onReveal}
           className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
-          aria-label={revealed ? 'Hide' : 'Show'}
+          aria-label={revealed ? tr("Hide") : tr("Show")}
         >
           {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
@@ -656,11 +655,12 @@ function MultilineConfigItem({ field, value, onChange }: {
  * host gives it an iframe here.
  */
 function PluginAdminSection({ pluginId }: { pluginId: string }) {
+  const tr = useExtensionI18n();
   const offers = usePluginSlotOffers('admin-plugin-page');
   const offer = offers.find((o) => o.pluginId === pluginId);
   if (!offer) return null;
   return (
-    <SettingsSection id="plugin-panel" title="Plugin panel" description="Provided by the plugin itself.">
+    <SettingsSection id="plugin-panel" title={tr("Plugin panel")} description={tr("Provided by the plugin itself.")}>
       <div className="overflow-hidden rounded-lg border border-border">
         <PluginIframeSlot pluginId={pluginId} slot="admin-plugin-page" />
       </div>

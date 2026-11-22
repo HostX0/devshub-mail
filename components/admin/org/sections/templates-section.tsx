@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { useId, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, RotateCcw, Trash2 } from '@/components/icons';
 import { SettingsSection } from '@/components/settings/settings-section';
@@ -25,6 +27,7 @@ function TemplateEditor({ template, onChange, onRemove }: {
   onChange: (template: OrgTemplate) => void;
   onRemove: () => void;
 }) {
+  const tr = useCoreAdminI18n();
   const id = useId();
   const [open, setOpen] = useState(!template.name);
   const set = (patch: Partial<OrgTemplate>) => onChange({ ...template, ...patch });
@@ -38,34 +41,34 @@ function TemplateEditor({ template, onChange, onRemove }: {
           className="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-1 text-start text-sm hover:bg-muted"
         >
           {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-          <span className={cn('truncate font-medium', !template.name && 'text-muted-foreground')}>{template.name || 'New template'}</span>
+          <span className={cn('truncate font-medium', !template.name && 'text-muted-foreground')}>{template.name || tr("New template")}</span>
           {template.category && <span className="max-w-[40%] shrink-0 truncate rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{template.category}</span>}
         </button>
-        <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-8 shrink-0 px-2 hover:text-red-600" aria-label={`Remove ${template.name || 'template'}`}>
+        <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-8 shrink-0 px-2 hover:text-red-600" aria-label={tr("Remove {0}", { 0: template.name || 'template' })}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
       {!template.name.trim() && (
-        <p className="px-3 pb-2 text-xs text-red-600 dark:text-red-400">A template without a name is not saved. Give it one.</p>
+        <p className="px-3 pb-2 text-xs text-red-600 dark:text-red-400">{tr("A template without a name is not saved. Give it one.")}</p>
       )}
       {open && (
         <div className="space-y-3 border-t border-border p-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor={`${id}-name`} className={labelClass}>Name</label>
+              <label htmlFor={`${id}-name`} className={labelClass}>{tr("Name")}</label>
               <input id={`${id}-name`} data-testid="org-template-name" className={inputClass} value={template.name} maxLength={200} onChange={(e) => set({ name: e.target.value })} />
             </div>
             <div>
-              <label htmlFor={`${id}-category`} className={labelClass}>Category</label>
+              <label htmlFor={`${id}-category`} className={labelClass}>{tr("Category")}</label>
               <input id={`${id}-category`} className={inputClass} value={template.category} maxLength={100} onChange={(e) => set({ category: e.target.value })} />
             </div>
           </div>
           <div>
-            <label htmlFor={`${id}-subject`} className={labelClass}>Subject</label>
+            <label htmlFor={`${id}-subject`} className={labelClass}>{tr("Subject")}</label>
             <input id={`${id}-subject`} data-testid="org-template-subject" className={inputClass} value={template.subject} onChange={(e) => set({ subject: e.target.value })} />
           </div>
           <div>
-            <label htmlFor={`${id}-body`} className={labelClass}>Text</label>
+            <label htmlFor={`${id}-body`} className={labelClass}>{tr("Text")}</label>
             <textarea
               id={`${id}-body`}
               data-testid="org-template-body"
@@ -74,19 +77,15 @@ function TemplateEditor({ template, onChange, onRemove }: {
               value={template.body}
               onChange={(e) => set({ body: e.target.value })}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Placeholders such as {'{{recipient_name}}'} work as in users&apos; own templates: users fill them in when they pick the template.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{' '}{tr("Placeholders such as")}{' '}{'{{recipient_name}}'}{' '}{tr("work as in users' own templates: users fill them in when they pick the template.")}{' '}</p>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" className="rounded border-input" checked={!!template.isHTML} onChange={(e) => set({ isHTML: e.target.checked })} />
-            The text is HTML
-          </label>
+            <input type="checkbox" className="rounded border-input" checked={!!template.isHTML} onChange={(e) => set({ isHTML: e.target.checked })} />{' '}{tr("The text is HTML")}{' '}</label>
           <div>
-            <p className={labelClass}>Preview</p>
+            <p className={labelClass}>{tr("Preview")}</p>
             <div className="rounded-md border border-border bg-background p-3" data-testid="org-template-preview">
               {template.subject && <p className="mb-2 text-sm font-medium">{template.subject}</p>}
-              {template.body ? <TemplateBodyPreview template={template} /> : <p className="text-sm text-muted-foreground">No text</p>}
+              {template.body ? <TemplateBodyPreview template={template} /> : <p className="text-sm text-muted-foreground">{tr("No text")}</p>}
             </div>
           </div>
         </div>
@@ -103,6 +102,7 @@ function TemplateEditor({ template, onChange, onRemove }: {
  * scope (mergeOrganisation).
  */
 export function TemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   const library = draft.orgValue('templates', 'library');
   const inScope = !!draft.scope;
   const own: OrgTemplate[] = inScope ? (library.own ? library.value : []) : library.value;
@@ -124,41 +124,38 @@ export function TemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
     <>
       <SettingsSection
         id="library"
-        title="Organisation library"
-        description="Users see these templates under “Organisation” in the template picker and in Settings > Composing > Email templates. They can use and copy them, not change them."
+        title={tr("Organisation library")}
+        description={tr("Users see these templates under “Organisation” in the template picker and in Settings > Composing > Email templates. They can use and copy them, not change them.")}
       >
         <div className="space-y-4">
           {inScope && (
             <div>
-              <p className="mb-2 text-sm font-medium text-foreground">From Everyone</p>
+              <p className="mb-2 text-sm font-medium text-foreground">{tr("From Everyone")}</p>
               {everyone.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Everyone&apos;s library is empty.</p>
+                <p className="text-sm text-muted-foreground">{tr("Everyone's library is empty.")}</p>
               ) : (
                 <ul className="space-y-1.5" data-testid="org-template-inherited">
                   {everyone.map((template) => (
                     <li key={template.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm">
                       <span className="min-w-0 truncate">{template.name}</span>
                       {ownIds.has(template.id) ? (
-                        <span className="text-xs text-muted-foreground">Changed for this scope</span>
+                        <span className="text-xs text-muted-foreground">{tr("Changed for this scope")}</span>
                       ) : (
                         <button type="button" onClick={() => replaceInScope(template)} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline">
-                          <RotateCcw className="h-3 w-3" /> Change for this scope
-                        </button>
+                          <RotateCcw className="h-3 w-3" />{' '}{tr("Change for this scope")}{' '}</button>
                       )}
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="mt-4 mb-1 text-sm font-medium text-foreground">For this scope</p>
-              <p className="mb-2 text-xs text-muted-foreground">
-                Users in this scope get Everyone&apos;s templates and these. A template changed here replaces Everyone&apos;s for this scope only.
-              </p>
+              <p className="mt-4 mb-1 text-sm font-medium text-foreground">{tr("For this scope")}</p>
+              <p className="mb-2 text-xs text-muted-foreground">{' '}{tr("Users in this scope get Everyone's templates and these. A template changed here replaces Everyone's for this scope only.")}{' '}</p>
             </div>
           )}
 
           {own.length === 0 ? (
             <p className="text-sm text-muted-foreground" data-testid="org-template-empty">
-              {inScope ? 'Nothing added for this scope.' : 'No templates yet. Users only have their own.'}
+              {inScope ? tr("Nothing added for this scope.") : tr("No templates yet. Users only have their own.")}
             </p>
           ) : (
             <ul className="space-y-2" data-testid="org-template-list">
@@ -170,17 +167,16 @@ export function TemplatesSection({ draft }: { draft: OrgPolicyDraft }) {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="outline" size="sm" onClick={add} disabled={total >= MAX_LIBRARY} data-testid="org-template-add">
-              <Plus className="me-1 h-4 w-4" /> Add template
-            </Button>
-            {total >= MAX_LIBRARY && <span className="text-xs text-muted-foreground">A library holds at most {MAX_LIBRARY} templates.</span>}
+              <Plus className="me-1 h-4 w-4" />{' '}{tr("Add template")}{' '}</Button>
+            {total >= MAX_LIBRARY && <span className="text-xs text-muted-foreground">{tr("A library holds at most")}{' '}{MAX_LIBRARY}{' '}{tr("templates.")}</span>}
           </div>
         </div>
       </SettingsSection>
 
       <SettingsSection
         id="user-templates"
-        title="Personal and team templates"
-        description="On Stalwart 1.0 and later, users' own templates are kept in their account, and the members of a group mailbox share its team templates. On older servers, users keep their own templates in the browser and there are no team templates."
+        title={tr("Personal and team templates")}
+        description={tr("On Stalwart 1.0 and later, users' own templates are kept in their account, and the members of a group mailbox share its team templates. On older servers, users keep their own templates in the browser and there are no team templates.")}
       >
         <div>
           {restrictionKeysForPage('org-templates').map((def) => <RestrictionRow key={def.key} draft={draft} def={def} />)}

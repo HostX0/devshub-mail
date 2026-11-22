@@ -1,5 +1,7 @@
 'use client';
 
+import { useCoreAdminI18n } from '@/components/admin/core-i18n';
+
 import { SettingsSection } from '@/components/settings/settings-section';
 import { restrictionKeysForPage } from '@/lib/admin/restriction-keys';
 import { RestrictionRow } from '../org-page';
@@ -11,11 +13,12 @@ import type { OrgPolicyDraft } from '../use-org-policy-draft';
  * thing to set here is who may change them.
  */
 export function SharedTagsSection({ draft }: { draft: OrgPolicyDraft }) {
+  const tr = useCoreAdminI18n();
   return (
     <SettingsSection
       id="shared-tags"
-      title="Shared tags"
-      description="Members of a group mailbox see the same tag names and colors on its mail; members who may change the mailbox can edit them (Stalwart v1.0.0 or later)."
+      title={tr("Shared tags")}
+      description={tr("Members of a group mailbox see the same tag names and colors on its mail; members who may change the mailbox can edit them (Stalwart v1.0.0 or later).")}
     >
       <div data-testid="org-shared-tags-section">
         {restrictionKeysForPage('org-sharing')
